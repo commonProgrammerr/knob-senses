@@ -1,0 +1,11 @@
+{
+  "name": "knob-senses",
+  "version": "5.0.0",
+  "description": "Edge Impulse inferencing SDK plus the knob-senses impulse (project 1086855, deploy version 5). EON-compiled int8 TFLite regression model over a 5x9 fused input window.",
+  "keywords": "edge-impulse, tinyml, machine-learning, regression, arduino, esp32",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "build": {
+    "srcDir": "src"
+  }
+}
