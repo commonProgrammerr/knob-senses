@@ -59,8 +59,13 @@
 
 #include <Arduino.h>
 #include <string.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
 
 #include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+
+#define SERVER_IP "10.82.109.79"
+#define SERVER_PORT 3333
 
 /* ------------------------------------------------------------------ layout */
 
@@ -97,7 +102,7 @@ static constexpr bool kZeroTail = false;
  * Qual fonte usar. Troque para SAMPLE_SOURCE_USER quando implementar a leitura
  * real — ou defina por build_flags (ex: -DSAMPLE_SOURCE=SAMPLE_SOURCE_USER).
  */
-#define SAMPLE_SOURCE SAMPLE_SOURCE_DEMO
+#define SAMPLE_SOURCE SAMPLE_SOURCE_USER
 
 /*
  * ===========================================================================
@@ -306,10 +311,23 @@ void setup()
   /* Sem while (!Serial): este e um app standalone e nao pode bloquear
    * esperando um monitor que talvez nunca conecte. O banner sai a cada
    * tick, entao nada se perde se voce conectar depois. */
-
   printBanner();
+  /*
+   * SSID:	POCO X7 Pro
+   * Protocolo:	Wi-Fi 4 (802.11n)
+   * Tipo de segurança:	WPA2-Personal
+   * Banda de rede (canal):	2,4 GHz (1)
+   * Velocidade do link agregado (Recepção/Transmissão):	13/144 (Mbps)
+   */
+  WiFi.begin("POCO X7 Pro", "rszrv5ip96vhag3");
+  Serial.print("Conectando ao WiFi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi conectado");
 }
-
 /* ----------------------------------------------------------------------- loop */
 
 void loop()
@@ -436,7 +454,20 @@ static bool readSample(float out[kAxes])
 #if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
   return demoReadSample(out);
 #else
-  (void)out;
-  return false; // TODO: implementar a aquisição real
+  WiFiClient client;
+  client.connect(SERVER_IP, SERVER_PORT);
+
+  if (!client.connected())
+  {
+    Serial.println("Falha na conexão com o servidor");
+    return false;
+  }
+  size_t bytesRead = client.readBytes((char *)out, kAxes * sizeof(float));
+  if (bytesRead != kAxes * sizeof(float))
+  {
+    Serial.println("Falha na leitura completa do servidor");
+    return false;
+  }
+  return true;
 #endif
 }
