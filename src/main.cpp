@@ -65,7 +65,10 @@
 #include <edge-impulse-sdk/classifier/ei_run_classifier.h>
 
 #define SERVER_IP "10.82.109.79"
+// #define SERVER_IP "10.0.18.81"
 #define SERVER_PORT 3333
+#define WIFI_SSID "POCO X7 Pro"
+#define WIFI_PASSWORD "rszrv5ip96vhag3"
 
 /* ------------------------------------------------------------------ layout */
 
@@ -73,7 +76,7 @@
 static constexpr size_t kSamples = EI_CLASSIFIER_RAW_SAMPLE_COUNT;       // 5
 static constexpr size_t kAxes = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;     // 9
 static constexpr size_t kFrameSize = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; // 45
-static constexpr uint32_t kPeriodMs = EI_CLASSIFIER_INTERVAL_MS;         // 1000
+static constexpr uint32_t kPeriodMs = 20;                                // EI_CLASSIFIER_INTERVAL_MS;         // 1000
 
 static_assert(kFrameSize == kSamples * kAxes,
               "janela do impulso nao bate com RAW_SAMPLE_COUNT * RAW_SAMPLES_PER_FRAME");
@@ -121,7 +124,7 @@ static constexpr bool kZeroTail = false;
  * padrão internamente — não pré-normalize nada aqui.
  * ===========================================================================
  */
-static bool readSample(float out[kAxes]);
+static bool readSample(float out[kAxes], WiFiClient &client);
 
 /* --------------------------------------------------------------- estado */
 
@@ -250,6 +253,22 @@ static void printResult(const ei_impulse_result_t &result)
   Serial.println(g_overruns);
 }
 
+static void send_results(const ei_impulse_result_t &result, WiFiClient &client)
+{
+  if (!client.connected())
+  {
+    Serial.println("Falha na conexão com o servidor");
+    return;
+  }
+  size_t bytesWritten = (client.write((const uint8_t *)"\x02", 1) +                                      // send header
+                         client.write((const uint8_t *)&result.classification[0].value, sizeof(float))); // send body
+
+  if (bytesWritten != sizeof(float) + 1U)
+  {
+    Serial.println("Falha ao enviar resultados para o servidor");
+  }
+}
+
 /* ---------------------------------------------------------------------- setup */
 
 static void ledSetup()
@@ -319,7 +338,9 @@ void setup()
    * Banda de rede (canal):	2,4 GHz (1)
    * Velocidade do link agregado (Recepção/Transmissão):	13/144 (Mbps)
    */
-  WiFi.begin("POCO X7 Pro", "rszrv5ip96vhag3");
+  // WiFi.begin("POCO X7 Pro", "rszrv5ip96vhag3");
+  // WiFi.begin("Taluana", "DLNT1806");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Conectando ao WiFi");
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -332,6 +353,7 @@ void setup()
 
 void loop()
 {
+  WiFiClient client; // Cria um cliente WiFi para enviar resultados
   const uint32_t now = millis();
 
   /* Subtração SEM SINAL: é o único jeito seguro com millis(), que dá a volta
@@ -352,8 +374,13 @@ void loop()
     g_nextDueMs = millis();
   }
 
+  /**
+   * Connect to sever (simulates data aquisition)
+   */
+  client.connect(SERVER_IP, SERVER_PORT);
+
   float sample[kAxes];
-  if (!readSample(sample))
+  if (!readSample(sample, client))
   {
     /* O deadline já avançou de propósito: a cadência de 1 Hz é o contrato
      * do modelo, então a janela anda mesmo sem dado e o dropout é contado.
@@ -375,6 +402,8 @@ void loop()
     Serial.print("/");
     Serial.print((int)kSamples);
     Serial.println(" - enchendo");
+    client.write((const uint8_t *)"\x00", 1); // skip send;
+    client.stop();
     return;
   }
 
@@ -408,7 +437,9 @@ void loop()
   }
 
   printResult(g_result);
+  send_results(g_result, client);
   ledWrite(false);
+  client.stop();
 }
 
 /* ---------------------------------------------------- implementação das fontes */
@@ -449,13 +480,11 @@ static bool demoReadSample(float out[kAxes])
  * num buffer e sinalizar uma flag volatile — o loop drena.
  * ===========================================================================
  */
-static bool readSample(float out[kAxes])
+static bool readSample(float out[kAxes], WiFiClient &client)
 {
 #if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
   return demoReadSample(out);
 #else
-  WiFiClient client;
-  client.connect(SERVER_IP, SERVER_PORT);
 
   if (!client.connected())
   {
@@ -468,6 +497,6 @@ static bool readSample(float out[kAxes])
     Serial.println("Falha na leitura completa do servidor");
     return false;
   }
-  return true;
+  return client.write((const uint8_t *)"\x01", 1) > 0; // envia ACK;
 #endif
 }
