@@ -64,11 +64,12 @@
 
 #include <edge-impulse-sdk/classifier/ei_run_classifier.h>
 
-#define SERVER_IP "10.82.109.79"
+// #define SERVER_IP "10.82.109.79"
 // #define SERVER_IP "10.0.18.81"
+#define SERVER_IP "192.168.1.101"
 #define SERVER_PORT 3333
-#define WIFI_SSID "POCO X7 Pro"
-#define WIFI_PASSWORD "rszrv5ip96vhag3"
+#define WIFI_SSID "Taluana"
+#define WIFI_PASSWORD "DLNT1806"
 
 /* ------------------------------------------------------------------ layout */
 
@@ -76,7 +77,7 @@
 static constexpr size_t kSamples = EI_CLASSIFIER_RAW_SAMPLE_COUNT;       // 5
 static constexpr size_t kAxes = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;     // 9
 static constexpr size_t kFrameSize = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; // 45
-static constexpr uint32_t kPeriodMs = 20;                                // EI_CLASSIFIER_INTERVAL_MS;         // 1000
+static constexpr uint32_t kPeriodMs = 50;                                // EI_CLASSIFIER_INTERVAL_MS;         // 1000
 
 static_assert(kFrameSize == kSamples * kAxes,
               "janela do impulso nao bate com RAW_SAMPLE_COUNT * RAW_SAMPLES_PER_FRAME");
@@ -85,8 +86,8 @@ static_assert(EI_CLASSIFIER_LABEL_COUNT == 1, "esperada 1 saida de regressao");
 /* Armadilha, não bug: dispara se um dia você re-treinar com janela divisível
  * por SLICES_PER_MODEL_WINDOW, que é quando run_classifier_continuous() passa
  * a ser utilizável (README seção 7). Hoje: 5 % 4 = 1. */
-static_assert(EI_CLASSIFIER_RAW_SAMPLE_COUNT % EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW != 0,
-              "janela agora e divisivel: run_classifier_continuous() passou a ser usavel");
+// static_assert(EI_CLASSIFIER_RAW_SAMPLE_COUNT % EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW != 0,
+//               "janela agora e divisivel: run_classifier_continuous() passou a ser usavel");
 
 /*
  * false = janela real de 5 amostras (o padrão, e o alvo depois de re-treinar)
@@ -140,6 +141,7 @@ static uint32_t g_sampleSeq = 0; // amostras capturadas; usado pela demo
 static uint32_t g_overruns = 0;  // ticks em que atrasamos um período inteiro
 static uint32_t g_dropouts = 0;  // ticks sem amostra disponível
 static bool g_inferenceFailed = false;
+WiFiClient g_client; // Cria um cliente WiFi para enviar resultados
 
 /* LED opcional: a placa pode não declarar LED_BUILTIN. Pisca a cada inferência. */
 // #define LED_PIN 2
@@ -210,29 +212,6 @@ static void printFrame(const float *frame)
   }
 }
 
-#if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
-/*
- * A demo gera uma rampa que codifica a idade da amostra: out[j] = seq*10 + j.
- * O frame linearizado fica com passo 1 dentro de cada linha e 10 entre linhas,
- * o que torna qualquer erro de ordem visível na hora.
- *
- * (Uma senoide não serviria: ela é invariante sob rotação e reversão a menos
- * de fase, então uma janela fora de ordem continuaria parecendo plausível.)
- */
-static bool demoOrderOk(const float *frame)
-{
-  for (size_t i = 0; i + 1 < kFrameSize; i++)
-  {
-    const float d = frame[i + 1] - frame[i];
-    if (d != 1.0f && d != 2.0f)
-    {
-      return false;
-    }
-  }
-  return true;
-}
-#endif
-
 static void printResult(const ei_impulse_result_t &result)
 {
   Serial.print("  pred = ");
@@ -260,12 +239,16 @@ static void send_results(const ei_impulse_result_t &result, WiFiClient &client)
     Serial.println("Falha na conexão com o servidor");
     return;
   }
-  size_t bytesWritten = (client.write((const uint8_t *)"\x02", 1) +                                      // send header
-                         client.write((const uint8_t *)&result.classification[0].value, sizeof(float))); // send body
+  size_t total_request_size = sizeof(float) + 1U;
+  const uint8_t *send_buf = (const uint8_t *)&(result.classification[0].value);
+
+  size_t bytesWritten = (client.write((const uint8_t *)"\x02", 1U) +
+                         client.write(send_buf, sizeof(float))); // send body
 
   if (bytesWritten != sizeof(float) + 1U)
   {
     Serial.println("Falha ao enviar resultados para o servidor");
+    Serial.printf("Bytes enviados/esperados: %U/%U", bytesWritten, total_request_size);
   }
 }
 
@@ -301,8 +284,7 @@ static void printBanner()
   Serial.println(" floats, 1 inferencia por segundo");
   Serial.print("ordem dos eixos: ");
   static const char *kNames[kAxes] = {
-      "temperatura_ambiente", "doy", "ghi_cs", "hora_dec", "kc",
-      "angzen", "ghit", "ioeff", "kt"};
+      "temperatura_ambiente", "ghit", "jacques"};
   for (size_t i = 0; i < kAxes; i++)
   {
     if (i)
@@ -317,9 +299,6 @@ static void printBanner()
   Serial.print("ZERO_TAIL = ");
   Serial.println(kZeroTail ? "true (zeros atras, como treinado)"
                            : "false (janela real de 5 amostras)");
-#if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
-  Serial.println("fonte: DEMO (rampa sintetica) - implemente readSample() para dados reais");
-#endif
 }
 
 void setup()
@@ -353,9 +332,7 @@ void setup()
 
 void loop()
 {
-  WiFiClient client; // Cria um cliente WiFi para enviar resultados
   const uint32_t now = millis();
-
   /* Subtração SEM SINAL: é o único jeito seguro com millis(), que dá a volta
    * em ~49,7 dias. Comparar millis() >= deadline quebraria no wrap. */
   if ((uint32_t)(now - g_nextDueMs) < kPeriodMs)
@@ -377,10 +354,10 @@ void loop()
   /**
    * Connect to sever (simulates data aquisition)
    */
-  client.connect(SERVER_IP, SERVER_PORT);
+  g_client.connect(SERVER_IP, SERVER_PORT);
 
   float sample[kAxes];
-  if (!readSample(sample, client))
+  if (!readSample(sample, g_client))
   {
     /* O deadline já avançou de propósito: a cadência de 1 Hz é o contrato
      * do modelo, então a janela anda mesmo sem dado e o dropout é contado.
@@ -402,8 +379,8 @@ void loop()
     Serial.print("/");
     Serial.print((int)kSamples);
     Serial.println(" - enchendo");
-    client.write((const uint8_t *)"\x00", 1); // skip send;
-    client.stop();
+    g_client.connect(SERVER_IP, SERVER_PORT);
+    g_client.write((const uint8_t *)"\x00", 1); // skip send;
     return;
   }
 
@@ -417,11 +394,7 @@ void loop()
   ringLinearize(g_frame);
 
   /* Imprime antes de inferir: a evidência da ordem sobrevive a um erro. */
-  printFrame(g_frame);
-#if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
-  Serial.print("  ordem: ");
-  Serial.println(demoOrderOk(g_frame) ? "OK" : "BAD");
-#endif
+  // printFrame(g_frame);
 
   if (!runInference(g_frame, &g_result))
   {
@@ -435,68 +408,28 @@ void loop()
     ledWrite(false);
     return;
   }
+  g_client.connect(SERVER_IP, SERVER_PORT);
 
   printResult(g_result);
-  send_results(g_result, client);
+  send_results(g_result, g_client);
   ledWrite(false);
-  client.stop();
+  g_client.stop();
 }
 
-/* ---------------------------------------------------- implementação das fontes */
-
-static bool demoReadSample(float out[kAxes])
-{
-  const uint32_t base = g_sampleSeq * 10u;
-  for (size_t j = 0; j < kAxes; j++)
-  {
-    out[j] = (float)(base + j);
-  }
-  return true;
-}
-
-/*
- * ===========================================================================
- * Substitua o corpo abaixo pela sua aquisição real.
- *
- * Exemplo de como a versão implementada deve terminar:
- *
- *     out[0] = ler_temperatura_ambiente();
- *     out[1] = (float)dia_do_ano();
- *     out[2] = ler_ghi_ceu_limpo();
- *     out[3] = hora_decimal();
- *     out[4] = ler_kc();
- *     out[5] = angulo_zenital();
- *     out[6] = ler_ghit();
- *     out[7] = irradiancia_extraterrestre();
- *     out[8] = ler_kt();
- *     return true;
- *
- * Se a leitura puder falhar (sensor ausente, I2C sem resposta), retorne false
- * nesse tick em vez de preencher com lixo.
- *
- * NÃO chame isto de uma ISR nem de outra task: readSample() em si é livre, mas
- * o loop que o consome chama run_classifier(), que aloca heap, roda TFLite e
- * mexe no impulso global. Se precisar de timer, deixe a ISR só gravar os floats
- * num buffer e sinalizar uma flag volatile — o loop drena.
- * ===========================================================================
- */
 static bool readSample(float out[kAxes], WiFiClient &client)
 {
-#if SAMPLE_SOURCE == SAMPLE_SOURCE_DEMO
-  return demoReadSample(out);
-#else
-
-  if (!client.connected())
+  if (!client.connected() || !client.write((const uint8_t *)"\x01", 1U))
   {
     Serial.println("Falha na conexão com o servidor");
     return false;
   }
-  size_t bytesRead = client.readBytes((char *)out, kAxes * sizeof(float));
+  size_t bytesExpected = kAxes * sizeof(float);
+  size_t bytesRead = client.readBytes((char *)out, bytesExpected);
   if (bytesRead != kAxes * sizeof(float))
   {
     Serial.println("Falha na leitura completa do servidor");
+    Serial.printf("Bytes lidos/esperados: %u/%ub\n", bytesRead, bytesExpected);
     return false;
   }
   return client.write((const uint8_t *)"\x01", 1) > 0; // envia ACK;
-#endif
 }
