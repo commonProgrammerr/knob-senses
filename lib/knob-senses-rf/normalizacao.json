@@ -1,0 +1,35 @@
+{
+  "modelo": "knob-senses-rf",
+  "gerado_por": "utils/treino_random_forest.ipynb",
+  "features": [
+    "temperatura_ambiente",
+    "ghi_cs",
+    "ghit",
+    "jacques",
+    "sin1",
+    "cos1",
+    "PCA_lag"
+  ],
+  "media": {
+    "temperatura_ambiente": 26.8772817914018,
+    "ghi_cs": 625.1129189494515,
+    "ghit": 470.1693506474525,
+    "jacques": 39.049488946939476,
+    "sin1": -0.006696694159725147,
+    "cos1": 0.021813434420258394,
+    "PCA_lag": 0.8764044551597628
+  },
+  "desvio": {
+    "temperatura_ambiente": 4.089252449856152,
+    "ghi_cs": 301.593770569668,
+    "ghit": 288.0758486473134,
+    "jacques": 11.117924612507373,
+    "sin1": 0.7069903130617251,
+    "cos1": 0.7068550244590528,
+    "PCA_lag": 0.5121769982452601
+  },
+  "formula_normalizar": "z = (bruto - media) / desvio",
+  "formula_desnormalizar": "bruto = z * desvio + media",
+  "ajustado_em": "somente o split de treino",
+  "aviso": "Estas sao as constantes compiladas dentro do C da lib; o firmware NAO le este arquivo. Alimente pca_prever() com GRANDEZA FISICA: se o dado chegar em z-score, a normalizacao acontece duas vezes e a previsao colapsa num valor fixo."
+}
