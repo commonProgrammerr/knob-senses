@@ -5,4 +5,7 @@
 .vscode/ipch
 build/*
 .venv
+.venv-tf
 __pycache__/
+# Residuo de build do notebook do Random Forest (o modelo entregue esta em lib/)
+data/modelo_rf/
