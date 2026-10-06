@@ -3,30 +3,30 @@
   "gerado_por": "utils/treino_random_forest.ipynb",
   "features": [
     "temperatura_ambiente",
-    "ghi_cs",
     "ghit",
     "jacques",
     "sin1",
     "cos1",
-    "PCA_lag"
+    "PCA_lag1",
+    "sintetico"
   ],
   "media": {
-    "temperatura_ambiente": 26.8772817914018,
-    "ghi_cs": 625.1129189494515,
-    "ghit": 470.1693506474525,
-    "jacques": 39.049488946939476,
-    "sin1": -0.006696694159725147,
-    "cos1": 0.021813434420258394,
-    "PCA_lag": 0.8764044551597628
+    "temperatura_ambiente": 26.887260238855312,
+    "ghit": 470.11852001885364,
+    "jacques": 39.08705571730334,
+    "sin1": -0.005921345665898729,
+    "cos1": 0.02400937356250108,
+    "PCA_lag1": 0.8462105561558313,
+    "sintetico": 0.0330886776561184
   },
   "desvio": {
-    "temperatura_ambiente": 4.089252449856152,
-    "ghi_cs": 301.593770569668,
-    "ghit": 288.0758486473134,
-    "jacques": 11.117924612507373,
-    "sin1": 0.7069903130617251,
-    "cos1": 0.7068550244590528,
-    "PCA_lag": 0.5121769982452601
+    "temperatura_ambiente": 4.08286080810542,
+    "ghit": 288.18494645161996,
+    "jacques": 11.100748106811086,
+    "sin1": 0.706457106136866,
+    "cos1": 0.7073237199722386,
+    "PCA_lag1": 0.5490532540031621,
+    "sintetico": 0.17886815554225377
   },
   "formula_normalizar": "z = (bruto - media) / desvio",
   "formula_desnormalizar": "bruto = z * desvio + media",
