@@ -1,444 +1,325 @@
-# knob-senses — como usar a API de inferência
+# knob-senses
 
-Este projeto roda o impulso **knob-senses** (Edge Impulse, projeto `1086855`, deploy **v5**) em um
-ESP32-S3. A biblioteca em `lib/knob-senses/` contém o SDK de inferência da Edge Impulse **já com o
-modelo embutido** — você não precisa de rede, Python nem TensorFlow em runtime: é só C++ rodando no
-microcontrolador.
+**Soft-sensor com ML para comparação, barateamento e diagnósticos em usinas fotovoltaicas.**
 
-Este documento ensina a usar a API dessa biblioteca. O `src/main.cpp` do projeto é um exemplo
-completo e comentado do que está descrito aqui.
+Em vez de medir a potência CA do inversor com instrumentação dedicada, o projeto **estima**
+`PCA` (kW CA) a partir de variáveis meteorológicas e de geometria solar — e olha a usina pela
+diferença entre o estimado e o medido. A inferência roda em um **ESP32-S3**, com dois caminhos
+de modelo no mesmo dataset, escolhidos em tempo de compilação:
+
+| | Random Forest (emlearn) — **ativo** | MLP (Edge Impulse) |
+|---|---|---|
+| notebook de treino | `utils/treino_random_forest.ipynb` | `utils/treino_regressao.ipynb` + Studio |
+| biblioteca | `lib/knob-senses-rf/` | `lib/knob-senses/` (deploy **v8**) |
+| ativação no firmware | `#include "rf_model.h"` | `#include "mlp_model.h"` |
 
 ---
 
-## 1. O que o modelo faz
+## Contexto — para que serve
+
+| uso | como o projeto atende |
+|---|---|
+| **Comparação** | o mesmo dataset e o mesmo split comparam os dois caminhos de modelo (Random Forest × MLP) e as estações entre si (o teste é 2024 de todas as 6); o servidor de teste fecha a conta `real × pred × err` |
+| **Barateamento** | a instrumentação por usina cai para sensores meteorológicos/geométricos + um ESP32-S3: acompanhar a geração de cada inversor deixa de exigir medidor de potência AC e telemetria dedicada |
+| **Diagnóstico** | desvio sistemático entre estimado e medido é o sinal de falha (sujeira, sombreamento, degradação). No próprio repo: a análise de eficiência (`utils/dataset_analysis.ipynb`, `PCA/ghit` por mês) revelou a **perda de 13,9% a partir de ago/2024** contra a média de 2021–2023 |
+
+O dataset cobre 6 estações (`ifpec1-3`, `ifpee1-3`); `ifpee1` é a única com 2021–2024 — as
+outras só têm 2024. A série é **só diurna** (filtro `angzen <= 80` na origem) e `PCA == 0` é
+**sentinela de faltante, não medição** (em 2021–2023 essas horas foram preenchidas; em 2024
+ficaram como `0,0`).
+
+---
+
+## 1. A cadeia
+
+```
+data/raw/{estacao}_{ano}.csv         5 min, só diurno (filtro angzen <= 80 na origem)
+        │
+        │  utils/dataset_prep.ipynb              ~25–50 min (4 ajustes SARIMAX)
+        ▼
+data/processed/{estacao}.csv         1 h, 2021–2024, + coluna `sintetico`
+        │
+        │  utils/dataset_split.ipynb             split manual + PCA_lag1
+        ▼
+data/splited/train.csv               8 311 linhas  (ifpee1, anos < 2023)
+data/splited/validation.csv          4 165 linhas  (ifpee1, 2023)
+data/splited/test.csv               25 062 linhas  (todas as estações, 2024)
+data/splited/test/{estacao}.csv      cópia por estação do teste
+        │
+        ├─ utils/treino_random_forest.ipynb ──► lib/knob-senses-rf/   (regenera a lib C)
+        └─ utils/treino_regressao.ipynb     ──► Edge Impulse Studio ──► lib/knob-senses/
+        │
+        ▼
+src/main.cpp (ESP32-S3)  ◄── WiFi :3333 ──  utils/model_teste.ipynb (servidor de teste)
+```
+
+### Ambientes Python
+
+| venv | Python | tem | para quê |
+|---|---|---|---|
+| `.venv` | 3.14 | pandas, statsmodels, scikit-learn, lightgbm | prep, split, análise |
+| `.venv-tf` | 3.13 | TensorFlow/Keras, nbconvert | notebook de treino do MLP |
+
+Kernels Jupyter nomeados: **`knob-senses`** (`.venv`) e **`knob-senses-tf`** (`.venv-tf`). O
+`python` do PATH é o embutido do ESP-IDF — não use para os notebooks.
+
+---
+
+## 2. Pipeline de dados
+
+### `dataset_prep.ipynb` — trata e prepara (por estação)
+
+- Junta os arquivos brutos por estação, descarta colunas mortas e faz o **downsample para 1 h**.
+- **`PCA == 0` é sentinela de faltante**, não medição: vira `NaN` **no 5-min, antes da média
+  horária** (hora com zeros parciais usa só as amostras válidas).
+- **Preenche buracos apenas em 2021–2023** (`ifpee1`; as outras estações são só 2024), com
+  SARIMAX + bootstrap. São dois tipos:
+  - **falta** — hora sem medição (apagão de 20 dias em 2022, 3 dias de jan/2021, horas internas);
+  - **zerada** — hora medida (o clima da hora é real) em que o `PCA` era zero no 5-min; só o `PCA` é preenchido.
+  284 h preenchidas no total, marcadas na coluna **`sintetico`**.
+- **Fora de 2021–2023** (2024) não há síntese: hora sem `PCA` válido é gravada como `0,0`
+  (linha preservada).
+- Saída: `data/processed/{estacao}.csv` (18 colunas, inclui `sin1`/`cos1` e `sintetico`).
+
+### `dataset_split.ipynb` — o split (manual) + defasagem
+
+- Corte por tempo, sem embaralhar: **train** = `ifpee1` anos < 2023 · **validation** = `ifpee1`
+  2023 · **test** = 2024 de todas as estações. `train.csv`/`validation.csv`/`test.csv` +
+  `test/{estacao}.csv` saem em `data/splited/`.
+- **`PCA_lag1`** = PCA da hora anterior, como **lag de tempo real**: a grade de 24 h é
+  reconstruída e as posições noturnas valem `0,0` (é o valor verdadeiro — de noite o inversor
+  entrega 0 — não imputação). Consequências: às 06:00 o `PCA_lag1` é `0,0`, nunca a tarde de
+  ontem; não há NaN nem linha dropada.
+- O lag é calculado **antes** do fatiamento, para cruzar a fronteira treino/validação.
+
+---
+
+## 3. Os dois caminhos de modelo
+
+| | **Random Forest** (ativo) | **MLP — Edge Impulse** |
+|---|---|---|
+| features | 7 · `temperatura_ambiente, ghit, jacques, sin1, cos1, PCA_lag1, sintetico` | janela **12 × 4** = 48 floats · `temperatura_ambiente, ghi_cs, ghit, jacques` |
+| normalização | **dentro da lib** (z-score com as constantes compiladas de `normalizacao.json`) | nenhuma no device — ver §6 |
+| custo (ESP32-S3) | ~93 KB de flash, 0 de RAM (árvores como código, `emlearn method='inline'`) | arena TFLite de 3 097 bytes |
+| métrica (split de teste) | MAE **0,1400 kW** · R² **0,7711** (30 árvores, folha mínima 50, 4 698 nós) | — |
+| ordem dos eixos | `KNOB_RF_ORDEM` em `lib/knob-senses-rf/src/knob_senses_rf.h` | `EI_CLASSIFIER_FUSION_AXES_STRING` |
+
+> ⚠️ **Os dois contratos são diferentes** — conjuntos, ordem e normalização. A ordem errada
+> **não dá erro**: dá previsão errada em silêncio. O `utils/model_teste.ipynb` tem um `assert`
+> que confere a ordem dele contra a `normalizacao.json` do modelo antes de transmitir; o
+> firmware, para o RF, entrega o que recebeu **sem reordenar**.
+
+**A lib do RF é gerada, não escrita à mão:** `utils/treino_random_forest.ipynb` reescreve
+`lib/knob-senses-rf/src/` (árvores, constantes de normalização, `KNOB_RF_ORDEM`, métricas).
+O `data/modelo_rf/verifica.cpp` é o harness nativo que confere o C gerado contra o CSV de teste.
+
+---
+
+## 4. Firmware (`src/main.cpp`)
+
+O firmware é um **cliente WiFi**: ele não lê sensores — pede a amostra ao servidor (§5),
+roda a inferência e devolve a predição. O modelo é escolhido pelo include no topo:
+
+```cpp
+#include "rf_model.h"     // Random Forest (ativo)
+//#include "mlp_model.h"  // MLP / Edge Impulse
+```
+
+O bloco `#if defined(RF_MODEL_H) / #elif defined(MLP_MODEL_H)` liga as funções do modelo
+escolhido (`kAxes`, `kFrameSize`, `kPeriodMs`, `run/print/banner` saem do header do modelo).
+No caminho RF: `kAxes = 7`, `kPeriodMs = 25` (40 inferências/s).
+
+> ⚠️ **O caminho MLP não está pronto para ligar hoje.** Pelo header v8 ele fica com
+> `kAxes = 4` e `kFrameSize = 48`, mas o `main.cpp` aloca `sample[kAxes]` (4 floats) e passa
+> esse buffer para a inferência, que espera 48 — leitura fora do buffer. Além disso o servidor
+> transmite os 7 eixos do RF, e o `send_inference_results` serializa só um `float` (no MLP o
+> `result` é um struct; o que sairia pela rede seriam os 4 primeiros bytes dele).
+
+### Protocolo (porta 3333)
+
+| passo | quem manda | o quê |
+|---|---|---|
+| 1 | ESP32 → servidor | `\x01` (pedido de amostra) |
+| 2 | servidor → ESP32 | `kAxes` floats (`float32` LE, **grandeza bruta**) |
+| 3 | ESP32 → servidor | `\x01` (ACK) |
+| 4 | ESP32 → servidor | `\x02` + 1 `float32` (**a predição**, kW) |
+| — | (cliente) → servidor | `\x00` pula a amostra — existe no servidor, o firmware não usa |
+
+Constantes no topo do arquivo: `SERVER_IP`, `SERVER_PORT`, `WIFI_SSID`, `WIFI_PASSWORD`.
+O gancho de aquisição é **`get_sample_data()`**: hoje ele fala com o servidor de teste; em
+campo é ali que entram os sensores da usina (ou uma fonte de dados meteorológicos) — o resto
+do pipeline não muda.
+
+### Comportamento do loop
+
+- Periodizado por `kPeriodMs`; atraso de um período inteiro conta em **`overruns`** (não tenta
+  recuperar em rajada).
+- Amostra que não veio conta em **`dropouts`**.
+- Erro de inferência é **fatal**: para de inferir (insistir vazaria a arena do TFLite a cada
+  segundo) — e imprime `ERRO FATAL na inferencia`.
+- `heap_livre` (maior bloco contíguo) é impresso junto de cada predição: ficando plano ao longo
+  de horas, não há fragmentação nem vazamento.
+
+### Gravar e monitorar
+
+```bash
+pio run -t upload        # esptool, COM28 (platformio.ini)
+pio device monitor
+```
+
+---
+
+## 5. Servidor de teste (`utils/model_teste.ipynb`)
+
+É o **banco de comparação estimado × medido**: sobe um socket em `0.0.0.0:3333` e percorre as
+linhas de `data/splited/test.csv` **na ordem**, uma por iteração (as colunas de features vêm da
+tupla `AXES` do notebook, conferida por `assert` contra o `normalizacao.json` do modelo). Cada
+predição recebida vira uma linha de `model_eval.csv` (`sample, real, pred, err`); `PCA == 0` é
+tratado como label inválido e essas linhas ficam fora do erro.
+
+O comentário sobre `SO_EXCLUSIVEADDRUSE` no notebook importa: no Windows, `SO_REUSEADDR`
+permitiria **dois servidores na mesma porta** em silêncio — cada cliente caindo em um.
+
+---
+
+## 6. Apêndice — caminho Edge Impulse (API)
+
+Projeto `1086855`, deploy **v8**, lib em `lib/knob-senses/` (SDK + modelo embutido, sem rede nem
+Python em runtime).
+
+### O que é o v8
 
 | Propriedade | Valor |
 |---|---|
-| Tipo | **Regressão** (1 valor de saída, não classificação) |
-| Entrada | **45 floats** = 5 amostras × 9 eixos |
-| Saída | 1 float (`classification[0].value`) |
-| Quantização | **int8** (zero point −121, escala 0.008002916) |
-| Anomalia | **não tem** (o v4 tinha KMeans; foi removido no v5) |
-| Motor | TFLite Micro via compilador EON, arena de 2732 bytes |
-| Janela | `EI_CLASSIFIER_INTERVAL_MS` = 1000 ms, frequência 1 Hz |
+| Tipo | Regressão (1 saída, `classification[0].value`) |
+| Janela | **12 amostras × 4 eixos = 48 floats** (`EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE`) |
+| Eixos | `temperatura_ambiente + ghi_cs + ghit + jacques` |
+| Intervalo | `EI_CLASSIFIER_INTERVAL_MS` = **300000 ms** (5 min) |
+| Arena TFLite | 3 097 bytes |
+| Anomalia | não tem (`EI_ANOMALY_TYPE_UNKNOWN`) |
 
-Os 9 eixos, **nesta ordem** (é a ordem que o modelo espera):
+(Os números deste documento valem para a **v8**; a janela desta já foi 5×9 = 45 numa versão anterior.)
 
-```
-0 temperatura_ambiente   3 hora_dec   6 ghit
-1 doy                    4 kc         7 ioeff
-2 ghi_cs                 5 angzen     8 kt
-```
-
-> ⚠️ **Não são dados de IMU.** Apesar do nome e do sensor estar declarado como `FUSION`, as entradas
-> são variáveis de geometria solar e irradiância. Quem alimenta o modelo é você.
-
----
-
-## 2. Estrutura da biblioteca
-
-```
-lib/knob-senses/
-├── library.json          ← manifesto do PlatformIO (ver seção 3)
-└── src/                  ← raiz de includes
-    ├── edge-impulse-sdk/   o SDK de inferência
-    ├── model-parameters/   metadados do SEU modelo (gerado pelo Studio)
-    └── tflite-model/       o grafo compilado do SEU modelo (gerado pelo Studio)
-```
-
-Os três diretórios ficam juntos de propósito: os headers do SDK se incluem por caminho relativo à
-raiz (`"model-parameters/model_variables.h"`), então `src/` precisa estar no include path.
-
-**Para atualizar o modelo:** exporte de novo do Studio e descompacte por cima de
-`lib/knob-senses/src/`. Nenhuma configuração precisa mudar.
-
----
-
-## 3. Configuração do PlatformIO
-
-Três coisas no `platformio.ini` são obrigatórias — as duas primeiras não são óbvias e o build falha
-de formas confusas sem elas:
+### Configuração de build (as duas primeiras não são óbvias)
 
 ```ini
-[env:esp32-s3-devkitc-1]
-platform = espressif32
-board = esp32-s3-devkitc-1
-framework = arduino
-monitor_speed = 115200
-
-; 1. O modo LDF padrão (chain) casa includes pelo NOME da biblioteca, e nunca
-;    encontra um include com caminho como "edge-impulse-sdk/classifier/...".
-;    deep+ casa pelo arquivo que realmente existe dentro da biblioteca.
-lib_ldf_mode = deep+
-
-; 2. O SDK traz uma camada de portabilidade por plataforma (arduino, espressif,
-;    mbed, zephyr, posix...) e escolhe uma por detecção automática. Duas podem
-;    parecer ativas ao mesmo tempo e definir os mesmos símbolos ei_* duas vezes
-;    -> erro de link. Fixamos a escolha aqui.
-build_flags =
-	-DEI_PORTING_ESPRESSIF=0
-	; ^ as duas linhas acima são as obrigatórias para o EI. O resto do
-	;   build_flags do projeto (PSRAM, USB CDC...) pode coexistir aqui.
+lib_ldf_mode = deep+                 ; include por ARQUIVO, não por nome de lib
+build_flags = -DEI_PORTING_ESPRESSIF=0
 ```
 
-> Ajuste `board` para o seu módulo. O que **não** pode faltar é `lib_ldf_mode` e
-> `-DEI_PORTING_ESPRESSIF=0` — sem eles o build quebra de formas confusas (seção 9).
+E em `lib/knob-senses/library.json`: `"frameworks": "arduino"` (sem isso, o PlatformIO fareja
+mbed pela árvore de arquivos e **descarta a biblioteca em silêncio**).
 
-E no `lib/knob-senses/library.json`, o `"frameworks"` é obrigatório:
+> A `description` desse manifesto ainda fala da **v5** ("5x9", "int8", "deploy version 5") —
+> ela não acompanha o re-export. A verdade sobre o modelo está em
+> `src/model-parameters/model_metadata.h`.
 
-```json
-{
-  "frameworks": "arduino"
-}
-```
+### Regra de ouro do include
 
-**Por quê:** o SDK traz `porting/mbed/` junto com `porting/arduino/`. Sem o manifesto, o PlatformIO
-fareja o framework pela árvore de arquivos, conclui que a biblioteca é *mbed*, e a **descarta
-silenciosamente** porque o projeto é `framework = arduino`. O sintoma é um `No such file or
-directory` em um header que está bem ali na pasta.
+`#include <edge-impulse-sdk/classifier/ei_run_classifier.h>` em **exatamente um `.cpp`** do
+projeto (o SDK é header-only com definições **não-`inline`**; dois `.cpp` → dezenas de
+`multiple definition`). Hoje quem inclui é o `src/mlp_model.cpp`.
 
----
-
-## 4. A API — o fluxo mínimo
-
-Toda a API pública sai de um único include:
+### Fluxo mínimo
 
 ```cpp
-#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+float frame[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];   // 48 floats, ordem sample-major
+signal_t signal;
+numpy::signal_from_buffer(frame, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
+ei_impulse_result_t result = { 0 };
+run_classifier(&signal, &result, false);
+// result.classification[0].value
 ```
 
-> ⚠️ **Inclua esse header em exatamente UM arquivo `.cpp` do projeto.**
->
-> O SDK é header-only, mas com definições **não-`inline`** — a própria `run_classifier()`,
-> `run_classifier_init()`, `init_impulse()` e até a variável `impulse_handle_1086855_1` moram dentro
-> de headers. Se dois `.cpp` incluírem `ei_run_classifier.h`, o linker acusa `multiple definition`
-> de dezenas de símbolos de uma vez.
->
-> Se precisar chamar a inferência de vários arquivos, faça um wrapper: **um** `.cpp` inclui o header
-> do EI e expõe funções suas; os outros incluem apenas o seu header.
+### ⚠ O achado do scaler no v8 (conferir no Studio antes de confiar)
 
-O fluxo tem 4 passos: **montar o frame → criar o `signal_t` → chamar `run_classifier()` → ler o
-resultado.**
+No `model-parameters/model_variables.h`, o scaler de entrada tem 48 posições mas **só as 4
+primeiras carregam estatística real** — e ela é `média ≈ 0`, `escala ≈ 1`, `var ≈ 1`. As outras
+44 são `mean = 0, scale = 1, var = 0` (variância exatamente zero = colunas constantes no treino).
+Duas leituras, as duas importantes:
 
-```cpp
-#include <Arduino.h>
-#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+1. **O modelo usa só a primeira amostra da janela** (as 44 posições restantes foram constantes
+   no treino) — o mesmo padrão que a v5 tinha.
+2. **O scaler é identidade** (`média ≈ 0, variância ≈ 1`): os dados de treino já estavam
+   **z-normalizados**, então o modelo **espera z-scores na entrada** — a normalização acontece
+   *antes* da rede, não no device. O `mlp_model.cpp` hoje **não** normaliza o frame.
 
-void setup() {
-    Serial.begin(115200);
+Se for ligar este caminho: alimente z-scores (com as constantes da rodada de treino) e mande as
+44 posições restantes como zero, como no treino. O teste decisivo é comparar predições com
+entrada bruta × z-score: se só a z-score der valores coerentes, o achado está confirmado.
 
-    // 1. Monte o frame: 45 floats (5 amostras de 9 eixos) na ORDEM do modelo.
-    float frame[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
-    frame[0] = 27.3f;   // temperatura_ambiente
-    frame[1] = 184.0f;  // doy
-    frame[2] = 663.0f;  // ghi_cs
-    frame[3] = 11.5f;   // hora_dec
-    frame[4] = 0.74f;   // kc
-    frame[5] = 44.1f;   // angzen
-    frame[6] = 499.0f;  // ghit
-    frame[7] = 1368.0f; // ioeff
-    frame[8] = 0.51f;   // kt
-    // ... preencha os índices 9..44 com as amostras 1 a 4 da janela
-}
+### Modo contínuo
 
-void loop() {
-    float frame[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
-    // preencha o frame com dados reais aqui
+Agora é divisível: `SLICES_PER_MODEL_WINDOW = 4` e `SLICE_SIZE = 12 / 4 = 3` (na v5 era
+`5 / 4 = 1`, e não se aplicava). A API é `run_classifier_init()` + `run_classifier_continuous()`;
+nas primeiras `SLICES_PER_MODEL_WINDOW - 1` chamadas a janela ainda está enchendo e a saída não
+é válida.
 
-    // 2. Empacote o buffer em um signal_t.
-    //    'frame' precisa continuar vivo durante a chamada. O EI normaliza
-    //    (z = (x - mean) * scale) internamente — mande valores BRUTOS.
-    signal_t signal;
-    if (numpy::signal_from_buffer(frame, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE,
-                                  &signal) != EIDSP_OK) {
-        Serial.println("erro ao criar o signal");
-        return;
-    }
-
-    // 3. Rode a inferência.
-    ei_impulse_result_t result = { 0 };
-    EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false /* debug */);
-    if (err != EI_IMPULSE_OK) {
-        Serial.print("erro na inferência: ");
-        Serial.println((int)err);
-        return;
-    }
-
-    // 4. Leia o resultado. É REGRESSÃO: o valor está em classification[0].value.
-    Serial.print(result.classification[0].label);   // "value"
-    Serial.print(" = ");
-    Serial.println(result.classification[0].value, 4);
-
-    Serial.print("dsp ");
-    Serial.print(result.timing.dsp);
-    Serial.print(" ms, inferência ");
-    Serial.print(result.timing.classification);
-    Serial.println(" ms");
-
-    delay(EI_CLASSIFIER_INTERVAL_MS);
-}
-```
-
-### Assinaturas
-
-```cpp
-// Cria um signal_t a partir de um buffer em RAM. Retorna EIDSP_OK em caso de sucesso.
-static int numpy::signal_from_buffer(const float *data, size_t data_size, signal_t *signal);
-
-// Inferência de uma janela completa. 'debug' imprime logs internos via ei_printf().
-EI_IMPULSE_ERROR run_classifier(signal_t *signal, ei_impulse_result_t *result, bool debug = false);
-```
-
-### O resultado
-
-```cpp
-typedef struct {
-    const char *label;   // rótulo da saída
-    float       value;   // ← a predição (regressão)
-} ei_impulse_result_classification_t;
-
-// Dentro de ei_impulse_result_t:
-result.classification[0].label;      // "value"
-result.classification[0].value;      // a predição
-result.timing.dsp;                   // ms no pré-processamento
-result.timing.classification;        // ms na inferência
-result.timing.anomaly;               // existe, mas sempre 0 no v5
-```
-
-> **`result.anomaly` continua existindo no struct mas é sempre 0** neste modelo — o bloco KMeans foi
-> removido no deploy v5. Não use esse campo para tomar decisão.
-
----
-
-## 5. O layout do frame (leia isto antes de alimentar o modelo)
-
-O impulso declara `RAW_SAMPLE_COUNT = 5` e `RAW_SAMPLES_PER_FRAME = 9`, ou seja, uma janela de
-**5 amostras × 9 eixos = 45 floats**, em ordem **sample-major**:
-
-```
-[s0.a0, s0.a1, ... s0.a8,  s1.a0, s1.a1, ... s1.a8,  ...  s4.a8]
- └───── amostra 0 ─────┘   └───── amostra 1 ─────┘
-```
-
-O bloco DSP é `extract_raw_features`, que **copia o buffer inteiro sem reordenar nada** (ele ignora
-a tabela de eixos). Depois o SDK aplica o scaler padrão em `z = (x - mean) * scale`.
-
-### ⚠ O modelo, como está treinado, não usa as 5 amostras
-
-Esta é a parte que mais importa, e vale entender o mecanismo inteiro.
-
-No `model-parameters/model_variables.h`, das 45 posições do scaler, só as **9 primeiras** têm
-estatística real. As posições 9..44 estão com `mean = 0`, `scale = 1` e `var = 0` — variância
-**exatamente** zero é a assinatura de colunas constantes no treino. Ou seja: o modelo foi treinado
-com as 9 features na primeira amostra e **zeros atrás**.
-
-A cadeia que isso destrava:
-
-1. Nesses slots a normalização vira `z = (x − 0) × 1 = x` — **valor bruto passa direto, sem escala**.
-2. O tensor de entrada é int8 com `scale = 0.0273695`, `zero_point = −20`
-   (`tflite_learn_1086855_3_compiled.cpp:158-160`), logo a faixa representável é **[-2.96, +4.02]**.
-3. A quantização **satura**, não dá a volta.
-
-Então, se você mandar uma janela de 5 amostras **reais**, valores como `ioeff = 1367`, `ghi_cs = 663`
-ou `doy = 184` caem nos slots 9..44 e **saturam em `+127`** — 36 dos 45 inputs fora da distribuição,
-a cada inferência. No treino esses slots valiam `0` (→ `q = −20`, meio da faixa).
-
-Na prática: a predição continua variando com os dados, mas com um **viés constante desconhecido**, e
-quem a governa é a **amostra mais antiga** (slots 0..8) — o dado de 4 segundos atrás.
-
-Duas leituras possíveis, e você precisa decidir qual é a sua:
-
-- **Se a janela de 5 amostras é intencional**, seu dataset no Studio só populou a primeira amostra.
-  Vale corrigir o dataset (e o scaler) e re-treinar.
-- **Se foi uma configuração que passou batido**, o modelo efetivamente usa 9 entradas e o resto é
-  inofensivo desde que você mande zeros.
-
-**Como testar as duas:** o `src/main.cpp` tem a constante `kZeroTail`:
-
-```cpp
-static constexpr bool kZeroTail = false;  // true = zeros atrás, como treinado
-```
-
-`false` monta a janela real de 5 amostras; `true` zera os 36 slots do fim. Rode os dois e compare as
-predições — se só o `true` der valores coerentes, o achado está confirmado.
-
-Confirme no Studio antes de confiar cegamente nos resultados.
-
----
-
-## 6. Macros de introspecção
-
-Não hardcode nada disso — o modelo é re-gerado e os valores mudam. Use as macros de
-`model-parameters/model_metadata.h`:
-
-| Macro | Valor no v5 | Para que serve |
-|---|---|---|
-| `EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE` | 45 | Tamanho do buffer de entrada |
-| `EI_CLASSIFIER_RAW_SAMPLE_COUNT` | 5 | Amostras na janela |
-| `EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME` | 9 | Eixos por amostra |
-| `EI_CLASSIFIER_LABEL_COUNT` | 1 | Quantas saídas |
-| `EI_CLASSIFIER_INTERVAL_MS` | 1000 | Intervalo entre janelas |
-| `EI_CLASSIFIER_FUSION_AXES_STRING` | `"temperatura_ambiente + doy + ..."` | A ordem dos eixos |
-| `EI_CLASSIFIER_PROJECT_NAME` | `"knob-senses"` | Nome do projeto |
-| `EI_CLASSIFIER_PROJECT_DEPLOY_VERSION` | 5 | Versão do deploy |
-| `EI_CLASSIFIER_HAS_ANOMALY` | `EI_ANOMALY_TYPE_UNKNOWN` | Se há bloco de anomalia |
-
-Um uso defensivo comum é travar o contrato em tempo de compilação:
-
-```cpp
-static_assert(EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE ==
-              EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME,
-              "janela do impulso inconsistente");
-```
-
----
-
-## 7. Inferência contínua — existe, mas **não use neste impulso**
-
-`run_classifier()` é **bloqueante** e processa uma janela inteira por chamada — é o caminho usado
-acima e no `src/main.cpp`. Para este modelo, é o caminho certo: o `src/main.cpp` monta a janela de
-45 floats num buffer circular próprio e entrega ela pronta a cada segundo.
-
-O modo contínuo (`run_classifier_continuous()`) existe e compila, mas **não se aplica aqui**:
-
-```
-EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW = 4
-EI_CLASSIFIER_SLICE_SIZE = (5 / 4) = 1        ← divisão inteira
-```
-
-O modo contínuo pressupõe que `RAW_SAMPLE_COUNT` seja **múltiplo** de `SLICES_PER_MODEL_WINDOW`.
-Com 5 amostras divididas em 4 fatias o resultado é 1 amostra por fatia — a janela de 5 nunca é
-preenchida de forma limpa. Não é um recurso que você deva usar sem antes re-treinar o impulso com
-uma janela divisível.
-
-Se um dia fizer sentido (após re-treinar), a API é esta — as assinaturas abaixo foram verificadas
-por compilação:
-
-```cpp
-#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
-
-void setup() {
-    run_classifier_init();   // zera o estado interno; obrigatório antes do contínuo
-}
-
-void loop() {
-    float slice[EI_CLASSIFIER_SLICE_SIZE];
-    // ... preencha a fatia ...
-
-    signal_t signal;
-    numpy::signal_from_buffer(slice, EI_CLASSIFIER_SLICE_SIZE, &signal);
-
-    ei_impulse_result_t result = { 0 };
-    run_classifier_continuous(&signal, &result, false);
-    // Nas primeiras (SLICES_PER_MODEL_WINDOW - 1) chamadas a janela ainda está
-    // enchendo e a saída não é válida.
-}
-```
-
-Chame `run_classifier_init()` de novo se o fluxo de dados for interrompido. Existe também a
-sobrecarga `run_classifier_init(&ei_default_impulse)` e `run_classifier_deinit()`, para quando você
-mantém múltiplos impulsos.
-
----
-
-## 8. Tratamento de erros
-
-`run_classifier()` devolve um `EI_IMPULSE_ERROR`. Os que você provavelmente vai encontrar:
+### Erros comuns
 
 | Código | Significado |
 |---|---|
 | `EI_IMPULSE_OK` (0) | Sucesso |
-| `-1` / `-24` | Formato/tamanho dos dados não bate com a entrada (`SHAPES_DONT_MATCH` / `INVALID_SIZE`) |
-| `-5` | Erro no bloco de processamento (DSP) |
+| `-1` / `-24` | Formato/tamanho não bate com a entrada |
+| `-5` | Erro no bloco de DSP |
 | `-3` / `-22` | Erro na inferência TFLite |
-| `-6` / `-8` / `-11` | Falha/dificuldade de alocação de memória |
+| `-6` / `-8` / `-11` | Falha de alocação (heap fragmentado, não falta de RAM — a arena tem 3 KB) |
 | `-20` | Modelo descontinuado — re-exporte do Studio |
 | `-30` | Erro na normalização de dados |
 
-O código `-11` (`OUT_OF_MEMORY`) e o `-6` (`TFLITE_ARENA_ALLOC_FAILED`) costumam indicar heap
-fragmentado, não falta de RAM — a arena deste modelo tem só 2732 bytes.
-
 ---
 
-## 9. Pegadinhas já resolvidas (e que voltam se você mexer)
+## 7. Pegadinhas (e como cada uma se manifesta)
 
 | Sintoma | Causa | Solução |
 |---|---|---|
 | `No such file or directory` num header que existe | `lib_ldf_mode` no padrão `chain` | `lib_ldf_mode = deep+` |
 | A biblioteca some do build, sem aviso | `library.json` sem `"frameworks": "arduino"` | Declare o framework |
-| `multiple definition of 'ei_printf'` e afins | Duas camadas de portabilidade ativas | `-DEI_PORTING_ESPRESSIF=0` |
-| `multiple definition` de dezenas de símbolos (`run_classifier`, `init_impulse`...) | `ei_run_classifier.h` incluído em mais de um `.cpp` | Inclua em um único `.cpp` e exponha um wrapper |
-| `multiple definition of 'tflite::...'` | Outra lib trazendo um TensorFlow Lite Micro próprio | Não misture (ex.: `Harvard_TinyMLx`) |
-| Saída com números sem sentido | Frame preenchido fora de ordem, ou valores pré-normalizados | Seção 5 — mande valores **brutos**, na ordem certa |
-| Predição com viés, mas ainda reagindo aos dados | Saturação dos 36 slots do fim (`kZeroTail`) | Seção 5 — o modelo não foi treinado para janela real |
+| `multiple definition` de dezenas de símbolos | `ei_run_classifier.h` em mais de um `.cpp` | Inclua em um só (wrapper) |
+| `multiple definition of 'ei_printf'` | Duas camadas de portabilidade ativas | `-DEI_PORTING_ESPRESSIF=0` |
+| **Predição colapsa num valor fixo** | dado chegou em z-score e a lib normalizou de novo | mande **grandeza bruta** ao RF; nunca desnormalize no caminho |
+| Previsão variando com viés, sem erro nenhum | ordem de features trocada (falha silenciosa) | conferir `KNOB_RF_ORDEM` × `AXES` do servidor × `FEATURES` do notebook |
+| `PCA_lag1` da manhã "errado" | esperava-se o shift posicional (tarde anterior) | é lag de tempo real: às 06:00 vale `0,0` (noite) — por desenho |
+| Erro do modelo inflado no teste | `PCA == 0` entrou como label | `0` é sentinela de faltante (só existe em 2024) — exclua |
+| Saída do EI sem sentido | entrada fora da ordem/z-score esperados | §6 — conferir o Studio |
 
 ---
 
-## 10. Como usar no hardware
-
-O `src/main.cpp` é um **app de streaming**: recebe uma amostra por segundo, guarda as 5 últimas num
-buffer circular e roda uma inferência a cada amostra recebida.
-
-```bash
-pio run -t upload
-pio device monitor
-```
-
-Saída esperada, do boot até o regime:
+## 8. Mapa de arquivos
 
 ```
-knob-senses v5 — janela 5x9 = 45 floats, 1 inferencia por segundo
-ordem dos eixos: 0=temperatura_ambiente, 1=doy, 2=ghi_cs, 3=hora_dec, 4=kc,
-                 5=angzen, 6=ghit, 7=ioeff, 8=kt
-ZERO_TAIL = false (janela real de 5 amostras)
-fonte: DEMO (rampa sintetica) - implemente readSample() para dados reais
-
-janela 1/5 - enchendo          <- t=1s
-janela 2/5 - enchendo          <- t=2s
-janela 3/5 - enchendo          <- t=3s
-janela 4/5 - enchendo          <- t=4s
-  t-4s | 0.0  1.0  2.0 ...     <- t=5s: primeira inferência
-  t-3s | 10.0 11.0 12.0 ...
-  t-2s | 20.0 21.0 22.0 ...
-  t-1s | 30.0 31.0 32.0 ...
-  t   | 40.0 41.0 42.0 ...
-  ordem: OK
-  pred = 23.4567   dsp 0 ms  inf 1 ms  heap_livre 412340  overruns 0
+├── src/
+│   ├── main.cpp            cliente WiFi + seleção do modelo (por include)
+│   ├── rf_model.cpp        wrapper do RF (pca_prever + impressão)
+│   └── mlp_model.cpp       wrapper do EI (run_classifier + impressão)
+├── include/
+│   ├── rf_model.h          kAxes/kPeriodMs do caminho RF
+│   └── mlp_model.h         constantes derivadas das macros do EI
+├── lib/
+│   ├── knob-senses/        SDK Edge Impulse + modelo v8 (não editar)
+│   └── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
+├── utils/
+│   ├── dataset_prep.ipynb  bruto -> tratado (por estação)
+│   ├── dataset_split.ipynb tratado -> train/validation/test + PCA_lag1
+│   ├── dataset_analysis.ipynb  EDA + eficiência (PCA/ghit por mês — o diagnóstico)
+│   ├── treino_random_forest.ipynb  treina e GERA a lib do RF
+│   ├── treino_regressao.ipynb      treino do MLP (exporta p/ Edge Impulse)
+│   └── model_teste.ipynb   servidor de teste (protocolo da §4) + model_eval.csv — a comparação estimado × medido
+├── data/
+│   ├── raw/                CSVs brutos por estação-ano (5 min)
+│   ├── processed/          saída do prep (1 h, por estação)
+│   ├── splited/            saída do split (o que os treinos leem)
+│   └── modelo_rf/          harness nativo de verificação do C gerado
+├── docs/superpowers/       specs e planos das mudanças de dados
+└── platformio.ini          upload/monitor COM28, debug esp-jtag, flags do EI
 ```
 
-**O gancho de aquisição é `readSample()`,** no fim do arquivo. Enquanto ele não estiver implementado,
-`SAMPLE_SOURCE` aponta para uma demo que gera uma rampa sintética — o suficiente para validar todo o
-pipeline sem sensor. Troque para `SAMPLE_SOURCE_USER` quando implementar a leitura real.
+### Estado
 
-A demo usa uma rampa **de propósito**: ela codifica a idade de cada amostra (`valor = seq*10 + eixo`),
-então o frame imprime com passo 1 dentro da linha e 10 entre linhas. Isso torna qualquer erro de
-ordem visível na hora — e o veredito `ordem: OK` / `ordem: BAD` é calculado sobre o frame. Uma
-senoide não serviria para isso (é invariante sob rotação e reversão, a menos de fase).
+O firmware **compila e linka** (medido em 2026-10-06: RAM **14,2%** — 46 656 B; Flash **12,3%**
+— 807 353 B). Esses 807 KB incluem **os dois caminhos**: o `mlp_model.cpp` é compilado mesmo
+quando o `main.cpp` usa o RF, e leva o SDK do Edge Impulse inteiro junto — recortar o caminho
+não usado com `build_src_filter` é o ganho de flash mais fácil que existe aqui.
 
-**Assinaturas de erro de ordem**, todas visíveis nas linhas impressas:
-
-| O que aparece | Bug |
-|---|---|
-| bases das linhas **decrescendo** | ordem invertida |
-| um salto negativo grande caminhando entre ticks | usou `head` como mais recente |
-| as 5 linhas idênticas | `head` não avança |
-| passo **5** dentro da linha, e não 1 | eixos intercalados (`j*kSamples + k` em vez de `k*kAxes + j`) |
-
-**Estabilidade:** o campo `heap_livre` é o maior bloco contíguo do heap. Deixe rodando uns 30 min —
-se ficar plano, não há fragmentação nem vazamento; se cair continuamente, há. O campo `overruns`
-conta ticks em que o loop atrasou um período inteiro e deve ficar em 0.
-
-> **Estado atual:** o firmware **compila e linka** (RAM 6.5%, Flash 4.6%) e a lógica do buffer
-> circular foi verificada em teste nativo (1020 ticks, ~200 voltas completas). Mas a **inferência não
-> foi validada em hardware** — não há placa nesta sessão. Os passos acima são para você rodar.
-
-### Voltar ao harness interativo
-
-O harness antigo (comandos `mean` / `sweep` / `<45 números>`, para comparar com o CSV de teste) foi
-**substituído** por este app — o projeto não é um repositório git, então não há como recuperá-lo
-sozinho. Se quiser os dois, o caminho é separar em arquivos: o harness vira um `.cpp` próprio atrás
-de um header-wrapper, porque `ei_run_classifier.h` só pode ser incluído em **um** arquivo por projeto
-(seção 4).
-
-Para validar contra o dataset sem o harness, use `readSample()`: cole uma linha do CSV de teste nas
-9 features e deixe rodar — mas lembre do `kZeroTail` (seção 5) antes de confiar no número.
+A validação ponta a ponta com a placa é feita rodando o servidor (`model_teste.ipynb`) e
+olhando o `model_eval.csv`.
