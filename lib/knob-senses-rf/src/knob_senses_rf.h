@@ -14,12 +14,12 @@
  *
  * ORDEM DAS GRANDEZAS BRUTAS:
  *   bruto[0] = temperatura_ambiente
- *   bruto[1] = ghi_cs
- *   bruto[2] = ghit
- *   bruto[3] = jacques
- *   bruto[4] = sin1
- *   bruto[5] = cos1
- *   bruto[6] = PCA_lag
+ *   bruto[1] = ghit
+ *   bruto[2] = jacques
+ *   bruto[3] = sin1
+ *   bruto[4] = cos1
+ *   bruto[5] = PCA_lag1
+ *   bruto[6] = sintetico
  *
  * O modelo foi treinado em z-scores e a normalizacao vive DENTRO desta lib (ver
  * knob_senses_rf.cpp): passe a grandeza fisica como ela veio do sensor. Nao normalize
@@ -41,7 +41,7 @@
 /* Ordem esperada em bruto[]. As 4 primeiras sao exatamente a ordem que
  * utils/server.ipynb transmite pela rede, entao o firmware entrega o que
  * recebeu sem reordenar. */
-#define KNOB_RF_ORDEM "temperatura_ambiente, ghi_cs, ghit, jacques, sin1, cos1, PCA_lag"
+#define KNOB_RF_ORDEM "temperatura_ambiente, ghit, jacques, sin1, cos1, PCA_lag1, sintetico"
 
 /* Faixa fisica do alvo: o inversor satura em ~2 kW e o dataset nao tem zero (o
  * 0 era sentinela de faltante, removido na analise). A saida ja vem ceifada. */
@@ -52,9 +52,9 @@
 
 #define KNOB_RF_N_ARVORES    30
 #define KNOB_RF_FOLHA_MIN    50
-#define KNOB_RF_N_NOS 4688
-#define KNOB_RF_MAE_TESTE 0.1016f /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE 0.9094f
+#define KNOB_RF_N_NOS        4698
+#define KNOB_RF_MAE_TESTE    0.1400f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.7711f
 
 #ifdef __cplusplus
 extern "C" {
