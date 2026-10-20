@@ -16,17 +16,14 @@
  *   bruto[0] = temperatura_ambiente
  *   bruto[1] = ghit
  *   bruto[2] = jacques
- *   bruto[3] = sin1
- *   bruto[4] = cos1
- *   bruto[5] = PCA_lag1
- *   bruto[6] = sintetico
+ *   bruto[3] = sintetico
  *
  * O modelo foi treinado em z-scores e a normalizacao vive DENTRO desta lib (ver
  * knob_senses_rf.cpp): passe a grandeza fisica como ela veio do sensor. Nao normalize
  * antes de chamar pca_prever() - se o dado chegar em z-score, a conta acontece duas
  * vezes, tudo cai a ~7 desvios-padrao da media, e a previsao COLAPSA num valor fixo.
  *
- * Custo no ESP32-S3: ~93 KB de flash, 0 de RAM. A floresta e' emitida como codigo
+ * Custo no ESP32-S3: 67.6 KB de flash, 0 de RAM. A floresta e' emitida como codigo
  * (emlearn method='inline'), nao como tabela - por isso nao ocupa RAM.
  */
 #ifndef KNOB_SENSES_RF_H
@@ -36,12 +33,12 @@
 
 /* --------------------------------------------------------------- contrato */
 
-#define KNOB_RF_N_FEATURES 7
+#define KNOB_RF_N_FEATURES 4
 
 /* Ordem esperada em bruto[]. As 4 primeiras sao exatamente a ordem que
  * utils/server.ipynb transmite pela rede, entao o firmware entrega o que
  * recebeu sem reordenar. */
-#define KNOB_RF_ORDEM "temperatura_ambiente, ghit, jacques, sin1, cos1, PCA_lag1, sintetico"
+#define KNOB_RF_ORDEM "temperatura_ambiente, ghit, jacques, sintetico"
 
 /* Faixa fisica do alvo: o inversor satura em ~2 kW e o dataset nao tem zero (o
  * 0 era sentinela de faltante, removido na analise). A saida ja vem ceifada. */
@@ -52,9 +49,9 @@
 
 #define KNOB_RF_N_ARVORES    30
 #define KNOB_RF_FOLHA_MIN    50
-#define KNOB_RF_N_NOS        4698
-#define KNOB_RF_MAE_TESTE    0.1400f   /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE     0.7711f
+#define KNOB_RF_N_NOS        4824
+#define KNOB_RF_MAE_TESTE    0.1426f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.7732f
 
 #ifdef __cplusplus
 extern "C" {

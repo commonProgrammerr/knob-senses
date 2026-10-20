@@ -12,9 +12,6 @@ static const float PCA_MEDIA[KNOB_RF_N_FEATURES] = {
     26.887260f,
     470.118520f,
     39.087056f,
-    -0.005921f,
-    0.024009f,
-    0.846211f,
     0.033089f
 };
 
@@ -22,9 +19,6 @@ static const float PCA_DESVIO[KNOB_RF_N_FEATURES] = {
     4.082861f,
     288.184946f,
     11.100748f,
-    0.706457f,
-    0.707324f,
-    0.549053f,
     0.178868f
 };
 

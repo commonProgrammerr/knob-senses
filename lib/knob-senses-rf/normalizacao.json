@@ -5,27 +5,18 @@
     "temperatura_ambiente",
     "ghit",
     "jacques",
-    "sin1",
-    "cos1",
-    "PCA_lag1",
     "sintetico"
   ],
   "media": {
     "temperatura_ambiente": 26.887260238855312,
     "ghit": 470.11852001885364,
     "jacques": 39.08705571730334,
-    "sin1": -0.005921345665898729,
-    "cos1": 0.02400937356250108,
-    "PCA_lag1": 0.8462105561558313,
     "sintetico": 0.0330886776561184
   },
   "desvio": {
     "temperatura_ambiente": 4.08286080810542,
     "ghit": 288.18494645161996,
     "jacques": 11.100748106811086,
-    "sin1": 0.706457106136866,
-    "cos1": 0.7073237199722386,
-    "PCA_lag1": 0.5490532540031621,
     "sintetico": 0.17886815554225377
   },
   "formula_normalizar": "z = (bruto - media) / desvio",

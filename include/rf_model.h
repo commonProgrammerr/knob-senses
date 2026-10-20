@@ -13,7 +13,7 @@ extern HardwareSerial Serial;
 constexpr size_t kSamples = 1U;       
 constexpr size_t kAxes = KNOB_RF_N_FEATURES;
 constexpr size_t kFrameSize = KNOB_RF_N_FEATURES;
-constexpr uint32_t kPeriodMs = 25U;       
+constexpr uint32_t kPeriodMs = 10U;
 
 typedef float rf_result_t;
 
