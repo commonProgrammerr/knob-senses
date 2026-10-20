@@ -42,32 +42,32 @@
 #include <stdint.h>
 #include <vector>
 #include "model_metadata.h"
-#include "tflite-model/tflite_learn_1086855_21_compiled.h"
+#include "tflite-model/tflite_learn_1086855_21.h"
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/engines.h"
 #include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_common.h"
 
 const char* ei_classifier_inferencing_categories_1086855_5[] = { "value" };
 
-EI_CLASSIFIER_DSP_AXES_INDEX_TYPE ei_dsp_config_1086855_20_axes[] = { 0, 1, 2, 3 };
-const uint32_t ei_dsp_config_1086855_20_axes_size = 4;
+EI_CLASSIFIER_DSP_AXES_INDEX_TYPE ei_dsp_config_1086855_20_axes[] = { 0, 1, 2 };
+const uint32_t ei_dsp_config_1086855_20_axes_size = 3;
 ei_dsp_config_raw_t ei_dsp_config_1086855_20 = {
     20, // uint32_t blockId
     1, // int implementationVersion
-    4, // int length of axes
+    3, // int length of axes
     1.0f // float scale-axes
 };
 
-const float ei_dn_standard_scaler_mean_1086855_20[48] = { -1.144509939149698e-10, 4.072788498279727e-11, -4.9305132257921536e-11, -1.5026723955514092e-11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-const float ei_dn_standard_scaler_scale_1086855_20[48] = { 1.0000000000772973, 1.0000000000647213, 0.9999999999792706, 0.9999999999749225, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-const float ei_dn_standard_scaler_var_1086855_20[48] = { 0.9999999998454054, 0.9999999998705575, 1.0000000000414588, 1.000000000050155, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+const float ei_dn_standard_scaler_mean_1086855_20[3] = { 470.1185199613678, 39.087055695356696, 26.887260235398703 };
+const float ei_dn_standard_scaler_scale_1086855_20[3] = { 0.0034699938788719576, 0.0900840186313144, 0.24492630226295448 };
+const float ei_dn_standard_scaler_var_1086855_20[3] = { 83050.56333305861, 123.22660870942573, 16.66975236557425 };
 ei_data_normalization_standard_scaler_config_t ei_data_normalization_standard_scaler_config_1086855_20 = {
     .mean_data = (float *)ei_dn_standard_scaler_mean_1086855_20,
-    .mean_data_len = 48,
+    .mean_data_len = 3,
     .scale_data = (float *)ei_dn_standard_scaler_scale_1086855_20,
-    .scale_data_len = 48,
+    .scale_data_len = 3,
     .var_data = (float *)ei_dn_standard_scaler_var_1086855_20,
-    .var_data_len = 48
+    .var_data_len = 3
 };
 ei_data_normalization_t ei_data_normalization_config_1086855_20 = {
     (void *) &ei_data_normalization_standard_scaler_config_1086855_20, // config
@@ -82,7 +82,7 @@ const uint8_t ei_dsp_blocks_1086855_5_size = 1;
 ei_model_dsp_t ei_dsp_blocks_1086855_5[ei_dsp_blocks_1086855_5_size] = {
     { // DSP block 20
         20,
-        48, // output size
+        3, // output size
         &extract_raw_features, // DSP function pointer
         (void*)&ei_dsp_config_1086855_20, // pointer to config struct
         ei_dsp_config_1086855_20_axes, // array of offsets into the input stream, one for each axis
@@ -92,13 +92,11 @@ ei_model_dsp_t ei_dsp_blocks_1086855_5[ei_dsp_blocks_1086855_5_size] = {
         &ei_data_normalization_config_1086855_20, // data normalization config
     }
 };
-const ei_config_tflite_eon_graph_t ei_config_graph_1086855_21 = {
+const ei_config_tflite_graph_t ei_config_graph_1086855_21 = {
     .implementation_version = 1,
-    .model_init = &tflite_learn_1086855_21_init,
-    .model_invoke = &tflite_learn_1086855_21_invoke,
-    .model_reset = &tflite_learn_1086855_21_reset,
-    .model_input = &tflite_learn_1086855_21_input,
-    .model_output = &tflite_learn_1086855_21_output,
+    .model = tflite_learn_1086855_21,
+    .model_size = tflite_learn_1086855_21_len,
+    .arena_size = tflite_learn_1086855_21_arena_size
 };
 
 const uint8_t ei_output_tensors_indices_1086855_21[1] = { 0 };
@@ -108,8 +106,8 @@ ei_learning_block_config_tflite_graph_t ei_learning_block_config_1086855_21 = {
     .block_id = 21,
     .output_tensors_indices = ei_output_tensors_indices_1086855_21,
     .output_tensors_size = ei_output_tensors_size_1086855_21,
-    .quantized = 0,
-    .compiled = 1,
+    .quantized = 1,
+    .compiled = 0,
     .graph_config = (void*)&ei_config_graph_1086855_21,
     .dequantize_output = 0,
 };
@@ -128,6 +126,11 @@ const ei_learning_block_t ei_learning_blocks_1086855_5[ei_learning_blocks_108685
     },
 };
 
+ei_fill_result_classification_i8_config_t ei_fill_result_classification_i8_config_1086855_21 = {
+    .zero_point = -128,
+    .scale = 0.008652516640722752
+};
+
 const size_t ei_postprocessing_blocks_1086855_5_size = 1;
 const ei_postprocessing_block_t ei_postprocessing_blocks_1086855_5[ei_postprocessing_blocks_1086855_5_size] = {
     {
@@ -135,9 +138,9 @@ const ei_postprocessing_block_t ei_postprocessing_blocks_1086855_5[ei_postproces
         .type = EI_CLASSIFIER_MODE_REGRESSION,
         .init_fn = NULL,
         .deinit_fn = NULL,
-        .postprocess_fn = &process_classification_f32,
+        .postprocess_fn = &process_classification_i8,
         .display_fn = NULL,
-        .config = NULL,
+        .config = (void*)&ei_fill_result_classification_i8_config_1086855_21,
         .input_block_id = 21
     },
 };
@@ -152,17 +155,17 @@ const ei_impulse_t impulse_1086855_5 = {
     .project_name = "knob-senses",
     .impulse_id = 5,
     .impulse_name = "Impulse #5",
-    .deploy_version = 8,
+    .deploy_version = 9,
 
-    .nn_input_frame_size = 48,
-    .raw_sample_count = 12,
-    .raw_samples_per_frame = 4,
-    .dsp_input_frame_size = 12 * 4,
+    .nn_input_frame_size = 3,
+    .raw_sample_count = 1,
+    .raw_samples_per_frame = 3,
+    .dsp_input_frame_size = 1 * 3,
     .input_width = 0,
     .input_height = 0,
     .input_frames = 0,
-    .interval_ms = 300000,
-    .frequency = 0.0033333333333333335,
+    .interval_ms = 1,
+    .frequency = 0,
 
     .dsp_blocks_size = ei_dsp_blocks_1086855_5_size,
     .dsp_blocks = ei_dsp_blocks_1086855_5,
@@ -178,8 +181,8 @@ const ei_impulse_t impulse_1086855_5 = {
     .inferencing_engine = EI_CLASSIFIER_TFLITE,
 
     .sensor = EI_CLASSIFIER_SENSOR_FUSION,
-    .fusion_string = "temperatura_ambiente + ghi_cs + ghit + jacques",
-    .slice_size = (12/4),
+    .fusion_string = "ghit + jacques + temperatura_ambiente",
+    .slice_size = (1/4),
     .slices_per_model_window = 4,
 
     .has_anomaly = EI_ANOMALY_TYPE_UNKNOWN,
