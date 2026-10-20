@@ -3,7 +3,13 @@
 
 #include <string.h>
 #include <HardwareSerial.h>
-#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+/* So' TIPOS e macros do modelo (ei_impulse_result_t + EI_CLASSIFIER_*). Este header
+ * tambem entra no main.cpp, e o SDK do Edge Impulse define funcoes/variaveis (e o
+ * proprio .tflite, via asm .incbin) nos headers de implementacao: incluir o
+ * ei_run_classifier.h aqui duplicaria tudo em DOIS TUs (main.cpp e mlp_model.cpp) e o
+ * link morre com "multiple definition". O unico TU com o SDK completo e' o
+ * mlp_model.cpp — manter esta separacao e' o que faz o link fechar. */
+#include <edge-impulse-sdk/classifier/ei_classifier_types.h>
 
 extern HardwareSerial Serial;
 

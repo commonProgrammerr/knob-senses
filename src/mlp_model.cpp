@@ -1,5 +1,9 @@
 #include "mlp_model.h"
 
+/* O UNICO TU com o SDK de implementacao do Edge Impulse (ver o comentario no
+ * mlp_model.h): run_classifier(), numpy::signal_from_buffer() e o modelo em si. */
+#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+
 bool mlp_run_inference(const float *frame, ei_impulse_result_t *result)
 {
   signal_t signal;
@@ -30,6 +34,7 @@ void mlp_print_result(const ei_impulse_result_t &result)
   Serial.print("  heap_livre ");
   Serial.print((uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 #endif
+  Serial.println();
 }
 
 void mlp_print_banner()
