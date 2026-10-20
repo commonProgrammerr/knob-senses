@@ -21,7 +21,7 @@ const float kw = pca_prever(bruto);
 
 ## Contrato
 
-A ordem de `bruto` e' **temperatura_ambiente, ghit, jacques, sin1, cos1, PCA_lag1, sintetico**.
+A ordem de `bruto` e' **temperatura_ambiente, ghit, jacques, sintetico**.
 
 As 4 primeiras sao exatamente a ordem que o `utils/server.ipynb` transmite pela rede, entao o
 firmware entrega o que recebeu sem reordenar. `sin1`/`cos1` sao o 1o harmonico do ciclo anual
@@ -48,9 +48,9 @@ nao conserta.
 |---|---|
 | arvores | 30 |
 | folha minima | 50 |
-| nos | 4698 |
-| MAE no teste | 0.1400 kW |
-| R2 no teste | 0.7711 |
+| nos | 4824 |
+| MAE no teste | 0.1426 kW |
+| R2 no teste | 0.7732 |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
 entao os numeros sao pessimistas na medida certa.
@@ -59,7 +59,7 @@ entao os numeros sao pessimistas na medida certa.
 
 | | |
 |---|---|
-| flash (ESP32-S3) | ~93 KB |
+| flash (ESP32-S3) | 67.6 KB |
 | RAM | 0 |
 
 A floresta e' emitida como codigo (`emlearn method='inline'`), nao como tabela em RAM. Em
