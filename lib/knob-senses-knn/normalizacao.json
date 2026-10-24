@@ -1,0 +1,31 @@
+{
+  "modelo": "knob-senses-knn",
+  "gerado_por": "utils/treino_knn.ipynb",
+  "features": [
+    "temperatura_ambiente",
+    "ghit",
+    "jacques",
+    "sintetico"
+  ],
+  "media": {
+    "temperatura_ambiente": 26.887260238855312,
+    "ghit": 470.11852001885364,
+    "jacques": 39.08705571730334,
+    "sintetico": 0.0330886776561184
+  },
+  "desvio": {
+    "temperatura_ambiente": 4.08286080810542,
+    "ghit": 288.18494645161996,
+    "jacques": 11.100748106811086,
+    "sintetico": 0.17886815554225377
+  },
+  "k": 3,
+  "prototipos": 1000,
+  "escala_z": 1000,
+  "clamp_z": 8.0,
+  "escala_y": 1000,
+  "formula_normalizar": "z = (bruto - media) / desvio; int16: lrintf(clamp(z, +-8.0) * 1000)",
+  "formula_desnormalizar": "kW = media_inteira_dos_k_rotulos_em_mW / 1000",
+  "ajustado_em": "somente o split de treino",
+  "aviso": "Estas sao as constantes compiladas dentro do C da lib; o firmware NAO le este arquivo. Alimente knn_pca_prever() com GRANDEZA FISICA: se o dado chegar em z-score, a normalizacao acontece duas vezes e a previsao colapsa num valor fixo."
+}
