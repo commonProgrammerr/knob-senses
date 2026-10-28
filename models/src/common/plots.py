@@ -1,9 +1,9 @@
-"""Graficos compartilhados dos notebooks.
+"""Gráficos compartilhados dos notebooks.
 
 A paleta e o `enfeitar` estavam copiados em quatro notebooks; a serie temporal em dois;
-a importancia de features e os hexbin em dois. Este modulo concentra essas copias.
+a importância de features e os hexbin em dois. Este modulo concentra essas copias.
 
-matplotlib NAO e' dependencia base: ele esta no extra `notebooks`. `import common` nao
+matplotlib NAO e' dependência base: ele esta no extra `notebooks`. `import common` nao
 puxa este modulo; so' quem plota importa `common.plots`.
 """
 
@@ -16,7 +16,7 @@ import pandas as pd
 SUPERFICIE, TINTA = "#fcfcfb", "#0b0b0b"
 TINTA_2, MUDO = "#52514e", "#898781"
 GRADE, EIXO = "#e1e0d9", "#c3c2b7"
-REAL, PREDITO = "#2a78d6", "#eb6834"        # slots categoricos 1 e 2
+REAL, PREDITO = "#2a78d6", "#eb6834"        # slots categóricos 1 e 2
 ERRO_CLARO, MAE_ESC = "#86b6ef", "#184f95"  # rampa azul: degraus 250 e 600
 
 HALO = dict(facecolor=SUPERFICIE, edgecolor="none", pad=2.0)
@@ -33,7 +33,7 @@ def aplicar_estilo() -> None:
 
 
 def enfeitar(ax, titulo, xlabel, ylabel) -> None:
-    """Titulo, rotulos, grade e spines no padrao dos notebooks."""
+    """Titulo, rótulos, grade e spines no padrão dos notebooks."""
     ax.set_title(titulo, color=TINTA, fontsize=12, loc="left", pad=10)
     ax.set_xlabel(xlabel, color=TINTA_2, fontsize=10)
     ax.set_ylabel(ylabel, color=TINTA_2, fontsize=10)
@@ -47,14 +47,14 @@ def enfeitar(ax, titulo, xlabel, ylabel) -> None:
 
 
 def plot_time_series(dataset: pd.DataFrame, janela: int = 7):
-    """Serie diaria de PCA por estacao, um painel por par de anos.
+    """Serie diária de PCA por inversor, um painel por par de anos.
 
-    `dataset` precisa de `datetime`, `station` e `PCA`; PCA == 0 e' descartado.
+    `dataset` precisa de `datetime`, `inversor` e `PCA`; PCA == 0 é descartado.
     """
     d = dataset[dataset.PCA != 0].copy()
     d["ano"] = d["datetime"].dt.year
     d["dia"] = d["datetime"].dt.normalize()
-    anos, estacoes = sorted(d["ano"].unique()), sorted(d["station"].unique())
+    anos, estacoes = sorted(d["ano"].unique()), sorted(d["inversor"].unique())
     cores = dict(zip(estacoes, plt.cm.tab10(np.linspace(0, 1, len(estacoes)))))
 
     # pares montados DE TRAS PARA FRENTE: com contagem impar, o ano mais antigo
@@ -71,7 +71,7 @@ def plot_time_series(dataset: pd.DataFrame, janela: int = 7):
     for ax, par in zip(axs.ravel(), pares):
         falhas = 0
         for est in estacoes:
-            d_est = d[(d["station"] == est) &
+            d_est = d[(d["inversor"] == est) &
                       (d["ano"] >= par[0]) & (d["ano"] <= par[-1])]
             if d_est.empty:
                 continue
