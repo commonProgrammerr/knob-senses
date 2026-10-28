@@ -33,7 +33,7 @@ PORT = 3333
 # contrato, nao descuido: 0x01 e' REQUEST_SAMPLE no sentido ESP->servidor e SAMPLE no
 # sentido contrario; 0x03 e' PREDICTION la' e ACK ca'. So' a direcao diz qual e'.
 REQUEST_SAMPLE = 0x01   # ESP -> servidor: pede a amostra de `seq` (4 bytes u32 LE)
-SAMPLE = 0x01           # servidor -> ESP: a amostra (5 float32 brutos) + seq ecoado
+SAMPLE = 0x01           # servidor -> ESP: 0x01 + seq u32 + 4 float32 (um por AXES)
 END_OF_DATA = 0x02      # servidor -> ESP: nao ha' seq >= len(df); o serve() retorna
 PREDICTION = 0x03       # ESP -> servidor: a predicao da amostra `seq` (float32 LE)
 ACK = 0x03              # servidor -> ESP: a linha `seq` esta' no log (duplicata: idem)
@@ -123,7 +123,7 @@ def serve(df: pd.DataFrame, log_path: Path = paths.EVAL_LOG,
     FIXO, little-endian (a tabela dos bytes esta' no README secao 4):
 
       ESP -> servidor  0x01 + seq u32             pede a amostra seq
-      servidor -> ESP  0x01 + seq u32 + 5*f32     a amostra (grandeza BRUTA)
+      servidor -> ESP  0x01 + seq u32 + 4*f32     a amostra (grandeza BRUTA)
       ESP -> servidor  0x03 + seq u32 + f32       a predicao da amostra seq
       servidor -> ESP  0x03 + seq u32             ACK: a linha seq esta' no log
       servidor -> ESP  0x02 + seq u32             END_OF_DATA: seq >= len(df); retorna

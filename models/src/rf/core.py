@@ -14,7 +14,8 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 
-from . import contract, paths
+from common import contract, paths
+from common.templates import fill_template
 
 # Escolhidos na varredura (ver treino_random_forest.ipynb, secao 5): e' onde a curva
 # dobra — comprar acuracia a partir dali custa flash em proporcao bem pior.
@@ -62,18 +63,6 @@ def sweep(X_train, y_train, X_test, y_test, configs=((300, 2), (100, 2), (50, 5)
             "mae": mean_absolute_error(y_test, pred), "r2": r2_score(y_test, pred), "s": secs,
         })
     return pd.DataFrame(rows)
-
-
-def fill_template(template: str, **values) -> str:
-    """Substitui @@TOKEN@@ pelo valor.
-
-    Os templates abaixo sao C, cheios de chave. Escrever isso como f-string significa
-    escapar cada `{` e `}` como `{{` e `}}`, e basta um passar batido para o arquivo sair
-    errado sem ninguem notar. Com marcador explicito nao ha o que escapar.
-    """
-    for key, value in values.items():
-        template = template.replace(f"@@{key}@@", str(value))
-    return template
 
 
 HEADER_TEMPLATE = '''/*

@@ -7,8 +7,10 @@ modelo normalizando de novo, previsao colapsada num valor fixo e nenhum erro.
 
 Os dois tuples de features sao DIFERENTES de proposito:
 
-- RF_FEATURES    — a ordem de entrada do modelo e dos eixos do servidor (o lag entra);
-- SPLIT_FEATURES — o que o split escreve no CSV, sem o lag.
+- RF_FEATURES    — a ordem de entrada do modelo e dos eixos do servidor;
+- SPLIT_FEATURES — a ordem das colunas de feature no CSV do split.
+
+O PCA_lag1 (LAG) e' escrito no split e usado pelo MLP; o RF e o k-NN treinam sem ele.
 """
 
 # Ordem de entrada do Random Forest e dos eixos que o servidor transmite. Mudar aqui
@@ -36,8 +38,6 @@ LIMITS = {
     "temperatura_ambiente": (-20.0, 60.0),
     "ghit": (0.0, 1500.0),
     "jacques": (-20.0, 90.0),
-    "sin1": (-1.0, 1.0),
-    "cos1": (-1.0, 1.0),
     "sintetico": (0.0, 1.0),
 }
 

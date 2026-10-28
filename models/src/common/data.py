@@ -7,11 +7,51 @@ import pandas as pd
 from . import contract, paths
 
 
-def read_csv(p: Path) -> pd.DataFrame:
-    """O jeito de ler os CSV do projeto: BOM fora, nomes sem espaco, datetime parseado."""
+def read_csv(p: Path, parse: tuple[str, ...] = (contract.INDEX,)) -> pd.DataFrame:
+    """O jeito de ler os CSV do projeto: BOM fora, nomes sem espaco, datas parseadas.
+
+    `parse` lista as colunas de data a converter; o default e' so' `datetime`.
+    """
     df = pd.read_csv(p, encoding="utf-8-sig")
     df.columns = [c.strip() for c in df.columns]
-    df[contract.INDEX] = pd.to_datetime(df[contract.INDEX])
+    for col in parse:
+        df[col] = pd.to_datetime(df[col])
+    return df
+
+
+def show_dataset(dataset: pd.DataFrame, colunas: bool = False) -> pd.DataFrame:
+    """Imprime o resumo do pool (linhas/colunas, nulos, zeros) e devolve o df.
+
+    `colunas=True` tambem lista as colunas (menos as de controle de arquivo), como
+    fazia a copia do dataset_prep.
+    """
+    print(f"\npool: {len(dataset)} linhas, {dataset.shape[1]} colunas")
+    if colunas:
+        print("colunas:", sorted(c for c in dataset.columns
+                                 if c not in ("arquivo", "estacao", "ano")))
+    print("\nnulos por coluna (so as que tem):")
+    nulos = dataset.isna().sum()
+    print(nulos[nulos > 0].to_string() if (nulos > 0).any() else "  (nenhum)")
+    print("\ncolunas com zero:")
+    zeros = dataset.isin([0]).sum()
+    print(zeros[zeros > 0].to_string() if (zeros > 0).any() else "  (nenhum)")
+    return dataset
+
+
+def add_time_features(df: pd.DataFrame, col: str = contract.INDEX) -> pd.DataFrame:
+    """Adiciona ano/mes/doy/hora/hora_ano a partir de `col`; devolve o mesmo df.
+
+    `doy` e' limitado a 365 (2024 e' bissexto): o eixo de hora acumulada usa 365 dias
+    para todos os anos. `hora_ano = (doy - 1)*24 + hora` e' a mesma conta dos paineis
+    de serie dos notebooks.
+    """
+    d = df[col].dt
+    df["ano"] = d.year
+    df["mes"] = d.month
+    df["doy"] = d.dayofyear
+    df.loc[df["doy"] == 366, "doy"] = 365
+    df["hora"] = d.hour
+    df["hora_ano"] = (df["doy"] - 1) * 24 + df["hora"]
     return df
 
 
