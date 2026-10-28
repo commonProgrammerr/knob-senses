@@ -56,11 +56,11 @@ def add_time_features(df: pd.DataFrame, col: str = contract.INDEX) -> pd.DataFra
 
 
 def load_pool(data_dir: Path = paths.PROCESSED) -> pd.DataFrame:
-    """Todos os CSV de data/processed empilhados, com a coluna `station` (nome do arquivo)."""
+    """Todos os CSV de data/processed empilhados, com a coluna `inversor` (nome do arquivo)."""
     parts = []
     for p in sorted(Path(data_dir).rglob("*.csv")):
         df = read_csv(p)
-        df["station"] = p.stem
+        df["inversor"] = p.stem
         parts.append(df)
     return pd.concat(parts, ignore_index=True)
 
@@ -72,8 +72,8 @@ def add_lag1(df: pd.DataFrame) -> pd.DataFrame:
     verdadeiro (de noite o inversor entrega 0), nao imputacao. Assim as 06:00 o
     PCA_lag1 e' 0,0 (nunca a tarde de ontem), e nao ha NaN nem linha dropada.
     """
-    df = df.sort_values(["station", contract.INDEX]).copy()
-    for _, g in df.groupby("station"):
+    df = df.sort_values(["inversor", contract.INDEX]).copy()
+    for _, g in df.groupby("inversor"):
         grid = pd.date_range(g[contract.INDEX].min().floor("D"),
                              g[contract.INDEX].max(), freq="h")
         series = g.set_index(contract.INDEX)[contract.TARGET].reindex(grid).fillna(0.0)
@@ -83,7 +83,7 @@ def add_lag1(df: pd.DataFrame) -> pd.DataFrame:
 
 def split_dataset(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """O split manual: estacao do treino, corte por ano, colunas do contrato, sem embaralhar."""
-    base = (df[df.station == contract.TRAIN_STATION][list(contract.SPLIT_COLUMNS)]
+    base = (df[df.inversor == contract.TRAIN_inversor][list(contract.SPLIT_COLUMNS)]
             .sort_values(contract.INDEX).reset_index(drop=True))
     year = base[contract.INDEX].dt.year
     cuts = {}
@@ -109,12 +109,12 @@ def save_splits(cuts: dict[str, pd.DataFrame], df: pd.DataFrame,
         written[path] = len(frame)
     test_dir = out_dir / "test"
     test_dir.mkdir(parents=True, exist_ok=True)
-    for station in df.station.unique():
-        path = test_dir / f"{station}.csv"
+    for inversor in df.inversor.unique():
+        path = test_dir / f"{inversor}.csv"
         df['year'] = df.datetime.dt.year
         df = df[df.year == df.year.max()]
-        df[df.station == station].to_csv(path, index=False)
-        written[path] = int((df.station == station).sum())
+        df[df.inversor == inversor].to_csv(path, index=False)
+        written[path] = int((df.inversor == inversor).sum())
     return written
 
 
