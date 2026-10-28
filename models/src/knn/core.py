@@ -28,8 +28,8 @@ import pandas as pd
 from sklearn.metrics import r2_score
 from sklearn.neighbors import KNeighborsRegressor
 
-from . import contract, paths
-from .rf import fill_template
+from common import contract, paths
+from common.templates import fill_template
 
 # Defaults da lib entregue; o notebook recalcula pela regra de escolha (escolhe_config).
 # Valores da varredura de 2026-10-12: o menor (N, k) a <= 5 % do melhor MAE.
