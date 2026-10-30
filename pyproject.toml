@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "André Escorel", email = "gustavo.escorel@gmail.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "numpy",
     "pandas",
@@ -22,6 +22,8 @@ notebooks = [
     "statsmodels",
     "scipy",
     "nbconvert",
+    "ipython",
+    "ipykernel"
 ]
 # O MLP (Keras) e' extra: o .venv de dados roda Python 3.14, sem wheel de TensorFlow.
 # Use num ambiente Python <= 3.13. O Keras >= 3.8 e' o minimo para
