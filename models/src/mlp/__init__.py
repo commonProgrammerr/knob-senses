@@ -1,25 +1,9 @@
-"""O modelo MLP (Keras) do knob-senses: rede, treino e export para o Edge Impulse."""
+"""O modelo MLP (Keras) do knob-senses: preparo dos dados e export."""
 
-from .core import (
-    BATCH,
-    ENTRADAS,
-    EPOCHS,
-    OCULTAS,
-    PACIENCIA,
-    build,
-    export,
-    prepara,
-    train,
-)
+from .core import ENTRADAS, export, prepara
 
 __all__ = [
-    "BATCH",
     "ENTRADAS",
-    "EPOCHS",
-    "OCULTAS",
-    "PACIENCIA",
-    "build",
     "export",
     "prepara",
-    "train",
 ]
