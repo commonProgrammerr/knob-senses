@@ -240,11 +240,17 @@ def eval_metrics(df_eval: pd.DataFrame) -> dict:
     np_pred = df_eval["pred"].to_numpy()
     ss_res = np.sum((np_pred - np_real) ** 2)
     ss_tot = ((np_real - np.mean(np_real)) ** 2).sum()
+    abs_err = np.abs(np_pred - np_real)
+    denom = np.abs(np_real)
     teto = df_eval["pred"].max()
     return {
-        "r2": 1 - (ss_res / ss_tot),
-        "mae": float(df_eval["err"].mean()),
-        "vies": float((df_eval["pred"] - df_eval["real"]).mean()),
+        "r2": 1 - (ss_res / ss_tot) if ss_tot else float("nan"),
+        # Calculado de pred-real: nao depende do sinal/definicao da coluna `err`.
+        "mae": float(abs_err.mean()),
+        "rmse": float(np.sqrt(np.mean((np_pred - np_real) ** 2))),
+        "mape": float(np.nanmean(abs_err / np.where(denom == 0, np.nan, denom)) * 100),
+        "p90": float(np.quantile(abs_err, 0.90)),
+        "vies": float((np_pred - np_real).mean()),
         "teto": float(teto),
         "no_teto": int((df_eval["pred"] >= teto - 0.01).sum()),
         "amostras": len(df_eval),

@@ -5,7 +5,7 @@ Mapa dos modulos (importe o que precisar; este __init__ nao importa nada, para
 
     contract   features/ordem, alvo, faixa fisica, limites e cortes do split
     paths      os caminhos do repo, resolvidos do __file__
-    data       leitura/resumo dos CSVs, features de tempo, PCA_lag1, split, normalizacao
+    data       leitura/resumo dos CSVs, features de tempo, split, normalizacao
     metrics    evaluate() — MAE/RMSE/R2/vies, com clip
     templates  fill_template() — marcadores @@TOKEN@@ dos templates C
     verify     conferidor nativo (g++/xtensa) contra o sklearn (RF e k-NN)
