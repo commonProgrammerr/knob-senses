@@ -1,8 +1,8 @@
-"""O caminho do MLP (Keras): preparo dos dados, rede, treino e export.
+"""O caminho do MLP (Keras): preparo dos dados e export.
 
-Adaptado do antigo treino_regressao.ipynb ao contrato atual: as 4 features do contrato
-mais o PCA da hora anterior, alvo PCA, no mesmo split por ano. O TensorFlow e' importado
-DENTRO das funcoes - `import mlp` nao exige TF, entao o pacote instala no .venv de dados.
+A definicao da rede e o treino vivem em `utils/treino_regressao.ipynb`; este modulo
+so' monta os arrays de treino/validacao/teste e exporta o modelo treinado. O
+TensorFlow e' importado DENTRO do export - `import mlp` nao exige TF.
 """
 
 import json
@@ -14,12 +14,8 @@ import numpy as np
 
 from common import contract, data, paths
 
-# As entradas do MLP: o contrato do RF/k-NN mais o lag que o split ja' escreve.
-ENTRADAS = (*contract.RF_FEATURES, contract.LAG)
-OCULTAS = (64, 32)
-EPOCHS = 200
-BATCH = 512
-PACIENCIA = 25
+# As entradas do MLP sao as features do contrato.
+ENTRADAS = contract.RF_FEATURES
 
 
 def _tf():
@@ -29,64 +25,34 @@ def _tf():
         import tensorflow as tf
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
-            "o MLP precisa de TensorFlow/Keras: instale o extra `mlp` com "
-            "`pip install -e \".[mlp]\"` num ambiente com Python <= 3.13 "
-            "(o .venv de dados e' 3.14)."
+            "o MLP precisa de TensorFlow/Keras: instale as dependencias do projeto "
+            "com `pip install -e .` no ambiente do projeto."
         ) from e
     return tf, keras
 
 
 def prepara():
-    """Splits atuais em z-score -> arrays float32 e as constantes de normalizacao.
+    """Splits atuais em min-max -> arrays float32 e as constantes de normalizacao.
 
-    A normalizacao e' ajustada SO no treino; validacao e teste usam as mesmas
-    constantes. Devolve `(dados, media, desvio)`, onde `dados` tem as chaves
+    O min/max e' ajustado SO no treino; validacao e teste usam as mesmas constantes.
+    Devolve `(dados, minimo, maximo)`, onde `dados` tem as chaves
     treino/validacao/teste, cada uma com X e y.
     """
     frames = {nome: data.load_split(nome) for nome in ("train", "validation", "test")}
-    media, desvio = data.fit_normalization(frames["train"], ENTRADAS)
+    minimo, maximo = data.fit_min_max(frames["train"], ENTRADAS)
 
     dados = {}
     for arquivo, chave in (("train", "treino"), ("validation", "validacao"),
                            ("test", "teste")):
         d = frames[arquivo]
         dados[chave] = {
-            "X": data.z_score(d, media, desvio, ENTRADAS).to_numpy(np.float32),
+            "X": data.min_max_scale(d, minimo, maximo, ENTRADAS).to_numpy(np.float32),
             "y": d[contract.TARGET].to_numpy(np.float32),
         }
-    return dados, media, desvio
+    return dados, minimo, maximo
 
 
-def build(ocultas=OCULTAS, n_entradas=len(ENTRADAS)):
-    """A rede 5 -> 64 -> 32 -> 1: densa, ReLU, saida linear em kW."""
-    _, keras = _tf()
-    keras.utils.set_random_seed(contract.SEED)
-    camadas = [keras.layers.Input(shape=(n_entradas,), name="features")]
-    for i, n in enumerate(ocultas):
-        camadas.append(keras.layers.Dense(n, activation="relu", name=f"oculta_{i}"))
-    camadas.append(keras.layers.Dense(1, name="pca_kw"))
-
-    modelo = keras.Sequential(camadas, name="knob_senses_pca")
-    modelo.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse", metrics=["mae"])
-    return modelo
-
-
-def train(modelo, dados, epochs=EPOCHS, batch_size=BATCH, paciencia=PACIENCIA):
-    """Treina com early stopping no val_loss e devolve o historico."""
-    _, keras = _tf()
-    chamadas = [
-        keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=paciencia, restore_best_weights=True, verbose=1),
-        keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", factor=0.5, patience=8, min_lr=1e-5, verbose=1),
-    ]
-    return modelo.fit(
-        dados["treino"]["X"], dados["treino"]["y"],
-        validation_data=(dados["validacao"]["X"], dados["validacao"]["y"]),
-        epochs=epochs, batch_size=batch_size, callbacks=chamadas, verbose=0)
-
-
-def export(modelo, dados, media, desvio, destino=paths.EXPORT_MLP):
+def export(modelo, dados, minimo, maximo, destino=paths.EXPORT_MLP):
     """Escreve SavedModel (batch 1), zip do Edge Impulse, .tflite, .npy e JSON.
 
     Devolve `{caminho: tamanho em bytes}`. O `.npy` de quantizacao usa a VALIDACAO - o teste nao
@@ -117,25 +83,25 @@ def export(modelo, dados, media, desvio, destino=paths.EXPORT_MLP):
     caminho_npy = destino / "dados_representativos.npy"
     np.save(caminho_npy, amostra.astype(np.float32))
 
+    pca_min, pca_max = data.target_limits()
     caminho_json = destino / "normalizacao.json"
     caminho_json.write_text(json.dumps({
         "modelo": "knob-senses-mlp",
         "gerado_por": "models/src/mlp",
         "janela_horas": 1,
-        "lag": contract.LAG,
+        "normalizacao": "min_max",
         "ordem_das_entradas": list(ENTRADAS),
         "features": list(ENTRADAS),
-        "features_base": list(contract.RF_FEATURES),
-        "media": {c: float(media[c]) for c in ENTRADAS},
-        "desvio": {c: float(desvio[c]) for c in ENTRADAS},
-        "formula": "x_normalizado = (x_bruto - media) / desvio",
+        "minimo": {c: float(minimo[c]) for c in ENTRADAS},
+        "maximo": {c: float(maximo[c]) for c in ENTRADAS},
+        "formula": "x_normalizado = (x_bruto - minimo) / (maximo - minimo)",
         "fonte": "models/src/mlp (ajustado somente no split de treino)",
         "alvo": {
             "nome": contract.TARGET,
             "unidade": "kW CA",
             "horizonte": "t (mesma hora)",
-            "min": contract.PCA_MIN,
-            "max": contract.PCA_MAX,
+            "min": pca_min,
+            "max": pca_max,
             "observacao": "a saida do modelo ja esta em kW; nao ha transformacao inversa",
         },
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
