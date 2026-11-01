@@ -3,8 +3,8 @@
 A paleta e o `enfeitar` estavam copiados em quatro notebooks; a serie temporal em dois;
 a importância de features e os hexbin em dois. Este modulo concentra essas copias.
 
-matplotlib NAO e' dependência base: ele esta no extra `notebooks`. `import common` nao
-puxa este modulo; so' quem plota importa `common.plots`.
+matplotlib e' dependencia do projeto; `import common` nao puxa este modulo; so' quem
+plota importa `common.plots`.
 """
 
 from __future__ import annotations

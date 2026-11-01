@@ -1,4 +1,4 @@
-"""Leitura, defasagem e split do dataset — a parte Python do contrato de dados."""
+"""Leitura e split do dataset — a parte Python do contrato de dados."""
 
 from pathlib import Path
 
@@ -48,7 +48,7 @@ def add_time_features(df: pd.DataFrame, col: str = contract.INDEX) -> pd.DataFra
     d = df[col].dt
     df["ano"] = d.year
     df["mes"] = d.month
-    df["doy"] = d.dayofyear
+    df["doy"] = d.day_of_year
     df.loc[df["doy"] == 366, "doy"] = 365
     df["hora"] = d.hour
     df["hora_ano"] = (df["doy"] - 1) * 24 + df["hora"]
@@ -63,38 +63,6 @@ def load_pool(data_dir: Path = paths.PROCESSED) -> pd.DataFrame:
         df["inversor"] = p.stem
         parts.append(df)
     return pd.concat(parts, ignore_index=True)
-
-
-def add_lag1(df: pd.DataFrame) -> pd.DataFrame:
-    """PCA da hora anterior como LAG DE TEMPO REAL, por estacao.
-
-    A grade de 24 h e' reconstruida e as posicoes noturnas valem 0,0 — e' o valor
-    verdadeiro (de noite o inversor entrega 0), nao imputacao. Assim as 06:00 o
-    PCA_lag1 e' 0,0 (nunca a tarde de ontem), e nao ha NaN nem linha dropada.
-    """
-    df = df.sort_values(["inversor", contract.INDEX]).copy()
-    for _, g in df.groupby("inversor"):
-        grid = pd.date_range(g[contract.INDEX].min().floor("D"),
-                             g[contract.INDEX].max(), freq="h")
-        series = g.set_index(contract.INDEX)[contract.TARGET].reindex(grid).fillna(0.0)
-        df.loc[g.index, contract.LAG] = series.shift(1).reindex(g[contract.INDEX]).to_numpy()
-    return df
-
-
-def split_dataset(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """O split manual: estacao do treino, corte por ano, colunas do contrato, sem embaralhar."""
-    base = (df[df.inversor == contract.TRAIN_inversor][list(contract.SPLIT_COLUMNS)]
-            .sort_values(contract.INDEX).reset_index(drop=True))
-    year = base[contract.INDEX].dt.year
-    cuts = {}
-    for name, (year_from, year_to) in contract.SPLIT_CUTS.items():
-        mask = pd.Series(True, index=base.index)
-        if year_from is not None:
-            mask &= year >= year_from
-        if year_to is not None:
-            mask &= year <= year_to
-        cuts[name] = base[mask].reset_index(drop=True)
-    return cuts
 
 
 def save_splits(cuts: dict[str, pd.DataFrame], df: pd.DataFrame,
@@ -139,14 +107,67 @@ def z_score(df: pd.DataFrame, mean, std, features=contract.RF_FEATURES) -> pd.Da
     return (df[list(features)] - mean) / std
 
 
-def check_physical_scale(name: str, df: pd.DataFrame) -> None:
-    """Confere que o CSV esta em GRANDEZA FISICA (ver contract.LIMITS).
+def fit_min_max(train: pd.DataFrame, features=contract.RF_FEATURES):
+    """Minimo e maximo SO do treino (mesma regra do z-score: sem vazamento).
 
-    Este assert e' o que pega o retorno acidental do z-score para dentro dos CSV: se
-    ele disparar, o firmware normalizaria duas vezes e a previsao colapsaria.
+    Se a coluna for constante, o maximo vira `minimo + 1` para a escala nao dividir
+    por zero.
     """
-    for c, (low, high) in contract.LIMITS.items():
+    low = train[list(features)].min()
+    high = train[list(features)].max()
+    return low, high.where(high > low, low + 1.0)
+
+
+def min_max_scale(df: pd.DataFrame, low, high,
+                  features=contract.RF_FEATURES) -> pd.DataFrame:
+    """(x - minimo) / (maximo - minimo), com min/max ajustados no treino."""
+    return (df[list(features)] - low) / (high - low)
+
+
+def dataset_limits(df: pd.DataFrame | None = None,
+                   features=contract.RF_FEATURES, margin: float = 0.10) -> dict:
+    """Faixa observada de cada feature, com folga relativa, no dataset.
+
+    Sem `df`, usa o pool de `data/processed`. E' a fonte dos limites de sanidade:
+    mudou o dataset, os limites acompanham.
+    """
+    if df is None:
+        df = load_pool()
+    limites = {}
+    for c in features:
+        low, high = float(df[c].min()), float(df[c].max())
+        folga = (high - low) * margin if high > low else 1.0
+        limites[c] = (low - folga, high + folga)
+    return limites
+
+
+def target_limits(df: pd.DataFrame | None = None,
+                  margin: float = 0.05) -> tuple[float, float]:
+    """Faixa do alvo observada no dataset, com folga relativa.
+
+    Sem `df`, usa o split de **treino** (nunca validacao/teste: o clip nao pode
+    espiar o futuro). O clip do alvo acompanha o dataset.
+    """
+    if df is None:
+        df = load_split("train")
+    low, high = float(df[contract.TARGET].min()), float(df[contract.TARGET].max())
+    folga = (high - low) * margin if high > low else 1.0
+    return low - folga, high + folga
+
+
+def check_physical_scale(name: str, df: pd.DataFrame,
+                         limites: dict | None = None) -> None:
+    """Confere que o CSV esta em GRANDEZA FISICA.
+
+    Os limites saem do dataset de `data/processed` (`dataset_limits`), com 10% de
+    folga; nao sao numeros fixos no contrato. Este assert e' o que pega o retorno
+    acidental do z-score para dentro dos CSV.
+    """
+    limites = dataset_limits() if limites is None else limites
+    faltando = [c for c in limites if c not in df.columns]
+    assert not faltando, f"{name}.csv: faltam colunas {faltando}"
+    for c, (low, high) in limites.items():
         lowest, highest = float(df[c].min()), float(df[c].max())
         assert low <= lowest and highest <= high, (
-            f"{name}.csv: {c} fora de [{low}, {high}] (min {lowest:.2f}, max {highest:.2f})"
-            " - o csv nao esta em grandeza fisica")
+            f"{name}.csv: {c} fora de [{low:.4f}, {high:.4f}] "
+            f"(min {lowest:.4f}, max {highest:.4f}) - o csv nao esta em grandeza fisica")

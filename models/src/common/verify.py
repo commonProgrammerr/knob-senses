@@ -89,7 +89,7 @@ def compare(from_c, pred_sklearn, y, tolerance: float = TOLERANCE,
     """
     diff = np.abs(np.asarray(from_c) - np.asarray(pred_sklearn))
     swaps = int((diff > tolerance).sum())
-    assert diff.mean() < 1e-5, (
+    assert diff.mean() < 1e-12, (
         f"diferenca media {diff.mean():.2e} kW - grande demais para ser float32")
     assert swaps <= max_swaps * len(from_c), (
         f"{swaps} de {len(from_c)} linhas trocaram de folha - esperado um punhado, nao isso")
