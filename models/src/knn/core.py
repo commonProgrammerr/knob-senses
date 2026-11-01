@@ -28,7 +28,7 @@ import pandas as pd
 from sklearn.metrics import r2_score
 from sklearn.neighbors import KNeighborsRegressor
 
-from common import contract, paths
+from common import contract, data, paths
 from common.templates import fill_template
 
 # Defaults da lib entregue; o notebook recalcula pela regra de escolha (escolhe_config).
@@ -206,7 +206,7 @@ KNN_HEADER_TEMPLATE = '''/*
  *
  *     #include <knob_senses_knn.h>
  *
- *     const float bruto[KNOB_KNN_N_FEATURES] = { 480.0f, 310.5f, 26.1f };
+ *     const float bruto[KNOB_KNN_N_FEATURES] = { 26.1f, 480.0f, 38.7f };
  *     const float kw = knn_pca_prever(bruto);
  *
  * ORDEM DAS GRANDEZAS BRUTAS:
@@ -364,7 +364,7 @@ execucao do notebook os sobrescreve.
 ```cpp
 #include <knob_senses_knn.h>
 
-const float bruto[KNOB_KNN_N_FEATURES] = { 480.0f, 310.5f, 26.1f };
+const float bruto[KNOB_KNN_N_FEATURES] = { 26.1f, 480.0f, 38.7f };
 
 const float kw = knn_pca_prever(bruto);
 ```
@@ -450,11 +450,12 @@ def generate_c_lib(X_treino, y_treino, media, desvio, mae, r2, k: int = K,
 
     n_features = len(contract.RF_FEATURES)
     n_itens = len(idx)
+    pca_min, pca_max = data.target_limits()
     valores = dict(
         N_FEATURES=n_features,
         ORDER_C="\n".join(f" *   bruto[{i}] = {c}" for i, c in enumerate(contract.RF_FEATURES)),
         ORDER_LIST=", ".join(contract.RF_FEATURES),
-        PCA_MIN=contract.PCA_MIN, PCA_MAX=contract.PCA_MAX,
+        PCA_MIN=pca_min, PCA_MAX=pca_max,
         N_ITEMS=n_itens, K=k,
         Z_CLAMP=f"{Z_CLAMP:.1f}", Z_SCALE=f"{Z_SCALE:.1f}", Y_SCALE=f"{Y_SCALE:.1f}",
         MAE=f"{mae:.4f}", R2=f"{r2:.4f}",
