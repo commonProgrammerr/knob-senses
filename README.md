@@ -39,19 +39,20 @@ data/raw/{estacao}_{ano}.csv         5 min, só diurno (filtro angzen <= 80 na o
         ▼
 data/processed/{estacao}.csv         1 h, 2021–2024, + coluna `sintetico`
         │
-        │  utils/dataset_split.ipynb             split manual + PCA_lag1
+        │  utils/dataset_split.ipynb             split por estação/ano
         ▼
-data/splited/train.csv               8 311 linhas  (ifpee1, anos < 2023)
-data/splited/validation.csv          4 165 linhas  (ifpee1, 2023)
-data/splited/test.csv                4 177 linhas  (ifpee1, 2024)
-data/splited/test/{estacao}.csv      cópia por estação (SÉRIE COMPLETA, todos os anos)
+data/splited/train.csv               1 820 linhas  (ifpee1, por estação do ano)
+data/splited/validation.csv            980 linhas  (ifpee1, por estação do ano)
+data/splited/test.csv                  354 linhas  (ifpee1, último ano)
+data/splited/test/{inversor}.csv     cópia do último ano por inversor
         │
-        │  model/ (lib Python do modelo: contrato, split, treino,
+        │  models/src/ (common, rf, knn, mlp: contrato, dados, treino,
         │          geração e verificação da lib C, servidor de teste)
         │
         ├─ utils/treino_random_forest.ipynb ──► lib/knob-senses-rf/   (regenera a lib C)
+        ├─ utils/treino_knn.ipynb           ──► lib/knob-senses-knn/  (regenera a lib C)
         └─ utils/treino_regressao.ipynb     ──► Edge Impulse Studio ──► lib/knob-senses/
-                                                (DEFASADO — ver a nota no próprio notebook)
+                                                (execução pendente — precisa de TensorFlow)
         │
         ▼
 src/main.cpp (ESP32-S3)  ◄── WiFi :3333 ──  utils/model_teste.ipynb (servidor de teste)
@@ -61,10 +62,9 @@ src/main.cpp (ESP32-S3)  ◄── WiFi :3333 ──  utils/model_teste.ipynb (s
 
 | venv | Python | tem | para quê |
 |---|---|---|---|
-| `.venv` | 3.14 | pandas, statsmodels, scikit-learn, lightgbm | prep, split, análise |
-| `.venv-tf` | 3.13 | TensorFlow/Keras, nbconvert | notebook de treino do MLP |
+| `.venv` | 3.13 | pandas, statsmodels, scikit-learn, emlearn, TensorFlow/Keras, nbconvert | prep, split, análise e treino |
 
-Kernels Jupyter nomeados: **`knob-senses`** (`.venv`) e **`knob-senses-tf`** (`.venv-tf`). O
+Kernel Jupyter nomeado: **`knob-senses`** (`.venv`). O
 `python` do PATH é o embutido do ESP-IDF — não use para os notebooks. Os notebooks declaram o
 kernelspec `python3`, cujo `argv[0]` é `"python"` sem caminho absoluto (resolve pelo PATH e cai no
 Python do ESP-IDF) — para executá-los de linha de comando, passe o kernel explícito:
@@ -74,33 +74,34 @@ Python do ESP-IDF) — para executá-los de linha de comando, passe o kernel exp
   --ExecutePreprocessor.kernel_name=knob-senses utils/dataset_split.ipynb
 ```
 
-> ⚠️ **O `.venv-tf` não está no working tree** (conferido em 2026-10-11). O `nbconvert` foi
-> instalado no `.venv` para re-executar os notebooks do split e do RF.
+> O `.venv` concentra todas as dependências, inclusive TensorFlow/Keras; não há mais um
+> ambiente separado para o MLP.
 >
 > O kernelspec `python3` **de dentro do `.venv`** foi apontado para o interpretador absoluto
 > (`<raiz>/.venv/Scripts/python.exe`) em 2026-10-11 — antes ele era o `python` puro, que resolve
-> pelo PATH e cai no Python do ESP-IDF (sem `model` e sem pandas). Reinstalar o ipykernel
-> (`python -m ipykernel install`) reverte isso.
+> pelo PATH e cai no Python do ESP-IDF (sem os módulos do projeto e sem pandas). Reinstalar o
+> ipykernel (`python -m ipykernel install`) reverte isso.
 
-A lib `model/` (na raiz — layout plano, `module-root = ""` no `pyproject.toml`, porque o `src/`
-do projeto é do firmware C++) é instalada **editável** no `.venv`:
+Os módulos Python vivem em `models/src/{common,rf,knn,mlp}/` e são instalados **editáveis** no
+`.venv`:
 
 ```bash
 uv pip install -e . --python .venv/Scripts/python.exe
 ```
 
-Os **seis notebooks** trazem o mesmo install **na primeira célula**: se `model` não importar no
-kernel, ela roda
-`pip install -e "<raiz>[notebooks]"` sozinha — as dependências de gráfico e de prep
-(`matplotlib`, `statsmodels`, `scipy`, `nbconvert`) estão no extra `notebooks` do
-`pyproject.toml`. Numa máquina nova: clonar, abrir o notebook no kernel certo e rodar a primeira
-célula. Se `model` já importa, a célula não faz nada além de imprimir o caminho do pacote.
+O wheel (`uv build`) serve para conferir o empacotamento; o uso suportado é o editable,
+porque `common.paths` resolve os dados a partir da raiz do repo.
 
-> ⚠️ **Não use `uv sync`.** A `.python-version` do repo (3.12, criada pelo `uv init`) faria o uv
-> recriar o `.venv` — que é 3.14 e tem pandas/sklearn/emlearn/ipykernel — e derrubar tudo. O 3.12
-> provavelmente é intencional (não há wheel de TensorFlow para 3.14), então a `.python-version` fica
-> como está; o jeito certo de instalar é o `uv pip install -e .` acima. Se o `.venv-tf` voltar,
-> repetir o install nele.
+Os notebooks de modelagem que têm a célula de ambiente instalam o projeto **na primeira
+célula**: se `common` não importar no kernel, ela roda `pip install -e "<raiz>"` sozinha —
+todas as dependências (gráficos, prep, TensorFlow/Keras) estão no bloco `dependencies` do
+`pyproject.toml`. Numa máquina nova: clonar, abrir o notebook no kernel certo e rodar a
+primeira célula. Se `common` já importa, a célula não faz nada além de imprimir o caminho do
+pacote.
+
+> ⚠️ **Não use `uv sync`.** Ele recria o `.venv` e derruba as dependências instaladas. A
+> `.python-version` (3.13) já bate com o `.venv`; o jeito certo de instalar é o
+> `uv pip install -e .` acima.
 
 ---
 
@@ -120,16 +121,12 @@ célula. Se `model` já importa, a célula não faz nada além de imprimir o cam
   (linha preservada).
 - Saída: `data/processed/{estacao}.csv` (18 colunas, inclui `sin1`/`cos1` e `sintetico`).
 
-### `dataset_split.ipynb` — o split (manual) + defasagem
+### `dataset_split.ipynb` — o split
 
-- Corte por tempo, sem embaralhar: **train** = `ifpee1` anos < 2023 · **validation** = `ifpee1`
-  2023 · **test** = 2024 de todas as estações. `train.csv`/`validation.csv`/`test.csv` +
-  `test/{estacao}.csv` saem em `data/splited/`.
-- **`PCA_lag1`** = PCA da hora anterior, como **lag de tempo real**: a grade de 24 h é
-  reconstruída e as posições noturnas valem `0,0` (é o valor verdadeiro — de noite o inversor
-  entrega 0 — não imputação). Consequências: às 06:00 o `PCA_lag1` é `0,0`, nunca a tarde de
-  ontem; não há NaN nem linha dropada.
-- O lag é calculado **antes** do fatiamento, para cruzar a fronteira treino/validação.
+- **teste** = último ano de `ifpee1`; **treino/validação** = 65/35 aleatório por estação
+  do ano, sem o ano de teste. `train.csv`/`validation.csv`/`test.csv` + `test/{inversor}.csv`
+  saem em `data/splited/`.
+- Não há lag: o split escreve somente as features do contrato.
 
 ---
 
@@ -140,8 +137,8 @@ Cada modelo tem um **env do PlatformIO** (`platformio.ini`), e cada env compila 
 | | **Random Forest** | **MLP — Edge Impulse** | **k-NN — emlearn** |
 |---|---|---|---|
 | env | `pio run -e rf` | `-e mlp` | `-e knn` |
-| features | 4 · `temperatura_ambiente, ghit, jacques, sintetico` | janela **1 × 3** · `ghit + jacques + temperatura_ambiente` | as do contrato (`RF_FEATURES`) |
-| normalização | **dentro da lib** (z-score com as constantes de `normalizacao.json`) | dentro do impulso (standard scaler compilado em `model_variables.h`) | dentro da lib + quantização int16 (imposta pelo emlearn) |
+| features | 3 · `temperatura_ambiente, ghit, jacques` | janela **1 × 3** · `ghit + jacques + temperatura_ambiente` | as do contrato (`RF_FEATURES`) |
+| normalização | **dentro da lib** (z-score com as constantes de `normalizacao.json`) | **min-max** no notebook (constantes em `normalizacao.json`); o impulso v9 tem o próprio scaler | dentro da lib + quantização int16 (imposta pelo emlearn) |
 | custo (ESP32-S3) | **69,1 KB** de flash (70 715 B, xtensa `-O2`), 0 de RAM (árvores como código, `emlearn method='inline'`) | arena TFLite de 2 732 bytes | **11,2 KB** de flash e **7,9 KB** de RAM (k=3, 1 000 protótipos, medidos com o xtensa) |
 | métrica (split de teste) | MAE **0,1426 kW** · R² **0,7732** (30 árvores, folha mínima 50, 4 824 nós) | — | MAE **0,1476 kW** · R² **0,7669** |
 | ordem dos eixos | `KNOB_RF_ORDEM` em `lib/knob-senses-rf/src/knob_senses_rf.h` | `EI_CLASSIFIER_FUSION_AXES_STRING` | `KNOB_KNN_ORDEM` em `lib/knob-senses-knn/src/knob_senses_knn.h` |
@@ -152,7 +149,7 @@ Cada modelo tem um **env do PlatformIO** (`platformio.ini`), e cada env compila 
 > firmware, para o RF e o k-NN, entrega o que recebeu **sem reordenar**.
 
 O contrato — a ordem das features, a faixa física do alvo, os limites de sanidade e os cortes do
-split — vive **num lugar só**: `model/contract.py`. Os notebooks e o servidor de teste importam
+split — vive **num lugar só**: `models/src/common/contract.py`. Os notebooks e o servidor de teste importam
 de lá; os headers C e os `normalizacao.json` continuam sendo gerados pelos notebooks de cada
 modelo, mas a ordem que os alimenta vem do contrato.
 
@@ -167,8 +164,8 @@ modelo, mas a ordem que os alimenta vem do contrato.
 
 **A lib do RF é gerada, não escrita à mão:** `utils/treino_random_forest.ipynb` reescreve
 `lib/knob-senses-rf/src/` (árvores, constantes de normalização, `KNOB_RF_ORDEM`, métricas) via
-`model/rf.py`. O `data/modelo_rf/verifica.cpp` é o harness nativo que confere o C gerado contra
-o CSV de teste (e `model/rf_verify.py` é quem o compila e mede).
+`models/src/rf/core.py`. O `data/modelo_rf/verifica.cpp` é o harness nativo que confere o C gerado contra
+o CSV de teste (e `models/src/common/verify.py` é quem o compila e mede).
 
 ---
 
@@ -252,7 +249,7 @@ do modelo). Cada predição confirmada vira uma linha de `model_eval.csv`
 (`sample, real, pred, err`); `PCA == 0` é tratado como label inválido e essas linhas ficam
 fora do erro.
 
-O laço vive em `model/server.py` (`server.serve`). O `accept()` fica num laço externo
+O laço vive em `models/src/common/server.py` (`server.serve`). O `accept()` fica num laço externo
 (tolera reconexão) e o estado da sessão é o `seq`, não a conexão: conexão que morre no meio
 volta para o `accept()` e o cliente reconecta reenviando a mesma `seq`; predição repetida
 (ACK perdido no caminho) é ignorada sem relogar. Cada conexão tem timeout de 5 s — silêncio
@@ -372,7 +369,6 @@ nas primeiras `SLICES_PER_MODEL_WINDOW - 1` chamadas a janela ainda está enchen
 | `multiple definition of 'ei_printf'` | Duas camadas de portabilidade ativas | `-DEI_PORTING_ESPRESSIF=0` |
 | **Predição colapsa num valor fixo** | dado chegou em z-score e a lib normalizou de novo | mande **grandeza bruta** ao RF; nunca desnormalize no caminho |
 | Previsão variando com viés, sem erro nenhum | ordem de features trocada (falha silenciosa) | conferir `KNOB_RF_ORDEM` × `AXES` do servidor × `FEATURES` do notebook |
-| `PCA_lag1` da manhã "errado" | esperava-se o shift posicional (tarde anterior) | é lag de tempo real: às 06:00 vale `0,0` (noite) — por desenho |
 | Erro do modelo inflado no teste | `PCA == 0` entrou como label | `0` é sentinela de faltante (só existe em 2024) — exclua |
 | Saída do EI sem sentido | entrada fora da ordem/z-score esperados | §6 — conferir o Studio |
 
@@ -381,8 +377,10 @@ nas primeiras `SLICES_PER_MODEL_WINDOW - 1` chamadas a janela ainda está enchen
 ## 8. Mapa de arquivos
 
 ```
-├── model/                  lib Python do modelo: contrato, split, métricas,
-│                           treino do RF, geração/verificação da lib C, servidor
+├── models/src/common/      contrato, split, métricas, servidor, verificação e gráficos
+├── models/src/rf/          treino do Random Forest e geração da lib C
+├── models/src/knn/         k-NN (emlearn): quantização, emulador e lib C
+├── models/src/mlp/         MLP (Keras): treino e export para o Edge Impulse
 ├── src/
 │   ├── main.cpp            cliente WiFi + seleção do modelo (por include)
 │   ├── rf_model.cpp        wrapper do RF (pca_prever + impressão)
@@ -391,14 +389,17 @@ nas primeiras `SLICES_PER_MODEL_WINDOW - 1` chamadas a janela ainda está enchen
 │   ├── rf_model.h          kAxes/kPeriodMs do caminho RF
 │   └── mlp_model.h         constantes derivadas das macros do EI
 ├── lib/
-│   ├── knob-senses/        SDK Edge Impulse + modelo v8 (não editar)
-│   └── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
+│   ├── knob-senses/        SDK Edge Impulse + modelo v9 (não editar)
+│   ├── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
+│   └── knob-senses-knn/    k-NN gerado pelo notebook (não editar src/)
+├── models/tests/           checks de layout e do MLP
 ├── utils/
 │   ├── dataset_prep.ipynb  bruto -> tratado (por estação)
-│   ├── dataset_split.ipynb tratado -> train/validation/test + PCA_lag1
+│   ├── dataset_split.ipynb tratado -> train/validation/test
 │   ├── dataset_analysis.ipynb  EDA + eficiência (PCA/ghit por mês — o diagnóstico)
 │   ├── treino_random_forest.ipynb  treina e GERA a lib do RF
-│   ├── treino_regressao.ipynb      treino do MLP (exporta p/ Edge Impulse) — DEFASADO
+│   ├── treino_knn.ipynb            treina e GERA a lib do k-NN
+│   ├── treino_regressao.ipynb      treino do MLP (exporta p/ Edge Impulse) — execução pendente
 │   ├── model_teste.ipynb   servidor de teste (protocolo da §4) + model_eval.csv — a comparação estimado × medido
 │   └── model_eval.csv      log do servidor (untracked; criado quando ele roda)
 ├── data/
