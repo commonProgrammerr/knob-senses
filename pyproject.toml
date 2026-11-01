@@ -12,25 +12,20 @@ dependencies = [
     "pandas",
     "scikit-learn",
     "emlearn",
-]
-
-[project.optional-dependencies]
-# O que os notebooks precisam ALEM do que os modulos importam (graficos, prep, execucao).
-# Instalado pela primeira celula dos notebooks: pip install -e ".[notebooks]".
-notebooks = [
+    # emlearn 0.23.2 importa distutils, removido do Python >= 3.12; o setuptools
+    # instala o shim que mantem `import distutils` funcionando.
+    "setuptools",
+    # notebooks
     "matplotlib",
     "statsmodels",
     "scipy",
     "nbconvert",
     "ipython",
-    "ipykernel"
-]
-# O MLP (Keras) e' extra: o .venv de dados roda Python 3.14, sem wheel de TensorFlow.
-# Use num ambiente Python <= 3.13. O Keras >= 3.8 e' o minimo para
-# Model.export(input_signature=..., verbose=...).
-mlp = [
-    "tensorflow>=2.18",
-    "keras>=3.8",
+    "ipykernel",
+    # MLP (Keras). O Keras >= 3.8 e' o minimo para
+    # Model.export(input_signature=..., verbose=...).
+    "tensorflow",
+    "keras",
 ]
 
 [build-system]
