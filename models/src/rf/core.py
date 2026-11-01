@@ -14,7 +14,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 
-from common import contract, paths
+from common import contract, data, paths
 from common.templates import fill_template
 
 # Escolhidos na varredura (ver treino_random_forest.ipynb, secao 5): e' onde a curva
@@ -75,8 +75,7 @@ HEADER_TEMPLATE = '''/*
  *
  *     #include <knob_senses_rf.h>
  *
- *     const float bruto[KNOB_RF_N_FEATURES] = { 26.1f, 480.0f, 310.5f, 38.7f,
- *                                               sin1, cos1 };
+ *     const float bruto[KNOB_RF_N_FEATURES] = { 26.1f, 480.0f, 38.7f };
  *     const float kw = pca_prever(bruto);
  *
  * ORDEM DAS GRANDEZAS BRUTAS:
@@ -178,10 +177,7 @@ proxima execucao do notebook os sobrescreve.
 ```cpp
 #include <knob_senses_rf.h>
 
-const float bruto[KNOB_RF_N_FEATURES] = {
-    26.1f, 480.0f, 310.5f, 38.7f,   // temperatura, ghi_cs, ghit, jacques
-    sin1, cos1,                      // do ciclo anual, calculados no device
-};
+const float bruto[KNOB_RF_N_FEATURES] = { 26.1f, 480.0f, 38.7f };
 
 const float kw = pca_prever(bruto);
 ```
@@ -190,9 +186,8 @@ const float kw = pca_prever(bruto);
 
 A ordem de `bruto` e' **@@ORDER_LIST@@**.
 
-As 4 primeiras sao exatamente a ordem que o `utils/server.ipynb` transmite pela rede, entao o
-firmware entrega o que recebeu sem reordenar. `sin1`/`cos1` sao o 1o harmonico do ciclo anual
-e tambem chegam pela rede, ja calculados.
+Essa e' exatamente a ordem que o `utils/model_teste.ipynb` transmite pela rede, entao o
+firmware entrega o que recebeu sem reordenar.
 
 **Passe valores BRUTOS.** A normalizacao z-score acontece dentro da lib, com as constantes
 de `normalizacao.json` (que fica ao lado deste header).
@@ -237,7 +232,7 @@ features para `int16_t` e levar dois headers do emlearn para o firmware.
 MANIFEST_TEMPLATE = '''{
   "name": "knob-senses-rf",
   "version": "1.0.0",
-  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@. Recebe 6 grandezas brutas, normaliza em z-score internamente e devolve kW. 67.6 KB de flash e 0 de RAM no ESP32-S3.",
+  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@. Recebe @@N_FEATURES@@ grandezas brutas, normaliza em z-score internamente e devolve kW. 67.6 KB de flash e 0 de RAM no ESP32-S3.",
   "keywords": "random-forest, emlearn, tinyml, machine-learning, regression, arduino, esp32",
   "frameworks": "arduino",
   "platforms": "*",
@@ -267,6 +262,7 @@ def generate_c_lib(model, mean, std, mae, r2, dest_dir: Path = paths.LIB_RF,
     c_model.save(file=str(src_dir / "modelo_pca.h"), name="modelo_pca")
 
     n_nodes = count_nodes(model)
+    pca_min, pca_max = data.target_limits()
     values = dict(
         N_FEATURES=len(contract.RF_FEATURES), N_TREES=model.n_estimators, MIN_LEAF=MIN_LEAF,
         N_NODES=n_nodes, MAE=f"{mae:.4f}", R2=f"{r2:.4f}",
@@ -274,7 +270,7 @@ def generate_c_lib(model, mean, std, mae, r2, dest_dir: Path = paths.LIB_RF,
         ORDER_LIST=", ".join(contract.RF_FEATURES),
         MEAN_C=",\n".join(f"    {mean[c]:.6f}f" for c in contract.RF_FEATURES),
         STD_C=",\n".join(f"    {std[c]:.6f}f" for c in contract.RF_FEATURES),
-        PCA_MIN=contract.PCA_MIN, PCA_MAX=contract.PCA_MAX,
+        PCA_MIN=pca_min, PCA_MAX=pca_max,
     )
 
     # As constantes tambem em JSON, para nao precisarem ser transcritas a mao por quem for
