@@ -12,17 +12,15 @@
 /* Media e desvio SO do split de treino (nunca validacao nem teste): as mesmas
  * constantes que o quantiza_z() do notebook usou para gerar os dados. */
 static const float KNN_MEDIA[KNOB_KNN_N_FEATURES] = {
-    26.887260f,
-    470.118520f,
-    39.087056f,
-    0.033089f
+    27.570407f,
+    527.957091f,
+    41.595660f
 };
 
 static const float KNN_DESVIO[KNOB_KNN_N_FEATURES] = {
-    4.082861f,
-    288.184946f,
-    11.100748f,
-    0.178868f
+    2.699611f,
+    138.248652f,
+    6.110815f
 };
 
 /* Scratch da busca: 8 B por prototipo - E' o custo de RAM desta lib (o
