@@ -46,19 +46,70 @@ def enfeitar(ax, titulo, xlabel, ylabel) -> None:
     ax.tick_params(colors=MUDO, labelsize=9)
 
 
-def plot_time_series(dataset: pd.DataFrame, janela: int = 7):
-    """Serie diária de PCA por inversor, um painel por par de anos.
+_ROTULOS_FREQ = {
+    "H": "horário", "D": "diário", "W": "semanal",
+    "MS": "mensal", "ME": "mensal", "M": "mensal",
+    "YS": "anual", "YE": "anual", "Y": "anual",
+}
 
-    `dataset` precisa de `datetime`, `inversor` e `PCA`; PCA == 0 é descartado.
+
+_SUB_DIARIO = frozenset({"H", "T", "MIN", "S", "L", "U", "N"})
+
+
+def _formata_duracao(delta: pd.Timedelta) -> str:
+    """Duracao legivel: 2 dias, 12 h, 30 min."""
+    seg = float(delta.total_seconds())
+    if seg <= 0:
+        return "0 min"
+    for unidade, singular, plural in ((86400, "dia", "dias"),
+                                      (3600, "h", "h"),
+                                      (60, "min", "min")):
+        if seg >= unidade:
+            valor = seg / unidade
+            texto = f"{valor:.1f}".rstrip("0").rstrip(".")
+            nome = singular if float(texto) == 1 else plural
+            return f"{texto} {nome}"
+    return f"{seg:.0f} s"
+
+
+def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
+                     freq: str = "D", time_col: str = "datetime",
+                     grupo_col: str | None = None, alvo: str = "PCA",
+                     unidade: str = "kW", drop_zero: bool = True,
+                     sharey: bool = True, ignorar_noite: bool = True,
+                     hora_dia: tuple[int, int] = (6, 18)):
+    """Série de PCA por grupo, agregada na granularidade pedida.
+
+    `freq` é um alias do pandas: "h" (horário), "D" (diário), "W" (semanal),
+    "MS" (mensal), "YS" (anual), etc. `janela` é o número de pontos da média
+    móvel (ou um Timedelta, ex. "7D"). Um painel por par de anos.
+
+    Em frequências sub-diárias, `ignorar_noite=True` (default) remove de
+    `hora_dia` as horas que não são de leitura; a série é solar. O título do
+    painel mostra quantos períodos faltam e a duração total (ex.: "3 períodos
+    sem leitura (12 h)"). A função devolve a figura (não chama plt.show()).
     """
-    d = dataset[dataset.PCA != 0].copy()
-    d["ano"] = d["datetime"].dt.year
-    d["dia"] = d["datetime"].dt.normalize()
-    anos, estacoes = sorted(d["ano"].unique()), sorted(d["inversor"].unique())
-    cores = dict(zip(estacoes, plt.cm.tab10(np.linspace(0, 1, len(estacoes)))))
+    if time_col not in dataset.columns:
+        raise ValueError(f"coluna de tempo {time_col!r} ausente")
+    if alvo not in dataset.columns:
+        raise ValueError(f"coluna alvo {alvo!r} ausente")
+    if grupo_col is None:
+        grupo_col = next((c for c in ("inversor", "station")
+                          if c in dataset.columns), None)
+        if grupo_col is None:
+            raise ValueError("informe grupo_col: nao achei 'inversor' nem 'station'")
 
-    # pares montados DE TRAS PARA FRENTE: com contagem impar, o ano mais antigo
-    # fica sozinho e o ULTIMO ano sempre tem um par.
+    d = dataset.copy()
+    d[time_col] = pd.to_datetime(d[time_col])
+    if drop_zero:
+        d = d[d[alvo] != 0]
+    d["ano"] = d[time_col].dt.year
+    anos, grupos = sorted(d["ano"].unique()), sorted(d[grupo_col].unique())
+    if not anos or not grupos:
+        raise ValueError("dataset sem anos ou grupos para plotar")
+    cores = dict(zip(grupos, plt.cm.tab10(np.linspace(0, 1, len(grupos)))))
+
+    # pares DE TRAS PARA FRENTE: com contagem impar, o ano mais antigo fica sozinho.
     pares, i = [], len(anos)
     while i > 0:
         pares.append(anos[max(i - 2, 0):i])
@@ -66,45 +117,58 @@ def plot_time_series(dataset: pd.DataFrame, janela: int = 7):
     pares.reverse()
 
     fig, axs = plt.subplots(len(pares), 1, figsize=(14, 4 * len(pares)),
-                            squeeze=False, sharey=True)
+                            squeeze=False, sharey=sharey)
+    base = freq.upper().lstrip("0123456789").split("-")[0]
+    rotulo_freq = _ROTULOS_FREQ.get(base, freq)
 
     for ax, par in zip(axs.ravel(), pares):
-        falhas = 0
-        for est in estacoes:
-            d_est = d[(d["inversor"] == est) &
-                      (d["ano"] >= par[0]) & (d["ano"] <= par[-1])]
-            if d_est.empty:
+        falhas, duracao = 0, pd.Timedelta(0)
+        for grupo in grupos:
+            d_g = d[(d[grupo_col] == grupo) &
+                    (d["ano"] >= par[0]) & (d["ano"] <= par[-1])]
+            if d_g.empty:
                 continue
 
-            serie = d_est.groupby("dia")["PCA"].mean().sort_index()
-            cor = cores[est]
+            serie = d_g.set_index(time_col)[alvo].resample(freq).mean().dropna()
+            if serie.empty:
+                continue
+            cor = cores[grupo]
+            passo = serie.index.to_series().diff().median()
+            if pd.isna(passo) or passo <= pd.Timedelta(0):
+                passo = pd.Timedelta(days=1)
+            meio = passo / 2
 
-            ax.plot(serie.index, serie.values, color=cor, lw=0.6, alpha=0.25,
+            ax.plot(serie.index, serie.values, color=cor, lw=0.6, alpha=0.22,
                     marker=".", ms=2)
-            rotulo = f"{est} {par[0]}" if len(par) == 1 else f"{est} {par[0]}-{par[-1]}"
+            rotulo = f"{grupo} {par[0]}" if len(par) == 1 else f"{grupo} {par[0]}-{par[-1]}"
             ax.plot(serie.rolling(janela, center=True, min_periods=1).mean(),
                     color=cor, lw=1.8,
-                    label=f"{rotulo} ({serie.mean():.2f} kW)")
+                    label=f"{rotulo} ({serie.mean():.2f} {unidade})")
 
-            esperado = pd.date_range(serie.index.min(), serie.index.max(), freq="D")
+            esperado = pd.date_range(serie.index.min(), serie.index.max(), freq=freq)
+            if ignorar_noite and base in _SUB_DIARIO:
+                inicio, fim = hora_dia
+                esperado = esperado[(esperado.hour >= inicio) & (esperado.hour < fim)]
             faltando = esperado.difference(serie.index)
             if len(faltando):
-                blocos = faltando.to_series().diff().ne(pd.Timedelta(days=1)).cumsum()
+                blocos = faltando.to_series().diff().ne(passo).cumsum()
                 for _, bloco in faltando.to_series().groupby(blocos):
-                    ax.axvspan(bloco.iloc[0] - pd.Timedelta(hours=12),
-                               bloco.iloc[-1] + pd.Timedelta(hours=12),
+                    ax.axvspan(bloco.iloc[0] - meio, bloco.iloc[-1] + meio,
                                facecolor=cor, alpha=0.10, zorder=0)
                 falhas += len(faltando)
+                duracao += passo * len(faltando)
 
         titulo = str(par[0]) if len(par) == 1 else f"{par[0]} - {par[-1]}"
         if falhas:
-            titulo += f"  -  {falhas} dias sem leitura"
-        enfeitar(ax, titulo, "data", "PCA médio diário (kW)")
+            nome = "período" if falhas == 1 else "períodos"
+            titulo += (f"  -  {falhas} {nome} sem leitura "
+                       f"({_formata_duracao(duracao)})")
+        enfeitar(ax, titulo, "data", f"PCA médio {rotulo_freq} ({unidade})")
         ax.legend(frameon=False, loc="upper left", fontsize=9,
                   labelcolor=TINTA, ncol=3)
 
     fig.subplots_adjust(top=0.94, bottom=0.05, left=0.06, right=0.98, hspace=0.18)
-    
+    return fig
 
 
 def plot_importancia(serie: pd.Series, titulo: str = "importancia das features",
