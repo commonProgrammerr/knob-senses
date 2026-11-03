@@ -33,7 +33,7 @@ de `normalizacao.json` (que fica ao lado deste header).
 
 ## O que devolve
 
-Potencia CA em kW, ja ceifada em `[28.663500000000003, 177.9665]`. O teto e' fisico: o inversor
+Potencia CA em kW, ja ceifada em `[-1.1475000000000002, 24.097500000000004]`. O teto e' fisico: o inversor
 satura perto de 2 kW. O piso tambem: o dataset de treino e' so diurno e nao contem zero,
 entao **a noite a floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago,
 nao conserta.
@@ -42,11 +42,11 @@ nao conserta.
 
 | | |
 |---|---|
-| arvores | 100 |
+| arvores | 20 |
 | folha minima | 50 |
-| nos | 96852 |
-| MAE no teste | 3.2249 kW |
-| R2 no teste | 0.9712 |
+| nos | 1952 |
+| MAE no teste | 1.0543 kW |
+| R2 no teste | 0.9462 |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
 entao os numeros sao pessimistas na medida certa.
