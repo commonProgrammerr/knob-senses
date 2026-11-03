@@ -36,4 +36,4 @@ LIB_KNN_SRC = LIB_KNN / "src"
 
 EVAL_LOG = ROOT / "utils" / "model_eval.csv"    # o log do servidor de teste
 
-EXPORT_MLP = DATA / "modelo_exportado"          # SavedModel/zip/tflite do MLP
+EXPORT_MLP = ROOT / "dist"          # SavedModel/zip/tflite do MLP
