@@ -1,0 +1,38 @@
+[project]
+name = "knob-sense-models"
+version = "0.1.0"
+description = "Contrato, dados, metricas e os modelos (RF, k-NN e MLP) do knob-senses."
+readme = "README.md"
+authors = [
+    { name = "André Escorel", email = "gustavo.escorel@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "emlearn",
+    # emlearn 0.23.2 importa distutils, removido do Python >= 3.12; o setuptools
+    # instala o shim que mantem `import distutils` funcionando.
+    "setuptools",
+    # notebooks
+    "matplotlib",
+    "statsmodels",
+    "scipy",
+    "nbconvert",
+    "ipython",
+    "ipykernel",
+    # MLP (Keras). O Keras >= 3.8 e' o minimo para
+    # Model.export(input_signature=..., verbose=...).
+    "tensorflow",
+    "keras",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Uma distribuicao, quatro modulos top-level. O uv_build nao suporta mais de um modulo
+# (ele exige src/<nome_do_projeto>/__init__.py), por isso o backend e' hatchling.
+packages = ["models/src/common", "models/src/rf", "models/src/knn", "models/src/mlp"]

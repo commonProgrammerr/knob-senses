@@ -4,20 +4,17 @@
   "features": [
     "temperatura_ambiente",
     "ghit",
-    "jacques",
-    "sintetico"
+    "jacques"
   ],
   "media": {
-    "temperatura_ambiente": 26.887260238855312,
-    "ghit": 470.11852001885364,
-    "jacques": 39.08705571730334,
-    "sintetico": 0.0330886776561184
+    "temperatura_ambiente": 27.188095725664386,
+    "ghit": 5425.785749333653,
+    "jacques": 39.76984677611645
   },
   "desvio": {
-    "temperatura_ambiente": 4.08286080810542,
-    "ghit": 288.18494645161996,
-    "jacques": 11.100748106811086,
-    "sintetico": 0.17886815554225377
+    "temperatura_ambiente": 4.114028828534476,
+    "ghit": 3427.1320352007974,
+    "jacques": 11.135280454877536
   },
   "formula_normalizar": "z = (bruto - media) / desvio",
   "formula_desnormalizar": "bruto = z * desvio + media",
