@@ -7,14 +7,14 @@
     "jacques"
   ],
   "media": {
-    "temperatura_ambiente": 27.570407490536986,
-    "ghit": 527.9570907696557,
-    "jacques": 41.59566005726191
+    "temperatura_ambiente": 27.188095725664386,
+    "ghit": 5425.785749333653,
+    "jacques": 39.76984677611645
   },
   "desvio": {
-    "temperatura_ambiente": 2.6996111201059607,
-    "ghit": 138.248652092821,
-    "jacques": 6.110815485193248
+    "temperatura_ambiente": 4.114028828534476,
+    "ghit": 3427.1320352007974,
+    "jacques": 11.135280454877536
   },
   "formula_normalizar": "z = (bruto - media) / desvio",
   "formula_desnormalizar": "bruto = z * desvio + media",

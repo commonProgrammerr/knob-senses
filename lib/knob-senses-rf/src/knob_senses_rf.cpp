@@ -9,15 +9,15 @@
  * teste). Recalculados do bruto a cada execucao de utils/treino_random_forest.ipynb
  * e conferidos contra data/processed/*.csv - ver a secao 2 do notebook. */
 static const float PCA_MEDIA[KNOB_RF_N_FEATURES] = {
-    27.570407f,
-    527.957091f,
-    41.595660f
+    27.188096f,
+    5425.785749f,
+    39.769847f
 };
 
 static const float PCA_DESVIO[KNOB_RF_N_FEATURES] = {
-    2.699611f,
-    138.248652f,
-    6.110815f
+    4.114029f,
+    3427.132035f,
+    11.135280f
 };
 
 float pca_prever(const float bruto[KNOB_RF_N_FEATURES])

@@ -40,16 +40,16 @@
 
 /* Faixa fisica do alvo: o inversor satura em ~2 kW e o dataset nao tem zero (o
  * 0 era sentinela de faltante, removido na analise). A saida ja vem ceifada. */
-#define KNOB_RF_PCA_MIN 28.663500000000003f
-#define KNOB_RF_PCA_MAX 177.9665f
+#define KNOB_RF_PCA_MIN -1.1475000000000002f
+#define KNOB_RF_PCA_MAX 24.097500000000004f
 
 /* ------------------------------------------------------------ procedencia */
 
-#define KNOB_RF_N_ARVORES    100
+#define KNOB_RF_N_ARVORES    20
 #define KNOB_RF_FOLHA_MIN    50
-#define KNOB_RF_N_NOS        96852
-#define KNOB_RF_MAE_TESTE    3.2249f   /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE     0.9712f
+#define KNOB_RF_N_NOS        1952
+#define KNOB_RF_MAE_TESTE    1.0543f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.9462f
 
 #ifdef __cplusplus
 extern "C" {
