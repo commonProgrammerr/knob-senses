@@ -56,20 +56,11 @@ _ROTULOS_FREQ = {
 _SUB_DIARIO = frozenset({"H", "T", "MIN", "S", "L", "U", "N"})
 
 
-def _formata_duracao(delta: pd.Timedelta) -> str:
-    """Duracao legivel: 2 dias, 12 h, 30 min."""
-    seg = float(delta.total_seconds())
-    if seg <= 0:
-        return "0 min"
-    for unidade, singular, plural in ((86400, "dia", "dias"),
-                                      (3600, "h", "h"),
-                                      (60, "min", "min")):
-        if seg >= unidade:
-            valor = seg / unidade
-            texto = f"{valor:.1f}".rstrip("0").rstrip(".")
-            nome = singular if float(texto) == 1 else plural
-            return f"{texto} {nome}"
-    return f"{seg:.0f} s"
+def _formata_horas(delta: pd.Timedelta) -> str:
+    """Duracao legivel, sempre em horas: 12 h, 480 h, 0.5 h."""
+    horas = float(delta.total_seconds()) / 3600
+    texto = f"{horas:.2f}".rstrip("0").rstrip(".")
+    return f"{texto} h"
 
 
 def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
@@ -77,7 +68,8 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
                      grupo_col: str | None = None, alvo: str = "PCA",
                      unidade: str = "kW", drop_zero: bool = True,
                      sharey: bool = True, ignorar_noite: bool = True,
-                     hora_dia: tuple[int, int] = (6, 18)):
+                     hora_dia: tuple[int, int] = (6, 18),
+                     mostrar: bool = True):
     """Série de PCA por grupo, agregada na granularidade pedida.
 
     `freq` é um alias do pandas: "h" (horário), "D" (diário), "W" (semanal),
@@ -87,7 +79,8 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
     Em frequências sub-diárias, `ignorar_noite=True` (default) remove de
     `hora_dia` as horas que não são de leitura; a série é solar. O título do
     painel mostra quantos períodos faltam e a duração total (ex.: "3 períodos
-    sem leitura (12 h)"). A função devolve a figura (não chama plt.show()).
+    sem leitura (12 h)", sempre em horas). Com `mostrar=True` (default) chama
+    `plt.show()` e devolve `None`; com `mostrar=False` devolve a `Figure`.
     """
     if time_col not in dataset.columns:
         raise ValueError(f"coluna de tempo {time_col!r} ausente")
@@ -162,12 +155,15 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
         if falhas:
             nome = "período" if falhas == 1 else "períodos"
             titulo += (f"  -  {falhas} {nome} sem leitura "
-                       f"({_formata_duracao(duracao)})")
+                       f"({_formata_horas(duracao)})")
         enfeitar(ax, titulo, "data", f"PCA médio {rotulo_freq} ({unidade})")
         ax.legend(frameon=False, loc="upper left", fontsize=9,
                   labelcolor=TINTA, ncol=3)
 
     fig.subplots_adjust(top=0.94, bottom=0.05, left=0.06, right=0.98, hspace=0.18)
+    if mostrar:
+        plt.show()
+        return None
     return fig
 
 

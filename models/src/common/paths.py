@@ -25,7 +25,7 @@ ROOT = _find_root(Path(__file__).resolve().parent)
 DATA = ROOT / "data"
 RAW = DATA / "raw"                              # CSVs brutos por estacao-ano
 PROCESSED = DATA / "processed"                  # saida do prep, 1 h por estacao
-SPLITS = DATA / "splited"                       # saida do split (o que os treinos leem)
+SPLITS = DATA / "splits"                       # saida do split (o que os treinos leem)
 SCRATCH = DATA / "modelo_rf"                    # conferidor + residuo de build (gitignored)
 
 LIB_RF = ROOT / "lib" / "knob-senses-rf"        # a entrega (gerada pelo notebook do RF)

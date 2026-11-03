@@ -67,7 +67,7 @@ def load_pool(data_dir: Path = paths.PROCESSED) -> pd.DataFrame:
 
 def save_splits(cuts: dict[str, pd.DataFrame], df: pd.DataFrame,
                 out_dir: Path = paths.SPLITS) -> dict[Path, int]:
-    """Escreve train/validation/test.csv e a copia por estacao (serie completa) em splited/."""
+    """Escreve train/validation/test.csv e a copia por estacao (serie completa) em splits/."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written = {}
@@ -87,7 +87,7 @@ def save_splits(cuts: dict[str, pd.DataFrame], df: pd.DataFrame,
 
 
 def load_split(name: str) -> pd.DataFrame:
-    """Le data/splited/{nome}.csv (o que os treinos e o servidor consomem)."""
+    """Le data/splits/{nome}.csv (o que os treinos e o servidor consomem)."""
     return read_csv(paths.SPLITS / f"{name}.csv")
 
 
@@ -128,11 +128,14 @@ def dataset_limits(df: pd.DataFrame | None = None,
                    features=contract.RF_FEATURES, margin: float = 0.10) -> dict:
     """Faixa observada de cada feature, com folga relativa, no dataset.
 
-    Sem `df`, usa o pool de `data/processed`. E' a fonte dos limites de sanidade:
+    Sem `df`, usa o pool de `data/processed`; se o pool ainda nao existe (prep
+    nao rodou), cai no split de treino. E' a fonte dos limites de sanidade:
     mudou o dataset, os limites acompanham.
     """
     if df is None:
-        df = load_pool()
+        pool = Path(paths.PROCESSED)
+        tem_pool = pool.exists() and any(pool.rglob("*.csv"))
+        df = load_pool() if tem_pool else load_split("train")
     limites = {}
     for c in features:
         low, high = float(df[c].min()), float(df[c].max())
@@ -159,9 +162,10 @@ def check_physical_scale(name: str, df: pd.DataFrame,
                          limites: dict | None = None) -> None:
     """Confere que o CSV esta em GRANDEZA FISICA.
 
-    Os limites saem do dataset de `data/processed` (`dataset_limits`), com 10% de
-    folga; nao sao numeros fixos no contrato. Este assert e' o que pega o retorno
-    acidental do z-score para dentro dos CSV.
+    Os limites saem do pool de `data/processed` (`dataset_limits`), com 10% de
+    folga; se o pool nao existe, saem do split de treino. Nao sao numeros fixos
+    no contrato. Este assert e' o que pega o retorno acidental do z-score para
+    dentro dos CSV.
     """
     limites = dataset_limits() if limites is None else limites
     faltando = [c for c in limites if c not in df.columns]
