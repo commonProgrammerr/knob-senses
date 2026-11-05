@@ -1,8 +1,8 @@
-"""O caminho do MLP (Keras): preparo dos dados e export.
+"""O caminho do MLP (Keras): export do modelo treinado.
 
-A definicao da rede e o treino vivem em `utils/treino_regressao.ipynb`; este modulo
-so' monta os arrays de treino/validacao/teste e exporta o modelo treinado. O
-TensorFlow e' importado DENTRO do export - `import mlp` nao exige TF.
+A definicao da rede, o preparo dos splits e o treino vivem em
+`utils/treino_mlp.ipynb`; este modulo so' exporta o modelo. O TensorFlow e'
+importado DENTRO do export - `import mlp` nao exige TF.
 """
 
 import json
@@ -31,32 +31,17 @@ def _tf():
     return tf, keras
 
 
-def prepara():
-    """Splits atuais em min-max -> arrays float32 e as constantes de normalizacao.
-
-    O min/max e' ajustado SO no treino; validacao e teste usam as mesmas constantes.
-    Devolve `(dados, minimo, maximo)`, onde `dados` tem as chaves
-    treino/validacao/teste, cada uma com X e y.
-    """
-    frames = {nome: data.load_split(nome) for nome in ("train", "validation", "test")}
-    minimo, maximo = data.fit_min_max(frames["train"], ENTRADAS)
-
-    dados = {}
-    for arquivo, chave in (("train", "treino"), ("validation", "validacao"),
-                           ("test", "teste")):
-        d = frames[arquivo]
-        dados[chave] = {
-            "X": data.min_max_scale(d, minimo, maximo, ENTRADAS).to_numpy(np.float32),
-            "y": d[contract.TARGET].to_numpy(np.float32),
-        }
-    return dados, minimo, maximo
-
-
-def export(modelo, dados, minimo, maximo, destino=paths.EXPORT_MLP):
+def export(modelo, amostras, minimo, maximo, destino=paths.EXPORT_MLP, offset: float = 0.0,
+           target_transform: dict | None = None):
     """Escreve SavedModel (batch 1), zip do Edge Impulse, .tflite, .npy e JSON.
 
-    Devolve `{caminho: tamanho em bytes}`. O `.npy` de quantizacao usa a VALIDACAO - o teste nao
-    entra aqui, senao a quantizacao veria o futuro.
+    `amostras` sao entradas representativas JA' NA ESCALA DO MODELO (ex.: X da
+    calibracao apos o min-max) para a quantizacao - o teste nao entra aqui, senao a
+    quantizacao veria o futuro.
+    `offset` e' o vies em kW medido na calibracao 2024H2, aplicado DEPOIS da
+    inversa. `target_transform` registra a transformacao do alvo (ex.: Box-Cox com
+    lambda/clip); se ela existir, a saida do modelo NAO esta em kW e o
+    pos-processamento precisa desfazer.
     """
     tf, _ = _tf()
     destino = Path(destino)
@@ -79,13 +64,12 @@ def export(modelo, dados, minimo, maximo, destino=paths.EXPORT_MLP):
     caminho_tflite = destino / "modelo.tflite"
     caminho_tflite.write_bytes(conversor.convert())
 
-    amostra = dados["validacao"]["X"][:2000].reshape(-1, 1, len(ENTRADAS))
+    amostra = np.asarray(amostras, dtype=np.float32)[:2000].reshape(-1, 1, len(ENTRADAS))
     caminho_npy = destino / "dados_representativos.npy"
-    np.save(caminho_npy, amostra.astype(np.float32))
+    np.save(caminho_npy, amostra)
 
-    pca_min, pca_max = data.target_limits()
-    caminho_json = destino / "normalizacao.json"
-    caminho_json.write_text(json.dumps({
+    pca_min, pca_max = data.physical_target_limits()
+    payload = {
         "modelo": "knob-senses-mlp",
         "gerado_por": "models/src/mlp",
         "janela_horas": 1,
@@ -95,7 +79,9 @@ def export(modelo, dados, minimo, maximo, destino=paths.EXPORT_MLP):
         "minimo": {c: float(minimo[c]) for c in ENTRADAS},
         "maximo": {c: float(maximo[c]) for c in ENTRADAS},
         "formula": "x_normalizado = (x_bruto - minimo) / (maximo - minimo)",
-        "fonte": "models/src/mlp (ajustado somente no split de treino)",
+        "fonte": "models/src/mlp (treino 2021..2024H1)",
+        "calibracao_offset_kw": float(offset),
+        "calibracao_ajustada_em": "2024H2 (nunca no teste)",
         "alvo": {
             "nome": contract.TARGET,
             "unidade": "kW CA",
@@ -104,7 +90,16 @@ def export(modelo, dados, minimo, maximo, destino=paths.EXPORT_MLP):
             "max": pca_max,
             "observacao": "a saida do modelo ja esta em kW; nao ha transformacao inversa",
         },
-    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    }
+    if target_transform is not None:
+        payload["transformacao_alvo"] = target_transform
+        payload["alvo"]["observacao"] = (
+            "a saida do modelo esta no espaco transformado; aplique "
+            "transformacao_alvo (clip_boxcox, inv_boxcox, offset_kw e clip fisico) "
+            "para obter kW")
+    caminho_json = destino / "normalizacao.json"
+    caminho_json.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     return {p: p.stat().st_size for p in
             (caminho_zip, caminho_tflite, caminho_npy, caminho_json)}
