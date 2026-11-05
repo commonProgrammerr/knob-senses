@@ -450,7 +450,7 @@ def generate_c_lib(X_treino, y_treino, media, desvio, mae, r2, k: int = K,
 
     n_features = len(contract.RF_FEATURES)
     n_itens = len(idx)
-    pca_min, pca_max = data.target_limits()
+    pca_min, pca_max = data.physical_target_limits()
     valores = dict(
         N_FEATURES=n_features,
         ORDER_C="\n".join(f" *   bruto[{i}] = {c}" for i, c in enumerate(contract.RF_FEATURES)),
