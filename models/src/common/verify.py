@@ -31,8 +31,8 @@ def write_checker(dest: Path = paths.SCRATCH / "verifica.cpp", *,
                   n_features: int = len(contract.RF_FEATURES)) -> Path:
     """O main em C++ que le' valores BRUTOS da entrada padrao e imprime func(x).
 
-    Os parametros nomeados existem para o k-NN reusar este conferidor; os defaults sao
-    o caminho do RF - o notebook do RF chama sem argumento e nao muda.
+    Os parametros nomeados permitem apontar outro header/impl; os defaults sao o
+    caminho do RF - o notebook do RF chama sem argumento e nao muda.
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)

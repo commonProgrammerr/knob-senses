@@ -8,7 +8,7 @@ Mapa dos modulos (importe o que precisar; este __init__ nao importa nada, para
     data       leitura/resumo dos CSVs, normalizacao, downsample e limites
     metrics    evaluate() — MAE/RMSE/R2/vies, com clip
     templates  fill_template() — marcadores @@TOKEN@@ dos templates C
-    verify     conferidor nativo (g++/xtensa) contra o sklearn (RF e k-NN)
+    verify     conferidor nativo (g++/xtensa) contra o sklearn (RF)
     server     o protocolo do servidor de teste (model_teste.ipynb)
     plots      paleta, enfeitar e funcoes de grafico dos notebooks
 """

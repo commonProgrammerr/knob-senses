@@ -3,7 +3,7 @@
 Levantadas em 2026-11-03 para a definição dos hiperparâmetros do MLP por
 granularidade (1 d, 1 h e 5 min). Ampliadas em 2026-11-05 para cobrir o restante
 do pipeline: preparação e qualidade dos dados, split temporal, calibração de
-viés, transformação Box-Cox do alvo, comparação RF × MLP × k-NN, engenharia de
+viés, transformação Box-Cox do alvo, comparação RF × MLP, engenharia de
 features, TinyML e métricas de regressão.
 
 As referências [11]–[46] foram levantadas via Consensus; [16] e [26] são os
@@ -429,7 +429,7 @@ on Computational Methods in Applied Sciences and Engineering (ECCOMAS)*, 2022.
 ### [47] emlearn
 
 emlearn. **Embedded Machine Learning for microcontrollers.** Documentação
-oficial (geração da lib C do Random Forest e do k-NN).
+oficial (geração da lib C do Random Forest).
 
 - **Link:** [https://emlearn.readthedocs.io/](https://emlearn.readthedocs.io/)
 - **DOI:** não se aplica (documentação).
@@ -479,7 +479,6 @@ scikit-learn. **sklearn.ensemble.RandomForestRegressor.** Documentação oficial
 | tuning do Random Forest (árvores/folha) | [29] Probst et al.; [50] scikit-learn |
 | previsão de potência PV com irradiância/temperatura | [19] Tercha et al.; [20] Nahar et al.; [21] Sharadga et al.; [23] Terkes et al.; [25] Mittal et al. |
 | resolução temporal (5 min × 1 h) | [21] Sharadga et al.; [22] Sangrody et al.; [7] Dhingra et al. |
-| k-NN para desempenho de PV | [24] Al-Dahidi et al.; [23] Terkes et al. |
 | modelo físico e features de geometria solar | [32] El Achouby et al.; [33] Krenzinger; [34] Naghapushanam et al.; [35] Tao et al. |
 | filtros de apagão, clipping e baixa irradiância | [39] Severiano et al.; [40] Balfour et al.; [41] Hara et al. |
 | perda de eficiência por soiling/degradação | [42] Said et al.; [43] Tahir et al. |

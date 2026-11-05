@@ -5,7 +5,7 @@
 
 /* O modelo ativo vem do ENV do PlatformIO (platformio.ini): um env por modelo, com as
  * flags especificas isoladas (ex.: o Edge Impulse so' no mlp). Nao troque o include a
- * mao - escolha o env:  pio run -e rf | -e mlp | -e knn  */
+ * mao - escolha o env:  pio run -e rf | -e mlp  */
 #if defined(MODEL_RF)
 #include "rf_model.h"
 
@@ -22,16 +22,8 @@ typedef rf_result_t result_t;
 #define printBanner() mlp_print_banner()
 typedef ei_impulse_result_t result_t;
 
-#elif defined(MODEL_KNN)
-#include "knn_model.h"
-
-#define runInference(frame, result) knn_run_inference(frame, result)
-#define printResult(result) knn_print_result(result)
-#define printBanner() knn_print_banner()
-typedef knn_result_t result_t;
-
 #else
-#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp | -e knn)"
+#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp)"
 #endif
 
 #define SERVER_IP "192.168.1.102"
@@ -355,7 +347,7 @@ static Exchange send_prediction(uint32_t seq, const result_t &result, WiFiClient
   put_u32(msg + 1, seq);
 /* ESP32 e' little-endian como o PC: os 4 bytes do float saem na ordem que o
  * struct.unpack("<f") do servidor espera. */
-#if defined(RF_MODEL_H) || defined(KNN_MODEL_H)
+#if defined(RF_MODEL_H)
   float f_result = result;
 #elif defined(MLP_MODEL_H)
   float f_result = result.classification[0].value;
