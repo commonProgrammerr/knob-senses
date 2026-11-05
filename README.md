@@ -12,7 +12,7 @@ de modelo no mesmo dataset, escolhidos pelo **env** do PlatformIO:
 | notebook de treino | `utils/treino_random_forest.ipynb` | `utils/treino_mlp.ipynb` + Studio | `utils/treino_knn.ipynb` |
 | biblioteca | `lib/knob-senses-rf/` | `lib/knob-senses/` (deploy **v9**) | `lib/knob-senses-knn/` |
 | env do firmware | `pio run -e rf` | `-e mlp` | `-e knn` |
-| estado atual | lib gerada; MAE **1,0543 kW** · R² **0,9462** | modelo local; MAE **1,1092 kW** · R² **0,9433** | ⚠ **desatualizado** — não usar como referência |
+| estado atual | lib gerada; MAE **0,0681 kW** · R² **0,9688** | modelo local; MAE **0,0604 kW** · R² **0,9770** | ⚠ **desatualizado** — não usar como referência |
 
 ---
 
@@ -42,9 +42,9 @@ data/raw/ifpee*_*.csv                 5 min, só diurno (filtro angzen <= 80 na 
         │
         │  utils/dataset_prep.ipynb     filtros + downsample 1 h + split, num notebook só
         ▼
-data/splits/train.csv                 10 508 linhas  (ifpee1, 2021–2024, 65/35 por estação)
-data/splits/validation.csv             5 658 linhas  (ifpee1, 2021–2024, 65/35 por estação)
-data/splits/test.csv                   4 042 linhas  (ifpee1, 2025)
+data/splits/train.csv                 14 089 linhas  (ifpee1, 2021-01-04..2024-06-30)
+data/splits/calibration.csv            2 023 linhas  (ifpee1, 2024H2; calibração do viés)
+data/splits/test.csv                   4 039 linhas  (ifpee1, 2025)
 data/splits/test/{inversor}.csv        cópia de 2025 por inversor (ifpee1/2/3)
         │
         │  models/src/ (common, rf, knn, mlp: contrato, dados, métricas, geração e
@@ -113,35 +113,31 @@ O prep e o split moram no **mesmo notebook** (o antigo `dataset_split.ipynb` foi
 
 - Junta os arquivos `data/raw/ifpee*.csv` (9 arquivos: `ifpee1` 2021–2025, `ifpee2/3`
   2024–2025; 410 451 linhas brutas).
-- Descarta `condicao`, `velocidade_vento` e `timestamp`; converte `PCA` nulo em `0`.
+- Descarta `condicao`, `velocidade_vento` e `timestamp`; descarta linhas com `PCA` nulo.
 - Filtra, antes de agregar:
   - **outage** — `(PCA == 0) & (ghit > 50)`;
-  - **clipping** — `PCA >= 1,95` no 5-min (o inversor satura perto disso);
+  - **saturação** — `PCA > 2,0` vira 2,0 kW (não é removido; a média do bin reflete o clipping);
   - **baixa irradiância** — `ghit < 5`;
   - **temperatura alta** — `temperatura_ambiente >= 50`.
 - **Downsample para 1 h** com regras explícitas:
-  - `PCA: sum` e `ghit: sum` — o alvo passa a ser a **soma horária** das leituras de 5 min
-    (faixa observada no split: ~0–23; por isso o `PCA` do modelo não é a leitura instantânea
-    de 5 min);
+  - `PCA: mean` e `ghit: mean` — **potência média (kW)** e irradiância média (W/m²); o alvo
+    não é a soma horária;
   - `ioeff`, `jacques`, `kc`, `kt`, `pvsyst_cell`, `sandia`, `sandia_cell`,
-    `temperatura_ambiente`: `mean`.
-  Com `limiar_zero=1,0` o descarte por dia praticamente não acontece (a fração de leituras
-  inválidas nunca passa de 1,0); os zeros parciais seguem para o split — são 150 zeros no pool
-  horário de 36 211 linhas.
-- Adiciona `season` (verão/outono/inverno/primavera) a partir de mês/dia.
-- **Split**:
-  - `test` = último ano de `ifpee1` — hoje **2025**;
-  - `train`/`validation` = 2021–2024 de `ifpee1`, **65/35 aleatório por estação do ano**,
-    com `contract.SEED = 42`, sem embaralhar o tempo entre treino e teste.
-- Saída: `data/splits/{train,validation,test}.csv` + `data/splits/test/{inversor}.csv`
+    `temperatura_ambiente`: `mean` (temperaturas e índices são intensivos).
+  O downsample descarta linhas com `NaN` e agrega; depois os zeros (`PCA < 0,001`) saem
+  (são 150 zeros no pool horário de 36 211 linhas). O Box-Cox exige alvo positivo.
+- **Split temporal**, sem embaralhar:
+  - `train` = 2021 até 2024-06-30 (2024H1);
+  - `calibration` = 2024H2 (2024-07-01..2024-12-31), a janela onde o viés é medido;
+  - `test` = 2025 (último ano de `ifpee1`).
+- Saída: `data/splits/{train,calibration,test}.csv` + `data/splits/test/{inversor}.csv`
   (2025 de cada usina).
 
-O CSV de split tem **13 colunas**:
+O CSV de split tem **12 colunas**:
 
 ```
 inversor, datetime, PCA,
-ghit, ioeff, jacques, kc, kt, pvsyst_cell, sandia, sandia_cell, temperatura_ambiente,
-season
+ghit, ioeff, jacques, kc, kt, pvsyst_cell, sandia, sandia_cell, temperatura_ambiente
 ```
 
 O treino usa apenas as **3 features do contrato** (`temperatura_ambiente`, `ghit`, `jacques`);
@@ -165,11 +161,11 @@ Cada modelo tem um **env do PlatformIO** (`platformio.ini`), e cada env compila 
 | env | `pio run -e rf` | `-e mlp` | `-e knn` |
 | features | 3 · `temperatura_ambiente, ghit, jacques` | 3 · mesma ordem no modelo local | 3 · mesma ordem |
 | normalização | **z-score dentro da lib** (constantes de `normalizacao.json`) | **min-max** ajustado no treino; o impulso v9 do Studio tem **standard scaler próprio** | z-score + quantização int16 dentro da lib |
-| custo (ESP32-S3) | **~28,8 KB** de flash, 0 de RAM (20 árvores, `emlearn method='inline'`, medido no objeto da lib) | arena TFLite de **2 732 bytes** | ~7,8 KB de flash e ~7,8 KB de RAM (1 000 protótipos, k=1) — números da lib antiga |
-| métrica (teste 2025) | MAE **1,0543 kW** · RMSE **1,3869 kW** · R² **0,9462** · viés **+1,0158 kW** | MAE **1,1092 kW** · RMSE **1,4245 kW** · R² **0,9433** · viés **+1,0901 kW** | ⚠ MAE **112,9661 kW** · R² **−19,0515** — lib desatualizada |
+| custo (ESP32-S3) | ~2 KB estimados (188 nós; medir no objeto), 0 de RAM | arena TFLite de **2 732 bytes** | ~7,8 KB de flash e ~7,8 KB de RAM (1 000 protótipos, k=1) — números da lib antiga |
+| métrica (teste 2025) | MAE **0,0681 kW** · RMSE **0,0876 kW** · R² **0,9688** · viés **+0,0079 kW** | MAE **0,0604 kW** · RMSE **0,0753 kW** · R² **0,9770** · viés **+0,0032 kW** | ⚠ MAE **112,9661 kW** · R² **−19,0515** — lib desatualizada |
 | ordem dos eixos | `KNOB_RF_ORDEM` em `lib/knob-senses-rf/src/knob_senses_rf.h` | `EI_CLASSIFIER_FUSION_AXES_STRING` | `KNOB_KNN_ORDEM` em `lib/knob-senses-knn/src/knob_senses_knn.h` |
 
-A linha de base (prever a média do treino) tem MAE **5,1434 kW** e R² ≈ **0** no mesmo teste;
+A linha de base (prever a média do treino) tem MAE **0,4291 kW** e R² ≈ **0** no mesmo teste;
 é o número a bater para dizer que o modelo aprendeu algo.
 
 > ⚠️ **Os contratos são diferentes — conjuntos, ordem e normalização.** A ordem errada **não
@@ -182,47 +178,42 @@ A linha de base (prever a média do treino) tem MAE **5,1434 kW** e R² ≈ **0*
 O contrato vive **num lugar só**: `models/src/common/contract.py`.
 
 ```python
-RF_FEATURES    = ("temperatura_ambiente", "ghit", "jacques")   # ordem de entrada
-SPLIT_FEATURES = ("ghit", "jacques", "temperatura_ambiente")   # ordem das colunas no CSV
+RF_FEATURES = ("temperatura_ambiente", "ghit", "jacques")   # ordem de entrada
 TARGET = "PCA"
 INDEX = "datetime"
 SEED = 42
 TRAIN_INVERSOR = "ifpee1"
 ```
 
-Os dois tuples de features são diferentes **de propósito**: `RF_FEATURES` é a ordem que o
-modelo e o servidor usam; `SPLIT_FEATURES` é a ordem das colunas de feature no CSV. Não há
-lag. Os **limites de sanidade** e o **clip do alvo** são dinâmicos:
+`RF_FEATURES` é a ordem que o modelo e o servidor usam. Não há lag. Os **limites de
+sanidade** e o **clip do alvo** são dinâmicos:
 
-- `data.dataset_limits()` usa o pool de `data/processed` se ele existir; como hoje não existe,
-  cai no split de treino;
-- `data.target_limits()` usa **sempre o treino** (nunca validação/teste) e aplica 5% de folga.
-  O clip atual do RF ficou em `[-1,1475, 24,0975]`.
+- `data.dataset_limits()` usa `data/processed` se ele existir; como hoje não existe, agrega
+  `data/raw` no mesmo passo do split (`downsample`) e calcula a faixa;
+- `data.target_limits()` usa **sempre o treino** (nunca calibração/teste) e aplica 5% de folga;
+  é a faixa observada, para inspeção;
+- o **clip de saída** usa `data.physical_target_limits()` = `[0, 2]` kW: potência CA não
+  negativa e saturação do inversor.
 
-> `contract.SPLIT_CUTS` e `contract.SPLIT_COLUMNS` são resíduos da versão anterior do split;
-> quem define os cortes hoje é o `dataset_prep.ipynb`. Não use esses tuples como fonte de
-> verdade.
+O split temporal (`train`/`calibration`/`test`) é definido no `dataset_prep.ipynb`; o prep é a
+fonte da verdade dos cortes.
 
 ### Random Forest
 
 `utils/treino_random_forest.ipynb` faz a varredura de tamanho, escolhe a configuração, treina
 a floresta final e **gera a lib C** (`lib/knob-senses-rf/src/`) via `models/src/rf/core.py`.
-A escolha atual é a **melhor entre as 2 maiores R², com desempate pelo menor tempo**:
+A escolha atual é a **melhor entre as 2 maiores R² na calibração, com desempate pelo menor
+tempo**: **6 árvores / folha 400**, 188 nós. No teste 2025: **MAE 0,0681 kW · R² 0,9688**.
+O header gerado declara a mesma configuração e o clip físico `[0, 2]` kW.
 
-```
-20arv folha=100   1952 nós   MAE 1,0543   R² 0,9462
-```
-
-O header entregue declara **20 árvores / folha mínima 50**, também com 1 952 nós e as mesmas
-métricas — o notebook atual escolheu folha 100, mas a lib foi gerada numa execução anterior.
-Regerar a lib alinha os dois. O custo medido no objeto atual é **28,8 KB de flash e 0 de RAM**;
-o `README.md`/`library.json` gerados dentro da lib ainda repetem **67,6 KB** de uma versão
-anterior — não use esse número como medição atual.
+O custo real de flash/RAM sai da célula xtensa; neste ambiente o toolchain não está instalado,
+então a medição foi pulada. O template da lib não fixa mais um tamanho de flash — meça no
+objeto com o PlatformIO.
 
 O que a lib garante:
 
 - recebe **grandeza bruta** (nunca z-score) e normaliza internamente;
-- devolve kW já ceifado na faixa dinâmica do treino;
+- devolve kW já ceifado na faixa física `[0, 2]` kW;
 - é gerada como **código** (`emlearn method='inline'`), não como tabela em RAM.
 
 A verificação é dupla: `models/src/common/verify.py` compila o `knob_senses_rf.cpp` **da
@@ -232,35 +223,35 @@ flash/RAM. O conferidor nativo fica em `data/modelo_rf/` (scratch gitignored).
 ### MLP — Keras
 
 `utils/treino_mlp.ipynb` treina a rede local e salva o checkpoint. O módulo
-`models/src/mlp/core.py` só prepara os arrays e exporta — **não treina**.
+`models/src/mlp/core.py` só exporta — **não prepara dados nem treina**.
 
-- Entrada: 3 features, **min-max ajustado somente no treino** (`data.fit_min_max` /
-  `data.min_max_scale`).
-- Arquitetura: `Dense(256) → Dense(128) → Dense(64) → Dense(1)`, ReLU, saída linear; bias
-  inicializado com a média do treino.
-- Loss: **Huber**; `HUBER_DELTA = 0,25 × IQR(y_tre)`, que no split atual dá **2,402 kW**.
+- Entrada: 3 features, **min-max ajustado somente no treino** (fórmula no notebook).
+- Alvo: **potência média em kW**; **Box-Cox** ajustado só no treino (λ ≈ 0,653). A inversa
+  para kW, o clip físico `[0, 2]` e o offset de calibração (2024H2) ficam no
+  pós-processamento, em `dist/transformacao_alvo.json`.
+- Arquitetura: `Dense(128) → Dense(64) → Dense(32)`, GELU, dropout 0,1, saída linear; bias
+  inicializado com a média do alvo transformado.
+- Loss: **Huber**; `HUBER_DELTA = 0,25 × IQR` do alvo Box-Cox.
 - Callbacks: `EarlyStopping(monitor="val_mae", restore_best_weights=True)` e
-  `ReduceLROnPlateau(factor=0.5, patience=8, min_lr=1e-5)`.
-- Hiperparâmetros por granularidade, detectada pelo passo mediano do `datetime` do treino:
+  `ReduceLROnPlateau(factor=0.5, patience=8, min_lr=1e-8)`.
+- Hiperparâmetros por granularidade, detectada por `data.infer_freq` (menor passo positivo):
 
 | granularidade | epochs | batch | paciência | learning rate |
 |---|---:|---:|---:|---:|
 | 1 d | 500 | 32 | 60 | 1e-3 |
 | **1 h** (atual) | **300** | **64** | **40** | **5e-4** |
-| 5 min | 200 | 128 | 25 | 3e-4 |
+| 5 min | 400 | 512 | 60 | 3e-4 |
 
-Resultado atual no teste: **MAE 1,1092 kW · RMSE 1,4245 kW · R² 0,9433 · viés +1,0901 kW**.
-O viés positivo indica que o modelo **superestima** cerca de 1,09 kW em média no teste.
+Resultado atual no teste: **MAE 0,0604 kW · RMSE 0,0753 kW · R² 0,9770 · viés +0,0032 kW**.
 
-O notebook salva `paths.EXPORT_MLP / "modelo.keras"` — hoje `dist/modelo.keras`. O output
-antigo impresso no notebook ainda mostra `data/modelo_exportado/modelo.keras`; o código atual
-usa `dist/`. Antes de avaliar no teste, o notebook recarrega o `.keras` e confere que as
-predições são idênticas.
+O notebook salva `paths.EXPORT_MLP / "modelo.keras"` — hoje `dist/modelo.keras` — e o
+`transformacao_alvo.json` com λ, clip, offset e a ordem do pós-processamento. Antes de avaliar
+no teste, recarrega o `.keras` e confere que as predições são idênticas.
 
-O export para o Edge Impulse é feito por `mlp.export(...)` (SavedModel batch 1, zip, `.tflite`,
-amostra `.npy` e `normalizacao.json` com o min-max do treino). **Não há célula chamando o
-export no notebook hoje** — para gerar o pacote, chame a função explicitamente. O min-max do
-modelo local não é o mesmo scaler do impulso v9 já embarcado (ver §6).
+O export para o Edge Impulse é feito por `mlp.export(modelo, amostras, minimo, maximo, ...)`
+(SavedModel batch 1, zip, `.tflite`, amostra `.npy` e `normalizacao.json` com o min-max do
+treino). **Não há célula chamando o export no notebook hoje.** O min-max do modelo local não é
+o mesmo scaler do impulso v9 já embarcado (ver §6).
 
 Referências usadas para escolher os hiperparâmetros: `docs/referencias.md` (Bengio, Masters &
 Luschi, Kingma & Ba, Prechelt, Huber e trabalhos de previsão solar).
@@ -268,14 +259,14 @@ Luschi, Kingma & Ba, Prechelt, Huber e trabalhos de previsão solar).
 ### k-NN — emlearn (⚠ desatualizado)
 
 O notebook e a lib estão parados numa execução antiga, com o dataset anterior. Os próprios
-outputs mostram **1 820 / 980 / 354 linhas** (hoje os splits têm 10 508 / 5 658 / 4 042), e a
+outputs mostram **1 820 / 980 / 354 linhas** (hoje os splits têm 14 089 / 2 023 / 4 039), e a
 lib entregue tem:
 
 - `KNOB_KNN_MAE_TESTE = 112,9661 kW` e `KNOB_KNN_R2_TESTE = −19,0515`;
 - `KNOB_KNN_PCA_MIN/MAX = [28,6635, 177,9665]` — faixa incompatível com o alvo atual, que vai
-  de ~0 a ~23;
-- `normalizacao.json` com `ghit` média **527,96** e desvio **138,25**, enquanto o treino atual
-  tem `ghit` média **5 425,79** e desvio **3 427,13**.
+  de ~0 a ~2 kW;
+- `normalizacao.json` com médias/desvios de outro dataset, enquanto o treino atual é horário
+  (`ghit` médio no bin de 1 h).
 
 A célula final do notebook tem dois asserts (`MAE < 0,35` e amplitude > 0,1); com os splits
 atuais a varredura será recalculada e os números acima deixam de valer — a lib só volta a ser
@@ -331,14 +322,14 @@ mensagem pertence e volta ecoado em toda resposta:
 |---|---|---|
 | pedido de amostra | ESP32 → servidor | `\x01` + `seq` u32 (5 B) |
 | amostra | servidor → ESP32 | `\x01` + `seq` u32 + `kAxes` floats (`float32` LE, **grandeza bruta**) |
-| fim do dataset | servidor → ESP32 | `\x02` + `seq` u32 (`seq >= 4 042` hoje; o firmware para de pedir) |
+| fim do dataset | servidor → ESP32 | `\x02` + `seq` u32 (`seq >= 4 039` hoje; o firmware para de pedir) |
 | predição | ESP32 → servidor | `\x03` + `seq` u32 + 1 `float32` (**a predição**, kW) |
 | ACK | servidor → ESP32 | `\x03` + `seq` u32 (a linha `seq` está no log) |
 
 Fluxo por amostra: pedido → amostra → predição → ACK → `seq++`. **A `seq` só avança com o
 ACK**: qualquer falha (conexão caída, escrita/leitura parcial, eco divergente) faz `stop()` e
 a **mesma** amostra volta no tick seguinte — nunca se pula amostra, então um ensaio completo
-tem exatamente 4 042 linhas, sem buracos nem linhas trocadas. Predição repetida (retentativa
+tem exatamente 4 039 linhas, sem buracos nem linhas trocadas. Predição repetida (retentativa
 com ACK perdido no caminho) é ignorada pelo servidor, e o ACK se repete.
 
 Constantes no topo de `src/main.cpp`: `SERVER_IP`, `SERVER_PORT`, `WIFI_SSID`,
@@ -374,7 +365,7 @@ debug usa o USB nativo (JTAG). Se trocar o cabo de porta, confira com `pio devic
 ## 5. Servidor de teste (`utils/model_teste.ipynb`)
 
 É o **banco de comparação estimado × medido**: sobe um socket em `0.0.0.0:3333` e serve as
-linhas de **`data/splits/test.csv`** (hoje 4 042 linhas de `ifpee1` em 2025), endereçadas pelo
+linhas de **`data/splits/test.csv`** (hoje 4 039 linhas de `ifpee1` em 2025), endereçadas pelo
 `seq` do protocolo. As colunas de features vêm de `server.AXES`, que é um alias de
 `contract.RF_FEATURES`. O `server.check_axis_order()` compara essa ordem com a
 `normalizacao.json` da lib do RF, mas **o notebook atual não o chama**; rode-o manualmente
@@ -557,7 +548,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 │   └── model_teste.ipynb       servidor de teste + painel + tabela de métricas
 ├── data/
 │   ├── raw/                CSVs brutos por estação-ano (5 min); o prep lê só ifpee*
-│   ├── splits/             train/validation/test + cópias 2025 por inversor
+│   ├── splits/             train/calibration/test + cópias 2025 por inversor
 │   ├── splited/            pasta vazia legada — não usar
 │   ├── modelo_rf/          harness nativo de verificação do C gerado (scratch)
 │   └── modelo_exportado/   pasta vazia legada — o destino atual do MLP é dist/
@@ -573,9 +564,9 @@ Métricas registradas no split de teste atual (2025, `ifpee1`; MAE/RMSE em kW):
 
 | modelo | MAE | RMSE | R² | viés | observação |
 |---|---:|---:|---:|---:|---|
-| média do treino | 5,1434 | 5,9810 | ≈0 | +0,0634 | linha de base |
-| Random Forest | **1,0543** | **1,3869** | **0,9462** | +1,0158 | lib entregue |
-| MLP (Keras) | **1,1092** | **1,4245** | **0,9433** | +1,0901 | checkpoint local |
+| média do treino | 0,4291 | 0,4967 | ≈0 | +0,0243 | linha de base |
+| Random Forest | **0,0681** | **0,0876** | **0,9688** | +0,0079 | lib entregue; calibrado em 2024H2 |
+| MLP (Keras) | **0,0604** | **0,0753** | **0,9770** | +0,0032 | checkpoint local; Box-Cox + calibração |
 | k-NN | 112,9661 | — | −19,0515 | — | ⚠ lib antiga; não usar |
 
 Os artefatos em `.pio/build/` foram gerados em datas e revisões diferentes
@@ -591,11 +582,10 @@ veja o resumo de RAM/flash do PlatformIO.
   local; reexportar/retreinar no Studio e conferir a ordem antes do ensaio na placa.
 - **MLP local**: o notebook salva em `dist/`, mas o output antigo ainda imprime
   `data/modelo_exportado/`; o `mlp.export()` não é chamado por nenhuma célula.
-- **RF gerado**: o `README.md`/`library.json` da lib ainda dizem 67,6 KB; a medição atual do
-  objeto é 28,8 KB. O header está com folha 50, enquanto o notebook escolheu 100.
+- **RF gerado**: o `README.md`/`library.json` da lib não fixam mais um tamanho de flash; meça
+  no objeto com a célula xtensa. O header agora declara 6 árvores/folha 400, igual ao notebook.
 - **Servidor**: o print `DATA_SOURCE` diz `data/processed`, mas o notebook carrega
   `data/splits/test.csv`; e o `server.check_axis_order()` não é chamado pelo notebook.
-- **Docstrings/comentários**: `models/src/mlp/core.py` ainda cita `treino_regressao.ipynb`; o
-  `include/mlp_model.h` ainda comenta 5/9/45/1000. Os valores reais são 1/3/3/1.
-- **Contrato**: `SPLIT_CUTS` e `SPLIT_COLUMNS` não descrevem o split atual (o prep é a fonte
-  de verdade).
+- **Docstrings/comentários**: o `include/mlp_model.h` ainda comenta 5/9/45/1000. Os valores
+  reais são 1/3/3/1.
+- **Split**: a fonte de verdade é o `dataset_prep.ipynb` (`train`/`calibration`/`test`).
