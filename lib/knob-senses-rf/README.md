@@ -33,31 +33,32 @@ de `normalizacao.json` (que fica ao lado deste header).
 
 ## O que devolve
 
-Potencia CA em kW, ja ceifada em `[-1.1475000000000002, 24.097500000000004]`. O teto e' fisico: o inversor
-satura perto de 2 kW. O piso tambem: o dataset de treino e' so diurno e nao contem zero,
-entao **a noite a floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago,
-nao conserta.
+Potencia CA em kW, ja ceifada em `[0.0, 2.0]`. O teto e' fisico: o inversor
+satura perto de 2 kW. O piso e' 0: o dataset de treino e' so diurno, entao **a noite a
+floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago, nao conserta.
 
 ## Procedencia
 
 | | |
 |---|---|
-| arvores | 20 |
-| folha minima | 50 |
-| nos | 1952 |
-| MAE no teste | 1.0543 kW |
-| R2 no teste | 0.9462 |
+| arvores | 12 |
+| folha minima | 200 |
+| nos | 4532 |
+| MAE no teste | 0.1137 kW |
+| R2 no teste | 0.9109 |
+| calibracao (vies) | -0.099050 kW |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
-entao os numeros sao pessimistas na medida certa.
+entao os numeros sao pessimistas na medida certa. O offset de calibracao foi ajustado
+em **2024H2**, a janela mais recente antes do teste; ele corrige a deriva de eficiencia
+e e' somado dentro de `pca_prever()`, antes do clip.
 
 ## Custo
 
 | | |
 |---|---|
-| flash (ESP32-S3) | 67.6 KB |
+| flash (ESP32-S3) | medir no objeto |
 | RAM | 0 |
 
-A floresta e' emitida como codigo (`emlearn method='inline'`), nao como tabela em RAM. Em
-troca ocupa mais flash que a alternativa (`loadable`, ~39 KB), que exigiria quantizar as
-features para `int16_t` e levar dois headers do emlearn para o firmware.
+A floresta e' emitida como codigo (`emlearn method='inline'`), nao como tabela em RAM.
+O flash depende do numero de nos; a celula xtensa do notebook mede no objeto.

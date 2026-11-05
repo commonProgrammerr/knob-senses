@@ -41,13 +41,15 @@ def tree_depth(model) -> int:
     return max(e.tree_.max_depth for e in model.estimators_)
 
 
-def sweep(X_train, y_train, X_test, y_test, configs=((300, 2), (100, 2), (50, 5), (50, 20),
-                                                     (30, 50), (20, 100), (12, 200), (6, 400))):
+def sweep(X_train, y_train, X_val, y_val, configs=((300, 2), (100, 2), (50, 5), (50, 20),
+                                                   (30, 50), (20, 100), (12, 200), (6, 400))):
     """Tamanho x acuracia: quantas arvores e quantas amostras minimas por folha.
 
-    Devolve a tabela (quem imprime e' o notebook). A coluna `kb` e' estimativa grosseira
-    (12 bytes por no' + 4 por folha) — serve para COMPARAR configuracoes, nao para
-    prometer flash: o numero real sai da compilacao, secao 9 do notebook.
+    Avalia na VALIDACAO temporal (2024H2), nunca no teste: escolher o tamanho no
+    teste transforma a metrica final em treino disfarcado. Devolve a tabela (quem
+    imprime e' o notebook). A coluna `kb` e' estimativa grosseira (12 bytes por
+    no' + 4 por folha) — serve para COMPARAR configuracoes, nao para prometer
+    flash: o numero real sai da compilacao, secao 9 do notebook.
     """
     rows = []
     for n_trees, min_leaf in configs:
@@ -55,12 +57,12 @@ def sweep(X_train, y_train, X_test, y_test, configs=((300, 2), (100, 2), (50, 5)
         m = RandomForestRegressor(n_estimators=n_trees, min_samples_leaf=min_leaf,
                                   n_jobs=N_JOBS, random_state=contract.SEED).fit(X_train, y_train)
         secs = time.perf_counter() - t0
-        pred = m.predict(X_test)
+        pred = m.predict(X_val)
         n_nodes, n_leaves = count_nodes(m), count_leaves(m)
         rows.append({
             "arvores": n_trees, "folha": min_leaf, "nos": n_nodes,
             "kb": (n_nodes * 12 + n_leaves * 4) / 1024, "prof": tree_depth(m),
-            "mae": mean_absolute_error(y_test, pred), "r2": r2_score(y_test, pred), "s": secs,
+            "mae": mean_absolute_error(y_val, pred), "r2": r2_score(y_val, pred), "s": secs,
         })
     return pd.DataFrame(rows)
 
@@ -86,8 +88,8 @@ HEADER_TEMPLATE = '''/*
  * antes de chamar pca_prever() - se o dado chegar em z-score, a conta acontece duas
  * vezes, tudo cai a ~7 desvios-padrao da media, e a previsao COLAPSA num valor fixo.
  *
- * Custo no ESP32-S3: 67.6 KB de flash, 0 de RAM. A floresta e' emitida como codigo
- * (emlearn method='inline'), nao como tabela - por isso nao ocupa RAM.
+ * Custo: a floresta e' emitida como codigo (emlearn method='inline'), entao nao
+ * ocupa RAM; o flash depende do tamanho da floresta - meca no objeto.
  */
 #ifndef KNOB_SENSES_RF_H
 #define KNOB_SENSES_RF_H
@@ -103,8 +105,8 @@ HEADER_TEMPLATE = '''/*
  * recebeu sem reordenar. */
 #define KNOB_RF_ORDEM "@@ORDER_LIST@@"
 
-/* Faixa fisica do alvo: o inversor satura em ~2 kW e o dataset nao tem zero (o
- * 0 era sentinela de faltante, removido na analise). A saida ja vem ceifada. */
+/* Faixa fisica do alvo: 0..2 kW. O inversor nao devolve potencia negativa e
+ * satura perto de 2 kW; a saida ja vem ceifada. */
 #define KNOB_RF_PCA_MIN @@PCA_MIN@@f
 #define KNOB_RF_PCA_MAX @@PCA_MAX@@f
 
@@ -116,11 +118,16 @@ HEADER_TEMPLATE = '''/*
 #define KNOB_RF_MAE_TESTE    @@MAE@@f   /* kW, no split de teste (futuro) */
 #define KNOB_RF_R2_TESTE     @@R2@@f
 
+/* Calibracao de vies: somada antes do clip. Foi ajustada na janela de
+ * calibracao (2024H2), nunca no teste, para corrigir a deriva de eficiencia
+ * 2024->2025. Se o modelo for retreinado, recalcule-a no notebook. */
+#define KNOB_RF_OFFSET       @@OFFSET@@f
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* bruto -> z-score -> floresta -> clip. Devolve a potencia CA em kW. */
+/* bruto -> z-score -> floresta -> offset -> clip. Devolve a potencia CA em kW. */
 float pca_prever(const float bruto[KNOB_RF_N_FEATURES]);
 
 #ifdef __cplusplus
@@ -155,7 +162,7 @@ float pca_prever(const float bruto[KNOB_RF_N_FEATURES])
         z[i] = (bruto[i] - PCA_MEDIA[i]) / PCA_DESVIO[i];
     }
 
-    float p = modelo_pca_predict(z, KNOB_RF_N_FEATURES);
+    float p = modelo_pca_predict(z, KNOB_RF_N_FEATURES) + KNOB_RF_OFFSET;
 
     /* A floresta extrapola fora do que viu; a faixa fisica nao. */
     if (p < KNOB_RF_PCA_MIN) p = KNOB_RF_PCA_MIN;
@@ -200,9 +207,8 @@ de `normalizacao.json` (que fica ao lado deste header).
 ## O que devolve
 
 Potencia CA em kW, ja ceifada em `[@@PCA_MIN@@, @@PCA_MAX@@]`. O teto e' fisico: o inversor
-satura perto de 2 kW. O piso tambem: o dataset de treino e' so diurno e nao contem zero,
-entao **a noite a floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago,
-nao conserta.
+satura perto de 2 kW. O piso e' 0: o dataset de treino e' so diurno, entao **a noite a
+floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago, nao conserta.
 
 ## Procedencia
 
@@ -213,26 +219,28 @@ nao conserta.
 | nos | @@N_NODES@@ |
 | MAE no teste | @@MAE@@ kW |
 | R2 no teste | @@R2@@ |
+| calibracao (vies) | @@OFFSET@@ kW |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
-entao os numeros sao pessimistas na medida certa.
+entao os numeros sao pessimistas na medida certa. O offset de calibracao foi ajustado
+em **2024H2**, a janela mais recente antes do teste; ele corrige a deriva de eficiencia
+e e' somado dentro de `pca_prever()`, antes do clip.
 
 ## Custo
 
 | | |
 |---|---|
-| flash (ESP32-S3) | 67.6 KB |
+| flash (ESP32-S3) | medir no objeto |
 | RAM | 0 |
 
-A floresta e' emitida como codigo (`emlearn method='inline'`), nao como tabela em RAM. Em
-troca ocupa mais flash que a alternativa (`loadable`, ~39 KB), que exigiria quantizar as
-features para `int16_t` e levar dois headers do emlearn para o firmware.
+A floresta e' emitida como codigo (`emlearn method='inline'`), nao como tabela em RAM.
+O flash depende do numero de nos; a celula xtensa do notebook mede no objeto.
 '''
 
 MANIFEST_TEMPLATE = '''{
   "name": "knob-senses-rf",
   "version": "1.0.0",
-  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@. Recebe @@N_FEATURES@@ grandezas brutas, normaliza em z-score internamente e devolve kW. 67.6 KB de flash e 0 de RAM no ESP32-S3.",
+  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@. Recebe @@N_FEATURES@@ grandezas brutas, normaliza em z-score internamente e devolve kW. Arvores em codigo (0 de RAM); o flash depende do tamanho e deve ser medido no objeto.",
   "keywords": "random-forest, emlearn, tinyml, machine-learning, regression, arduino, esp32",
   "frameworks": "arduino",
   "platforms": "*",
@@ -243,14 +251,17 @@ MANIFEST_TEMPLATE = '''{
 '''
 
 
-def generate_c_lib(model, mean, std, mae, r2, dest_dir: Path = paths.LIB_RF,
+def generate_c_lib(model, mean, std, mae, r2, offset: float = 0.0,
+                   dest_dir: Path = paths.LIB_RF,
                    src_dir: Path = paths.LIB_RF_SRC) -> dict[Path, int]:
     """Escreve a lib do PlatformIO inteira: header, implementacao, README, manifesto,
     normalizacao.json e as arvores (modelo_pca.h, geradas pelo emlearn).
 
-    O notebook do RF chama isto. `mean`/`std` tem que ter saido SO do split de
-    treino (data.fit_normalization): sao as constantes que vao compiladas para o
-    firmware, e a mesma conta que o pca_prever() faz dentro do MCU.
+    O notebook do RF chama isto. `mean`/`std` tem que ter saido SO do treino
+    (data.fit_normalization): sao as constantes que vao compiladas para o
+    firmware, e a mesma conta que o pca_prever() faz dentro do MCU. `offset` e' o
+    vies medido na calibracao temporal (2024H2), somado antes do clip; o teste
+    nunca entra nessa conta.
     """
     import emlearn
 
@@ -262,10 +273,11 @@ def generate_c_lib(model, mean, std, mae, r2, dest_dir: Path = paths.LIB_RF,
     c_model.save(file=str(src_dir / "modelo_pca.h"), name="modelo_pca")
 
     n_nodes = count_nodes(model)
-    pca_min, pca_max = data.target_limits()
+    pca_min, pca_max = data.physical_target_limits()
     values = dict(
-        N_FEATURES=len(contract.RF_FEATURES), N_TREES=model.n_estimators, MIN_LEAF=MIN_LEAF,
-        N_NODES=n_nodes, MAE=f"{mae:.4f}", R2=f"{r2:.4f}",
+        N_FEATURES=len(contract.RF_FEATURES), N_TREES=model.n_estimators,
+        MIN_LEAF=model.min_samples_leaf,
+        N_NODES=n_nodes, MAE=f"{mae:.4f}", R2=f"{r2:.4f}", OFFSET=f"{offset:.6f}",
         ORDER_C="\n".join(f" *   bruto[{i}] = {c}" for i, c in enumerate(contract.RF_FEATURES)),
         ORDER_LIST=", ".join(contract.RF_FEATURES),
         MEAN_C=",\n".join(f"    {mean[c]:.6f}f" for c in contract.RF_FEATURES),
@@ -285,7 +297,9 @@ def generate_c_lib(model, mean, std, mae, r2, dest_dir: Path = paths.LIB_RF,
         "desvio": {c: float(std[c]) for c in contract.RF_FEATURES},
         "formula_normalizar": "z = (bruto - media) / desvio",
         "formula_desnormalizar": "bruto = z * desvio + media",
-        "ajustado_em": "somente o split de treino",
+        "ajustado_em": "somente o treino (2021..2024H1)",
+        "calibracao_offset_kw": float(offset),
+        "calibracao_ajustada_em": "2024H2 (nunca no teste)",
         "aviso": ("Estas sao as constantes compiladas dentro do C da lib; o firmware NAO le "
                   "este arquivo. Alimente pca_prever() com GRANDEZA FISICA: se o dado chegar "
                   "em z-score, a normalizacao acontece duas vezes e a previsao colapsa num "

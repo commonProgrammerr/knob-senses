@@ -1,7 +1,7 @@
 {
   "name": "knob-senses-rf",
   "version": "1.0.0",
-  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. 20 arvores, folha minima 50. Recebe 3 grandezas brutas, normaliza em z-score internamente e devolve kW. 67.6 KB de flash e 0 de RAM no ESP32-S3.",
+  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. 12 arvores, folha minima 200. Recebe 3 grandezas brutas, normaliza em z-score internamente e devolve kW. Arvores em codigo (0 de RAM); o flash depende do tamanho e deve ser medido no objeto.",
   "keywords": "random-forest, emlearn, tinyml, machine-learning, regression, arduino, esp32",
   "frameworks": "arduino",
   "platforms": "*",

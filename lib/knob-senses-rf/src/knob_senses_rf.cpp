@@ -9,15 +9,15 @@
  * teste). Recalculados do bruto a cada execucao de utils/treino_random_forest.ipynb
  * e conferidos contra data/processed/*.csv - ver a secao 2 do notebook. */
 static const float PCA_MEDIA[KNOB_RF_N_FEATURES] = {
-    27.188096f,
-    5425.785749f,
-    39.769847f
+    27.377961f,
+    496.147413f,
+    40.452367f
 };
 
 static const float PCA_DESVIO[KNOB_RF_N_FEATURES] = {
-    4.114029f,
-    3427.132035f,
-    11.135280f
+    4.056654f,
+    311.904821f,
+    11.559832f
 };
 
 float pca_prever(const float bruto[KNOB_RF_N_FEATURES])
@@ -27,7 +27,7 @@ float pca_prever(const float bruto[KNOB_RF_N_FEATURES])
         z[i] = (bruto[i] - PCA_MEDIA[i]) / PCA_DESVIO[i];
     }
 
-    float p = modelo_pca_predict(z, KNOB_RF_N_FEATURES);
+    float p = modelo_pca_predict(z, KNOB_RF_N_FEATURES) + KNOB_RF_OFFSET;
 
     /* A floresta extrapola fora do que viu; a faixa fisica nao. */
     if (p < KNOB_RF_PCA_MIN) p = KNOB_RF_PCA_MIN;
