@@ -31,9 +31,6 @@ SCRATCH = DATA / "modelo_rf"                    # conferidor + residuo de build 
 LIB_RF = ROOT / "lib" / "knob-senses-rf"        # a entrega (gerada pelo notebook do RF)
 LIB_RF_SRC = LIB_RF / "src"
 
-LIB_KNN = ROOT / "lib" / "knob-senses-knn"      # a entrega do k-NN (gerada pelo notebook)
-LIB_KNN_SRC = LIB_KNN / "src"
-
 EVAL_LOG = ROOT / "utils" / "model_eval.csv"    # o log do servidor de teste
 
 DIST = ROOT / "dist"                # artefatos treinados (keras/joblib)

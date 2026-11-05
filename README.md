@@ -4,15 +4,15 @@
 
 Em vez de medir a potência CA do inversor com instrumentação dedicada, o projeto **estima**
 `PCA` (kW CA) a partir de variáveis meteorológicas e de geometria solar — e olha a usina pela
-diferença entre o estimado e o medido. A inferência roda em um **ESP32-S3**, com três caminhos
+diferença entre o estimado e o medido. A inferência roda em um **ESP32-S3**, com dois caminhos
 de modelo no mesmo dataset, escolhidos pelo **env** do PlatformIO:
 
-| | Random Forest (emlearn) | MLP (Keras / Edge Impulse) | k-NN (emlearn) |
-|---|---|---|---|
-| notebook de treino | `utils/treino_random_forest.ipynb` | `utils/treino_mlp.ipynb` + Studio | `utils/treino_knn.ipynb` |
-| biblioteca | `lib/knob-senses-rf/` | `lib/knob-senses/` (deploy **v9**) | `lib/knob-senses-knn/` |
-| env do firmware | `pio run -e rf` | `-e mlp` | `-e knn` |
-| estado atual | lib gerada; MAE **0,0681 kW** · R² **0,9688** | modelo local; MAE **0,0604 kW** · R² **0,9770** | ⚠ **desatualizado** — não usar como referência |
+| | Random Forest (emlearn) | MLP (Keras / Edge Impulse) |
+|---|---|---|
+| notebook de treino | `utils/treino_random_forest.ipynb` | `utils/treino_mlp.ipynb` + Studio |
+| biblioteca | `lib/knob-senses-rf/` | `lib/knob-senses/` (deploy **v9**) |
+| env do firmware | `pio run -e rf` | `-e mlp` |
+| estado atual | lib gerada; MAE **0,0681 kW** · R² **0,9688** | modelo local; MAE **0,0604 kW** · R² **0,9770** |
 
 ---
 
@@ -20,7 +20,7 @@ de modelo no mesmo dataset, escolhidos pelo **env** do PlatformIO:
 
 | uso | como o projeto atende |
 |---|---|
-| **Comparação** | o mesmo dataset e o mesmo split comparam os três modelos (Random Forest × MLP × k-NN). O teste é **2025 de `ifpee1`**; as cópias `data/splits/test/{inversor}.csv` permitem comparar as três usinas no mesmo ano. O servidor de teste fecha a conta `real × pred × err` |
+| **Comparação** | o mesmo dataset e o mesmo split comparam os dois modelos (Random Forest × MLP). O teste é **2025 de `ifpee1`**; as cópias `data/splits/test/{inversor}.csv` permitem comparar as três usinas no mesmo ano. O servidor de teste fecha a conta `real × pred × err` |
 | **Barateamento** | a instrumentação por usina cai para sensores meteorológicos/geométricos + um ESP32-S3: acompanhar a geração de cada inversor deixa de exigir medidor de potência AC e telemetria dedicada |
 | **Diagnóstico** | desvio sistemático entre estimado e medido é o sinal de falha (sujeira, sombreamento, degradação). A análise de eficiência (`utils/dataset_analysis.ipynb`, `PCA/ghit` por mês) mostra a perda a partir de 2024 contra a média de 2021–2023 |
 
@@ -47,11 +47,10 @@ data/splits/calibration.csv            2 023 linhas  (ifpee1, 2024H2; calibraç�
 data/splits/test.csv                   4 039 linhas  (ifpee1, 2025)
 data/splits/test/{inversor}.csv        cópia de 2025 por inversor (ifpee1/2/3)
         │
-        │  models/src/ (common, rf, knn, mlp: contrato, dados, métricas, geração e
+        │  models/src/ (common, rf, mlp: contrato, dados, métricas, geração e
         │              verificação da lib C, servidor de teste)
         │
         ├─ utils/treino_random_forest.ipynb ──► lib/knob-senses-rf/   (regenera a lib C)
-        ├─ utils/treino_knn.ipynb           ──► lib/knob-senses-knn/  (regenera a lib C)
         └─ utils/treino_mlp.ipynb           ──► dist/modelo.keras
                                                 └─► Edge Impulse Studio ──► lib/knob-senses/
         │
@@ -84,7 +83,7 @@ cai no Python do ESP-IDF). Para executá-los de linha de comando, passe o kernel
   --ExecutePreprocessor.kernel_name=knob-senses utils/dataset_prep.ipynb
 ```
 
-Os módulos Python vivem em `models/src/{common,rf,knn,mlp}/` e são instalados **editáveis** no
+Os módulos Python vivem em `models/src/{common,rf,mlp}/` e são instalados **editáveis** no
 `.venv`:
 
 ```bash
@@ -151,19 +150,19 @@ do dia, os buracos de leitura e a eficiência `PCA/ghit` por mês (o diagnóstic
 
 ---
 
-## 3. Os três caminhos de modelo
+## 3. Os dois caminhos de modelo
 
 Cada modelo tem um **env do PlatformIO** (`platformio.ini`), e cada env compila só o seu (ver
 §4):
 
-| | **Random Forest** | **MLP — Keras / Edge Impulse** | **k-NN — emlearn** |
-|---|---|---|---|
-| env | `pio run -e rf` | `-e mlp` | `-e knn` |
-| features | 3 · `temperatura_ambiente, ghit, jacques` | 3 · mesma ordem no modelo local | 3 · mesma ordem |
-| normalização | **z-score dentro da lib** (constantes de `normalizacao.json`) | **min-max** ajustado no treino; o impulso v9 do Studio tem **standard scaler próprio** | z-score + quantização int16 dentro da lib |
-| custo (ESP32-S3) | ~2 KB estimados (188 nós; medir no objeto), 0 de RAM | arena TFLite de **2 732 bytes** | ~7,8 KB de flash e ~7,8 KB de RAM (1 000 protótipos, k=1) — números da lib antiga |
-| métrica (teste 2025) | MAE **0,0681 kW** · RMSE **0,0876 kW** · R² **0,9688** · viés **+0,0079 kW** | MAE **0,0604 kW** · RMSE **0,0753 kW** · R² **0,9770** · viés **+0,0032 kW** | ⚠ MAE **112,9661 kW** · R² **−19,0515** — lib desatualizada |
-| ordem dos eixos | `KNOB_RF_ORDEM` em `lib/knob-senses-rf/src/knob_senses_rf.h` | `EI_CLASSIFIER_FUSION_AXES_STRING` | `KNOB_KNN_ORDEM` em `lib/knob-senses-knn/src/knob_senses_knn.h` |
+| | **Random Forest** | **MLP — Keras / Edge Impulse** |
+|---|---|---|
+| env | `pio run -e rf` | `-e mlp` |
+| features | 3 · `temperatura_ambiente, ghit, jacques` | 3 · mesma ordem no modelo local |
+| normalização | **z-score dentro da lib** (constantes de `normalizacao.json`) | **min-max** ajustado no treino; o impulso v9 do Studio tem **standard scaler próprio** |
+| custo (ESP32-S3) | ~2 KB estimados (188 nós; medir no objeto), 0 de RAM | arena TFLite de **2 732 bytes** |
+| métrica (teste 2025) | MAE **0,0681 kW** · RMSE **0,0876 kW** · R² **0,9688** · viés **+0,0079 kW** | MAE **0,0604 kW** · RMSE **0,0753 kW** · R² **0,9770** · viés **+0,0032 kW** |
+| ordem dos eixos | `KNOB_RF_ORDEM` em `lib/knob-senses-rf/src/knob_senses_rf.h` | `EI_CLASSIFIER_FUSION_AXES_STRING` |
 
 A linha de base (prever a média do treino) tem MAE **0,4291 kW** e R² ≈ **0** no mesmo teste;
 é o número a bater para dizer que o modelo aprendeu algo.
@@ -171,7 +170,7 @@ A linha de base (prever a média do treino) tem MAE **0,4291 kW** e R² ≈ **0*
 > ⚠️ **Os contratos são diferentes — conjuntos, ordem e normalização.** A ordem errada **não
 > dá erro**: dá previsão errada em silêncio. O `server.check_axis_order()` existe para conferir
 > `AXES` contra a `normalizacao.json` da lib do RF, mas **o notebook atual não o chama** —
-> rode-o à mão antes de transmitir. O firmware, para o RF e o k-NN, entrega o que recebeu
+> rode-o à mão antes de transmitir. O firmware, para o RF, entrega o que recebeu
 > **sem reordenar**. O caminho MLP não é coberto por esse check: o impulso v9 tem outra ordem
 > e outro scaler (ver §6).
 
@@ -256,24 +255,6 @@ o mesmo scaler do impulso v9 já embarcado (ver §6).
 Referências usadas para escolher os hiperparâmetros: `docs/referencias.md` (Bengio, Masters &
 Luschi, Kingma & Ba, Prechelt, Huber e trabalhos de previsão solar).
 
-### k-NN — emlearn (⚠ desatualizado)
-
-O notebook e a lib estão parados numa execução antiga, com o dataset anterior. Os próprios
-outputs mostram **1 820 / 980 / 354 linhas** (hoje os splits têm 14 089 / 2 023 / 4 039), e a
-lib entregue tem:
-
-- `KNOB_KNN_MAE_TESTE = 112,9661 kW` e `KNOB_KNN_R2_TESTE = −19,0515`;
-- `KNOB_KNN_PCA_MIN/MAX = [28,6635, 177,9665]` — faixa incompatível com o alvo atual, que vai
-  de ~0 a ~2 kW;
-- `normalizacao.json` com médias/desvios de outro dataset, enquanto o treino atual é horário
-  (`ghit` médio no bin de 1 h).
-
-A célula final do notebook tem dois asserts (`MAE < 0,35` e amplitude > 0,1); com os splits
-atuais a varredura será recalculada e os números acima deixam de valer — a lib só volta a ser
-uma entrega quando o notebook for reexecutado e regerar `lib/knob-senses-knn/`. O
-`models/src/knn/core.py` também está com defaults `K=3, N=1000`, enquanto a lib entregue saiu
-com `k=1`; a próxima execução do notebook recalcula pela regra de escolha e alinha os dois.
-
 ---
 
 ## 4. Firmware (`src/main.cpp`)
@@ -289,11 +270,8 @@ typedef rf_result_t result_t;
 #elif defined(MODEL_MLP)
 #include "mlp_model.h"
 typedef ei_impulse_result_t result_t;
-#elif defined(MODEL_KNN)
-#include "knn_model.h"
-typedef knn_result_t result_t;
 #else
-#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp | -e knn)"
+#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp)"
 #endif
 ```
 
@@ -304,11 +282,10 @@ debug são comuns.
 | env | header | `kSamples` | `kAxes` | `kFrameSize` | `kPeriodMs` | ritmo nominal |
 |---|---|---:|---:|---:|---:|---|
 | `rf` | `rf_model.h` | 1 | 3 | 3 | 10 ms | 100 inferências/s |
-| `knn` | `knn_model.h` | 1 | 3 | 3 | 10 ms | 100 inferências/s |
 | `mlp` | `mlp_model.h` | 1 | 3 | 3 | **1 ms** | 1 000 inferências/s nominais; na prática limitado pela rede/servidor |
 
-`kAxes`, `kFrameSize` e `kPeriodMs` vêm dos headers do modelo (`KNOB_RF_N_FEATURES`,
-`KNOB_KNN_N_FEATURES` e as macros `EI_CLASSIFIER_*`). Os comentários antigos do
+`kAxes`, `kFrameSize` e `kPeriodMs` vêm dos headers do modelo (`KNOB_RF_N_FEATURES`
+e as macros `EI_CLASSIFIER_*`). Os comentários antigos do
 `include/mlp_model.h` ainda dizem 5/9/45/1000; os valores reais do v9 são **1/3/3/1** —
 confie nas macros.
 
@@ -352,11 +329,11 @@ sensores da usina — o resto do pipeline não muda.
 ### Gravar e monitorar
 
 ```bash
-pio run -e rf -t upload   # -e rf | -e mlp | -e knn — um env por modelo (platformio.ini)
+pio run -e rf -t upload   # -e rf | -e mlp — um env por modelo (platformio.ini)
 pio device monitor
 ```
 
-O `platformio.ini` tem um `[env]` base (placa, memória, upload, debug, LDF) herdado por três
+O `platformio.ini` tem um `[env]` base (placa, memória, upload, debug, LDF) herdado por dois
 envs, um por modelo. `monitor_port`/`upload_port` estão fixos em **COM28** (UART/CH343); o
 debug usa o USB nativo (JTAG). Se trocar o cabo de porta, confira com `pio device list`.
 
@@ -505,10 +482,9 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 | A biblioteca some do build, sem aviso | `library.json` sem `"frameworks": "arduino"` | Declare o framework |
 | `multiple definition` de dezenas de símbolos | `ei_run_classifier.h` em mais de um `.cpp` | Inclua em um só (wrapper) |
 | `multiple definition of 'ei_printf'` | Duas camadas de portabilidade ativas | `-DEI_PORTING_ESPRESSIF=0` |
-| **Predição colapsa num valor fixo** | dado chegou em z-score e a lib normalizou de novo | mande **grandeza bruta** ao RF/k-NN; nunca desnormalize no caminho |
-| Previsão variando com viés, sem erro nenhum | ordem de features trocada (falha silenciosa) | conferir `KNOB_RF_ORDEM`/`KNOB_KNN_ORDEM` × `AXES` do servidor × `FEATURES` do notebook |
+| **Predição colapsa num valor fixo** | dado chegou em z-score e a lib normalizou de novo | mande **grandeza bruta** ao RF; nunca desnormalize no caminho |
+| Previsão variando com viés, sem erro nenhum | ordem de features trocada (falha silenciosa) | conferir `KNOB_RF_ORDEM` × `AXES` do servidor × `FEATURES` do notebook |
 | MLP com saída sem sentido | impulso v9 usa outra ordem e outro scaler | §6 — reexportar no Studio e conferir eixos + scaler |
-| k-NN com erro absurdo | lib treinada no dataset antigo (`PCA` 28–178, `ghit` médio 528) | retreinar `treino_knn.ipynb` nos splits atuais |
 | `PCA == 0` entra como label | `0` é sentinela de faltante | o servidor já exclui; nos treinos, confira a fração de zeros |
 | Erro do modelo inflado no teste | `PCA == 0` entrou como label | exclua (o servidor faz isso) |
 | Dois servidores na mesma porta | `SO_REUSEADDR` no Windows | `SO_EXCLUSIVEADDRUSE` (já no `server.open_socket`) |
@@ -523,27 +499,22 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 ├── models/src/common/      contrato, dados, caminhos, métricas, servidor, verificação,
 │                           plots e templates
 ├── models/src/rf/          treino do Random Forest e geração da lib C
-├── models/src/knn/         k-NN (emlearn): quantização, emulador e lib C
-├── models/src/mlp/         MLP (Keras): preparo dos arrays e export para o Edge Impulse
+├── models/src/mlp/         MLP (Keras): export para o Edge Impulse
 ├── models/tests/           checks locais: layout, dados, plots e MLP
 ├── src/
 │   ├── main.cpp            cliente WiFi + seleção do modelo pelo env (-DMODEL_*)
 │   ├── rf_model.cpp        wrapper do RF (pca_prever + impressão)
-│   ├── knn_model.cpp       wrapper do k-NN (knn_pca_prever + impressão)
 │   └── mlp_model.cpp       wrapper do EI (run_classifier + impressão)
 ├── include/
 │   ├── rf_model.h          kSamples/kAxes/kFrameSize/kPeriodMs do RF
-│   ├── knn_model.h         constantes do k-NN
 │   └── mlp_model.h         constantes derivadas das macros do EI
 ├── lib/
 │   ├── knob-senses/        SDK Edge Impulse + modelo v9 (não editar)
-│   ├── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
-│   └── knob-senses-knn/    k-NN gerado pelo notebook (não editar src/)
+│   └── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
 ├── utils/
 │   ├── dataset_prep.ipynb      bruto -> filtros -> 1 h -> splits (tudo num notebook)
 │   ├── dataset_analysis.ipynb  EDA + eficiência (PCA/ghit por mês — o diagnóstico)
 │   ├── treino_random_forest.ipynb  treina e GERA a lib do RF
-│   ├── treino_knn.ipynb            treina e GERA a lib do k-NN (⚠ output antigo)
 │   ├── treino_mlp.ipynb            treina o MLP, salva o `.keras` e avalia no teste
 │   └── model_teste.ipynb       servidor de teste + painel + tabela de métricas
 ├── data/
@@ -567,17 +538,13 @@ Métricas registradas no split de teste atual (2025, `ifpee1`; MAE/RMSE em kW):
 | média do treino | 0,4291 | 0,4967 | ≈0 | +0,0243 | linha de base |
 | Random Forest | **0,0681** | **0,0876** | **0,9688** | +0,0079 | lib entregue; calibrado em 2024H2 |
 | MLP (Keras) | **0,0604** | **0,0753** | **0,9770** | +0,0032 | checkpoint local; Box-Cox + calibração |
-| k-NN | 112,9661 | — | −19,0515 | — | ⚠ lib antiga; não usar |
 
 Os artefatos em `.pio/build/` foram gerados em datas e revisões diferentes
-(`rf` em 2026-11-03, `mlp` em 2026-10-12, `knn` em 2026-10-20) e não são comparáveis entre
-si. Para medir o build atual, rode `pio run -e rf`, `pio run -e mlp` ou `pio run -e knn` e
-veja o resumo de RAM/flash do PlatformIO.
+(`rf` em 2026-11-03, `mlp` em 2026-10-12) e não são comparáveis entre si. Para medir o build
+atual, rode `pio run -e rf` ou `pio run -e mlp` e veja o resumo de RAM/flash do PlatformIO.
 
 ### Pendências conhecidas
 
-- **k-NN**: lib e outputs antigos; retreinar `treino_knn.ipynb` e regerar
-  `lib/knob-senses-knn/` antes de qualquer comparação.
 - **MLP embarcado**: o impulso v9 (`lib/knob-senses/`) tem eixos e scaler diferentes do modelo
   local; reexportar/retreinar no Studio e conferir a ordem antes do ensaio na placa.
 - **MLP local**: o notebook salva em `dist/`, mas o output antigo ainda imprime
