@@ -1,5 +1,6 @@
-"""Leitura e split do dataset — a parte Python do contrato de dados."""
+"""Leitura, normalizacao e limites do dataset — a parte Python do contrato."""
 
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
@@ -38,52 +39,14 @@ def show_dataset(dataset: pd.DataFrame, colunas: bool = False) -> pd.DataFrame:
     return dataset
 
 
-def add_time_features(df: pd.DataFrame, col: str = contract.INDEX) -> pd.DataFrame:
-    """Adiciona ano/mes/doy/hora/hora_ano a partir de `col`; devolve o mesmo df.
-
-    `doy` e' limitado a 365 (2024 e' bissexto): o eixo de hora acumulada usa 365 dias
-    para todos os anos. `hora_ano = (doy - 1)*24 + hora` e' a mesma conta dos paineis
-    de serie dos notebooks.
-    """
-    d = df[col].dt
-    df["ano"] = d.year
-    df["mes"] = d.month
-    df["doy"] = d.day_of_year
-    df.loc[df["doy"] == 366, "doy"] = 365
-    df["hora"] = d.hour
-    df["hora_ano"] = (df["doy"] - 1) * 24 + df["hora"]
-    return df
-
-
-def load_pool(data_dir: Path = paths.PROCESSED) -> pd.DataFrame:
-    """Todos os CSV de data/processed empilhados, com a coluna `inversor` (nome do arquivo)."""
+def load_pool(data_dir: Path = paths.RAW) -> pd.DataFrame:
+    """Todos os CSV de um diretorio empilhados, com a coluna `inversor` (nome do arquivo)."""
     parts = []
     for p in sorted(Path(data_dir).rglob("*.csv")):
         df = read_csv(p)
         df["inversor"] = p.stem
         parts.append(df)
     return pd.concat(parts, ignore_index=True)
-
-
-def save_splits(cuts: dict[str, pd.DataFrame], df: pd.DataFrame,
-                out_dir: Path = paths.SPLITS) -> dict[Path, int]:
-    """Escreve train/validation/test.csv e a copia por estacao (serie completa) em splits/."""
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written = {}
-    for name, frame in cuts.items():
-        path = out_dir / f"{name}.csv"
-        frame.to_csv(path, index=False)
-        written[path] = len(frame)
-    test_dir = out_dir / "test"
-    test_dir.mkdir(parents=True, exist_ok=True)
-    for inversor in df.inversor.unique():
-        path = test_dir / f"{inversor}.csv"
-        df['year'] = df.datetime.dt.year
-        df = df[df.year == df.year.max()]
-        df[df.inversor == inversor].to_csv(path, index=False)
-        written[path] = int((df.inversor == inversor).sum())
-    return written
 
 
 def load_split(name: str) -> pd.DataFrame:
@@ -107,35 +70,72 @@ def z_score(df: pd.DataFrame, mean, std, features=contract.RF_FEATURES) -> pd.Da
     return (df[list(features)] - mean) / std
 
 
-def fit_min_max(train: pd.DataFrame, features=contract.RF_FEATURES):
-    """Minimo e maximo SO do treino (mesma regra do z-score: sem vazamento).
+def valid_readings(df: pd.DataFrame) -> pd.DataFrame:
+    """Leituras fisicamente validas; saturacao e' limitada a 2 kW.
 
-    Se a coluna for constante, o maximo vira `minimo + 1` para a escala nao dividir
-    por zero.
+    Apagao (PCA zero com sol), irradiancia baixa e temperatura absurda entram
+    fora. O clipping NAO e' removido: o inversor satura em ~2 kW, entao a
+    potencia acima disso vira 2,0 kW para a media do bin refletir a saturacao.
     """
-    low = train[list(features)].min()
-    high = train[list(features)].max()
-    return low, high.where(high > low, low + 1.0)
+    df = df.copy()
+    df.loc[df["PCA"] > 2.0, "PCA"] = 2.0
+
+    invalido = (
+        ((df["PCA"] == 0) & (df["ghit"] > 50))   # apagao com sol
+        | (df["ghit"] < 5)                       # noite / irradiancia nula
+        | (df["temperatura_ambiente"] >= 50)     # sensor de temperatura
+    )
+    return df[~invalido]
 
 
-def min_max_scale(df: pd.DataFrame, low, high,
-                  features=contract.RF_FEATURES) -> pd.DataFrame:
-    """(x - minimo) / (maximo - minimo), com min/max ajustados no treino."""
-    return (df[list(features)] - low) / (high - low)
+DOWNSAMPLE_FREQ = "1h"
+
+# O alvo e' potencia media (kW): PCA e ghit tem MEDIA, como as temperaturas.
+# Agregar por soma mudaria a grandeza para energia/irradiacao e faria o alvo
+# depender de quantas amostras validas sobraram no bin.
+DOWNSAMPLE_RULES = {
+    "PCA": "mean",
+    "ghit": "mean",
+    "ioeff": "mean",
+    "jacques": "mean",
+    "kc": "mean",
+    "kt": "mean",
+    "pvsyst_cell": "mean",
+    "sandia": "mean",
+    "sandia_cell": "mean",
+    "temperatura_ambiente": "mean",
+}
 
 
-def dataset_limits(df: pd.DataFrame | None = None,
-                   features=contract.RF_FEATURES, margin: float = 0.10) -> dict:
-    """Faixa observada de cada feature, com folga relativa, no dataset.
+def downsample(df: pd.DataFrame, rules: dict = DOWNSAMPLE_RULES,
+               freq: str = DOWNSAMPLE_FREQ) -> pd.DataFrame:
+    """Agrega o pool no passo do split, preservando a unidade fisica.
 
-    Sem `df`, usa o pool de `data/processed`; se o pool ainda nao existe (prep
-    nao rodou), cai no split de treino. E' a fonte dos limites de sanidade:
-    mudou o dataset, os limites acompanham.
+    Potencia, irradiancia e temperaturas sao intensivas: media. O alvo vira
+    potencia media em kW. Usado pelo prep (que grava os splits) e por
+    `dataset_limits` (que precisa do mesmo agregado para conferir a grandeza
+    fisica). Nao imprime: quem chama decide se quer o resumo.
     """
-    if df is None:
-        pool = Path(paths.PROCESSED)
-        tem_pool = pool.exists() and any(pool.rglob("*.csv"))
-        df = load_pool() if tem_pool else load_split("train")
+    grupo = ["inversor", pd.Grouper(key="datetime", freq=freq)]
+    colunas = ["inversor", "datetime", *rules]
+    return df.dropna(subset=colunas).groupby(grupo).agg(rules).reset_index()
+
+
+def infer_freq(df: pd.DataFrame, col: str = contract.INDEX):
+    """Passo base da grade da serie, como Timedelta.
+
+    Usa a MENOR diferenca positiva, nao a mediana/moda: um split amostrado por
+    linha pode ter a maioria dos intervalos em 2 h mesmo quando o dado e' de 1 h.
+    A menor diferenca e' o passo real da grade. Sem duas linhas, cai no
+    `DOWNSAMPLE_FREQ`.
+    """
+    diffs = pd.to_datetime(df[col]).sort_values().diff().dropna()
+    diffs = diffs[diffs > pd.Timedelta(0)]
+    return diffs.min() if len(diffs) else pd.Timedelta(DOWNSAMPLE_FREQ)
+
+
+def _range_limits(df: pd.DataFrame, features, margin: float) -> dict:
+    """Min/max de cada feature no df, com folga relativa."""
     limites = {}
     for c in features:
         low, high = float(df[c].min()), float(df[c].max())
@@ -144,12 +144,57 @@ def dataset_limits(df: pd.DataFrame | None = None,
     return limites
 
 
+@lru_cache(maxsize=None)
+def _pool_limits(features: tuple[str, ...], margin: float, freq) -> dict:
+    """Limites do pool fisico, sem olhar para os splits (o check nao pode ser circular).
+
+    Fontes, em ordem: `data/processed` (pool do prep antigo, se existir);
+    `data/raw` filtrado por `valid_readings` e agregado por `downsample` (o prep
+    atual le raw direto e nao escreve processed — ver utils/dataset_prep.ipynb);
+    split de treino, so' como ultimo recurso se nem raw houver. A agregacao usa
+    o mesmo passo da grade do split que esta' sendo conferido: `ghit` e `PCA`
+    somam no bin, entao comparar um split de 10 min com o raw de 5 min daria
+    metade do limite.
+    """
+    pool = Path(paths.PROCESSED)
+    if pool.exists() and any(pool.rglob("*.csv")):
+        df = load_pool()
+    elif Path(paths.RAW).exists():
+        df = load_pool(paths.RAW)
+        df = df[df["inversor"].str.startswith("ifpee")]
+        df["PCA"] = df["PCA"].fillna(0)   # mesma sentinela de faltante do prep
+        df = valid_readings(df)
+        df = downsample(df, freq=freq)
+    else:
+        df = load_split("train")
+    return _range_limits(df, features, margin)
+
+
+def dataset_limits(df: pd.DataFrame | None = None,
+                   features=contract.RF_FEATURES, margin: float = 0.10,
+                   freq=None) -> dict:
+    """Faixa observada de cada feature, com folga relativa, no dataset.
+
+    Sem `df`, usa o pool fisico (ver `_pool_limits`), que inclui o ano de teste:
+    o split de teste e' futuro e pode ter ghit maior que qualquer ano do treino,
+    entao limitar a sanidade ao treino quebra em dado fisico legitimo. `freq` e'
+    o passo da grade do split (ver `infer_freq`); sem ele, usa `DOWNSAMPLE_FREQ`.
+
+    Com `df`, calcula a faixa do proprio df. E' a fonte dos limites de sanidade:
+    mudou o dataset, os limites acompanham.
+    """
+    if df is None:
+        return dict(_pool_limits(tuple(features), float(margin),
+                                 freq if freq is not None else pd.Timedelta(DOWNSAMPLE_FREQ)))
+    return _range_limits(df, features, margin)
+
+
 def target_limits(df: pd.DataFrame | None = None,
                   margin: float = 0.05) -> tuple[float, float]:
     """Faixa do alvo observada no dataset, com folga relativa.
 
-    Sem `df`, usa o split de **treino** (nunca validacao/teste: o clip nao pode
-    espiar o futuro). O clip do alvo acompanha o dataset.
+    Serve para inspecao/estatistica. Para o CLIP de saida use
+    `physical_target_limits()`: a folga observada pode permitir valor negativo.
     """
     if df is None:
         df = load_split("train")
@@ -158,16 +203,22 @@ def target_limits(df: pd.DataFrame | None = None,
     return low - folga, high + folga
 
 
+def physical_target_limits() -> tuple[float, float]:
+    """Faixa fisica do alvo em kW: potencia CA nao negativa, saturacao em 2 kW."""
+    return 0.0, 2.0
+
+
 def check_physical_scale(name: str, df: pd.DataFrame,
                          limites: dict | None = None) -> None:
     """Confere que o CSV esta em GRANDEZA FISICA.
 
-    Os limites saem do pool de `data/processed` (`dataset_limits`), com 10% de
-    folga; se o pool nao existe, saem do split de treino. Nao sao numeros fixos
-    no contrato. Este assert e' o que pega o retorno acidental do z-score para
-    dentro dos CSV.
+    Os limites saem do pool fisico (`dataset_limits`), com 10% de folga: raw
+    filtrado e agregado no MESMO passo da grade do df, ou `data/processed` se ele
+    existir. Nao saem dos splits — um check derivado dos proprios splits passaria
+    por construcao e nao pegaria o retorno acidental do z-score para dentro dos
+    CSV.
     """
-    limites = dataset_limits() if limites is None else limites
+    limites = dataset_limits(freq=infer_freq(df)) if limites is None else limites
     faltando = [c for c in limites if c not in df.columns]
     assert not faltando, f"{name}.csv: faltam colunas {faltando}"
     for c, (low, high) in limites.items():

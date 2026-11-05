@@ -10,12 +10,12 @@ def evaluate(name: str, y, pred, pca_min: float | None = None,
              pca_max: float | None = None) -> dict:
     """MAE/RMSE em kW e R2 adimensional. Reporta tambem com clip na faixa fisica.
 
-    Sem `pca_min`/`pca_max`, a faixa vem do dataset (`data.target_limits`). Unica
-    funcao da lib que imprime tabela (as outras devolvem dados): manter o print aqui
-    preserva a cara da saida dos notebooks.
+    Sem `pca_min`/`pca_max`, usa a faixa fisica do inversor (0..2 kW), nao a faixa
+    observada com folga. Unica funcao da lib que imprime tabela (as outras devolvem
+    dados): manter o print aqui preserva a cara da saida dos notebooks.
     """
     if pca_min is None or pca_max is None:
-        pca_min, pca_max = data.target_limits()
+        pca_min, pca_max = data.physical_target_limits()
     pred_clip = np.clip(pred, pca_min, pca_max)
     row = {
         "modelo": name,
