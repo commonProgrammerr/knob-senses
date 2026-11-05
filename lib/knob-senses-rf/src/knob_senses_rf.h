@@ -21,8 +21,8 @@
  * antes de chamar pca_prever() - se o dado chegar em z-score, a conta acontece duas
  * vezes, tudo cai a ~7 desvios-padrao da media, e a previsao COLAPSA num valor fixo.
  *
- * Custo no ESP32-S3: 67.6 KB de flash, 0 de RAM. A floresta e' emitida como codigo
- * (emlearn method='inline'), nao como tabela - por isso nao ocupa RAM.
+ * Custo: a floresta e' emitida como codigo (emlearn method='inline'), entao nao
+ * ocupa RAM; o flash depende do tamanho da floresta - meca no objeto.
  */
 #ifndef KNOB_SENSES_RF_H
 #define KNOB_SENSES_RF_H
@@ -38,24 +38,29 @@
  * recebeu sem reordenar. */
 #define KNOB_RF_ORDEM "temperatura_ambiente, ghit, jacques"
 
-/* Faixa fisica do alvo: o inversor satura em ~2 kW e o dataset nao tem zero (o
- * 0 era sentinela de faltante, removido na analise). A saida ja vem ceifada. */
-#define KNOB_RF_PCA_MIN -1.1475000000000002f
-#define KNOB_RF_PCA_MAX 24.097500000000004f
+/* Faixa fisica do alvo: 0..2 kW. O inversor nao devolve potencia negativa e
+ * satura perto de 2 kW; a saida ja vem ceifada. */
+#define KNOB_RF_PCA_MIN 0.0f
+#define KNOB_RF_PCA_MAX 2.0f
 
 /* ------------------------------------------------------------ procedencia */
 
-#define KNOB_RF_N_ARVORES    20
-#define KNOB_RF_FOLHA_MIN    50
-#define KNOB_RF_N_NOS        1952
-#define KNOB_RF_MAE_TESTE    1.0543f   /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE     0.9462f
+#define KNOB_RF_N_ARVORES    12
+#define KNOB_RF_FOLHA_MIN    200
+#define KNOB_RF_N_NOS        4532
+#define KNOB_RF_MAE_TESTE    0.1137f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.9109f
+
+/* Calibracao de vies: somada antes do clip. Foi ajustada na janela de
+ * calibracao (2024H2), nunca no teste, para corrigir a deriva de eficiencia
+ * 2024->2025. Se o modelo for retreinado, recalcule-a no notebook. */
+#define KNOB_RF_OFFSET       -0.099050f
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* bruto -> z-score -> floresta -> clip. Devolve a potencia CA em kW. */
+/* bruto -> z-score -> floresta -> offset -> clip. Devolve a potencia CA em kW. */
 float pca_prever(const float bruto[KNOB_RF_N_FEATURES]);
 
 #ifdef __cplusplus
