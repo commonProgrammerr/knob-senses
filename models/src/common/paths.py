@@ -36,4 +36,5 @@ LIB_KNN_SRC = LIB_KNN / "src"
 
 EVAL_LOG = ROOT / "utils" / "model_eval.csv"    # o log do servidor de teste
 
-EXPORT_MLP = ROOT / "dist"          # SavedModel/zip/tflite do MLP
+DIST = ROOT / "dist"                # artefatos treinados (keras/joblib)
+EXPORT_MLP = DIST                   # caminho historico do MLP
