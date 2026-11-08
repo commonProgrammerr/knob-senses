@@ -55,7 +55,7 @@ data/splits/test/{inversor}.csv        cópia de 2025 por inversor (ifpee1/2/3)
                                                 └─► Edge Impulse Studio ──► lib/knob-senses/
         │
         ▼
-src/main.cpp (ESP32-S3)  ◄── WiFi :3333 ──  utils/model_teste.ipynb (servidor de teste)
+src/main.cpp (ESP32-S3)  ◄── CDC serial (COM29) ──  utils/model_teste.ipynb (servidor de teste)
 ```
 
 > `data/processed/` **não é mais produzido** — o prep antigo que gerava um CSV por estação foi
@@ -259,9 +259,10 @@ Luschi, Kingma & Ba, Prechelt, Huber e trabalhos de previsão solar).
 
 ## 4. Firmware (`src/main.cpp`)
 
-O firmware é um **cliente WiFi**: ele não lê sensores — pede a amostra ao servidor (§5), roda
-a inferência e devolve a predição. O modelo é escolhido pelo **env do PlatformIO**, não por
-edição manual de include:
+O firmware é um **cliente de teste**: ele não lê sensores — pede a amostra ao servidor (§5)
+pela CDC do USB-Serial/JTAG (COM29, a porta "USB" nativa), roda a inferência e devolve a
+predição, com o log de execução na UART0 (CH343, COM28). O modelo é escolhido pelo **env do
+PlatformIO**, não por edição manual de include:
 
 ```cpp
 #if defined(MODEL_RF)
@@ -282,49 +283,54 @@ debug são comuns.
 | env | header | `kSamples` | `kAxes` | `kFrameSize` | `kPeriodMs` | ritmo nominal |
 |---|---|---:|---:|---:|---:|---|
 | `rf` | `rf_model.h` | 1 | 3 | 3 | 10 ms | 100 inferências/s |
-| `mlp` | `mlp_model.h` | 1 | 3 | 3 | **1 ms** | 1 000 inferências/s nominais; na prática limitado pela rede/servidor |
+| `mlp` | `mlp_model.h` | 1 | 3 | 3 | 1 ms | 1 000 inferências/s nominais; o ensaio dispensa o ritmo e anda na velocidade do handshake |
 
 `kAxes`, `kFrameSize` e `kPeriodMs` vêm dos headers do modelo (`KNOB_RF_N_FEATURES`
 e as macros `EI_CLASSIFIER_*`). Os comentários antigos do
 `include/mlp_model.h` ainda dizem 5/9/45/1000; os valores reais do v9 são **1/3/3/1** —
 confie nas macros.
 
-### Protocolo (porta 3333)
+### Protocolo (CDC serial)
 
-A sessão inteira vive em **uma única conexão TCP** (um só handshake). Mensagens de tamanho
-fixo, little-endian; o número de sequência (`seq`, u32) diz a que linha do `test.csv` a
-mensagem pertence e volta ecoado em toda resposta:
+A sessão começa com um **handshake de 1 byte**: o host manda o MAGIC, o firmware responde
+com o mesmo byte e só então o protocolo anda. O ROM bootloader escreve na CDC antes de nós,
+e o host descarta tudo até o MAGIC de volta — qualquer resíduo de boot fica fora do fluxo.
+O MAGIC tem duas variantes: **`0x52` (RESET)** — usada uma vez por usina — e **`0x4B`
+(RESUME)** — usada nas retomadas. Como o host reenvia o MAGIC até a resposta chegar, o
+firmware **drena a fila de recepção** depois de aceitá-lo: cada cópia extra envenenaria o
+primeiro lote da sessão. Depois do handshake, mensagens binárias little-endian, em LOTES:
 
 | mensagem | sentido | bytes |
 |---|---|---|
-| pedido de amostra | ESP32 → servidor | `\x01` + `seq` u32 (5 B) |
-| amostra | servidor → ESP32 | `\x01` + `seq` u32 + `kAxes` floats (`float32` LE, **grandeza bruta**) |
-| fim do dataset | servidor → ESP32 | `\x02` + `seq` u32 (`seq >= 4 039` hoje; o firmware para de pedir) |
-| predição | ESP32 → servidor | `\x03` + `seq` u32 + 1 `float32` (**a predição**, kW) |
-| ACK | servidor → ESP32 | `\x03` + `seq` u32 (a linha `seq` está no log) |
+| lote de amostras | servidor → ESP32 | `\x01` + base u32 + `n` u32 + `n × 3` `float32` (≤ 777 B, **grandeza bruta**) |
+| lote de predições | ESP32 → servidor | `\x03` + base u32 + `n` u32 + `n ×` `float32` (≤ 265 B, kW) |
+| fim do dataset | servidor → ESP32 | `\x01` + base u32 + `n = 0` |
 
-Fluxo por amostra: pedido → amostra → predição → ACK → `seq++`. **A `seq` só avança com o
-ACK**: qualquer falha (conexão caída, escrita/leitura parcial, eco divergente) faz `stop()` e
-a **mesma** amostra volta no tick seguinte — nunca se pula amostra, então um ensaio completo
-tem exatamente 4 039 linhas, sem buracos nem linhas trocadas. Predição repetida (retentativa
-com ACK perdido no caminho) é ignorada pelo servidor, e o ACK se repete.
+**Por que lotes:** medido nesta bancada, o downlink (host → ESP) deste par de driver/placa
+tem soluços de ~2 s a cada dezenas de mensagens pequenas; com o protocolo linha a linha
+(duas transferências por linha), cada soluço envenenava a troca seguinte e o ensaio andava
+a ~2 linhas/s. Em lote, um par de transferências cobre até 64 linhas e um soluço custa **um
+reenvio do mesmo lote** — o lote é idempotente (reprocessar as mesmas amostras devolve as
+mesmas predições), e o firmware é **apátrida por lote**: quem controla o andamento é o
+servidor. O ensaio completo (4 042 linhas) roda em ~8 s.
 
-Constantes no topo de `src/main.cpp`: `SERVER_IP`, `SERVER_PORT`, `WIFI_SSID`,
-`WIFI_PASSWORD`. O gancho de aquisição é **`exchange_sample()`** (o `request_sample()` é quem
-fala com o servidor de teste): hoje ele pede a amostra pela rede; em campo é ali que entram os
-sensores da usina — o resto do pipeline não muda.
+Constantes no topo de `src/main.cpp`: `MSG_MAGIC`, `MSG_MAGIC_RESET`, `BATCH_MAX` (64) e
+`SERVER_TIMEOUT_S` (2 s por byte lido). O gancho de aquisição é a **`runInference()`**:
+hoje as amostras vêm do lote do servidor de teste; em campo é ali que entram os sensores
+da usina — o resto do pipeline não muda.
 
 ### Comportamento do loop
 
-- Periodizado por `kPeriodMs`; atraso de um período inteiro conta em **`overruns`** (não tenta
-  recuperar em rajada). Com o servidor fora do ar os `overruns` também crescem: cada tentativa
-  de `connect` atrasa o período — é esperado.
-- Falha de troca conta em **`dropouts`**: a mesma amostra será **retentada** (a `seq` não
-  avança). Os prints de falha/volta são só nas transições de estado, não a cada tick.
+- Sem gate de ritmo: o ensaio anda na velocidade dos lotes — o `kPeriodMs` dos headers é o
+  ritmo da operação em tempo real, não do ensaio. Após o fim do dataset (lote vazio) ou de
+  um lote falhado, o firmware se re-arma e aguarda o MAGIC da próxima sessão: as três usinas
+  rodam em sequência, sem reset manual.
+- Lote falhado conta em **falhas** (`g_dropouts`): o host **reenvia o mesmo lote** (nada se
+  perde nem duplica). Os prints de falha/volta são só nas transições de estado.
 - Erro de inferência é **fatal**: para de inferir (insistir vazaria a arena do TFLite a cada
   segundo) — e imprime `ERRO FATAL na inferencia`.
-- `heap_livre` (maior bloco contíguo) é impresso junto de cada predição: ficando plano ao
-  longo de horas, não há fragmentação nem vazamento.
+- O progresso sai a cada 10 lotes (média de ms/lote); o `heap_livre` (maior bloco contíguo)
+  continua disponível nos wrappers de impressão dos modelos.
 
 ### Gravar e monitorar
 
@@ -341,29 +347,28 @@ debug usa o USB nativo (JTAG). Se trocar o cabo de porta, confira com `pio devic
 
 ## 5. Servidor de teste (`utils/model_teste.ipynb`)
 
-É o **banco de comparação estimado × medido**: sobe um socket em `0.0.0.0:3333` e serve as
-linhas de **`data/splits/test.csv`** (hoje 4 039 linhas de `ifpee1` em 2025), endereçadas pelo
-`seq` do protocolo. As colunas de features vêm de `server.AXES`, que é um alias de
-`contract.RF_FEATURES`. O `server.check_axis_order()` compara essa ordem com a
+É o **banco de comparação estimado × medido**: abre a porta CDC do USB-Serial/JTAG (COM29)
+e serve as linhas de **`data/splits/test.csv`** (hoje 4 039 linhas de `ifpee1` em 2025),
+endereçadas pelo `seq` do protocolo. As colunas de features vêm de `server.AXES`, que é um
+alias de `contract.RF_FEATURES`. O `server.check_axis_order()` compara essa ordem com a
 `normalizacao.json` da lib do RF, mas **o notebook atual não o chama**; rode-o manualmente
-antes do ensaio.
+antes do ensaio. Durante o ensaio, feche o OpenOCD: o COM29 é compartilhado com o JTAG.
 
-O laço vive em `models/src/common/server.py` (`server.serve`):
+O laço vive em `models/src/common/server.py` (`server.serve_serial`):
 
-- `accept()` fica num laço externo (tolera reconexão) e o estado da sessão é o `seq`, não a
-  conexão;
-- conexão que morre no meio volta para o `accept()` e o cliente reconecta reenviando a mesma
-  `seq`; predição repetida (ACK perdido no caminho) é ignorada sem relogar;
-- cada conexão tem timeout de 5 s — silêncio maior que isso é conexão zumbi (ESP reiniciado
-  sem `FIN`) — e é maior que o timeout de leitura do firmware (2 s), então quem desiste
-  primeiro é sempre o cliente;
-- o `serve()` retorna quando o firmware pede uma `seq` além do fim (mensagem de fim).
+- o estado do ensaio é o **lote pendente**, não o meio: leitura exata que estoura o timeout
+  refaz o handshake RESUME e o host reenvia o MESMO lote (idempotente — reprocessar as
+  mesmas amostras devolve as mesmas predições);
+- a leitura tem timeout assimétrico: 2 s no firmware e 5 s no servidor (o cliente desiste
+  primeiro; o host reenvia o MAGIC até a resposta chegar);
+- o `serve_serial()` encerra cada usina com um **lote vazio** (count=0); o firmware se
+  re-arma e aguarda o RESET da próxima.
 
-O notebook roda um `serve()` por inversor e grava o log em `utils/{inversor}_val.csv` (ex.:
-`utils/ifpee1_val.csv`); `paths.EVAL_LOG` (`utils/model_eval.csv`) é o default de `serve()`
-quando chamado sem caminho. Cada predição confirmada vira uma linha `sample, real, pred, err`.
-`PCA == 0` é label inválido: a linha fica no log, mas fora do erro (hoje são 3 linhas no
-teste).
+O notebook roda um `serve_serial()` por inversor e grava o log em `utils/{inversor}_val.csv`
+(ex.: `utils/ifpee1_val.csv`); `paths.EVAL_LOG` (`utils/model_eval.csv`) é o default de
+`serve_serial()` quando chamado sem caminho. Cada predição confirmada vira uma linha
+`sample, real, pred, err`. `PCA == 0` é label inválido: a linha fica no log, mas fora do erro
+(hoje são 3 linhas no teste).
 
 O painel lê o `reply` da sessão ou, se a placa morrer no meio, os `ifpe*_val.csv` já gravados.
 Ele mostra a série diária real × predito, o dispersão predito × real colorido pelo erro e a
@@ -379,16 +384,16 @@ tabela de métricas por mês, usando `server.eval_metrics`:
 | `vies` | média de `pred - real` |
 | `teto` / `no_teto` | maior predição e quantas linhas encostam nela |
 
-> Limitação conhecida: reiniciar o `serve()` no meio de um ensaio **recomeça o log vazio** e o
-> firmware continua da `seq` dele — as linhas anteriores se perdem. Para recomeçar do zero,
-> suba o servidor e dê reset no ESP (a `seq` volta a 0; o que já estava logado volta como
-> duplicata e não é relogado).
+> Limitação conhecida: reiniciar o `serve_serial()` no meio de um ensaio **recomeça o log
+> vazio** e o firmware continua da `seq` dele — as linhas anteriores se perdem. Para recomeçar
+> do zero, suba o servidor e dê reset no ESP (a `seq` volta a 0; o que já estava logado volta
+> como duplicata e não é relogado).
 
 > O print `dados em ...data/processed` da célula de configuração é resquício do pipeline
 > antigo; a célula seguinte carrega `data.load_split("test")`, que lê `data/splits/test.csv`.
 
-O comentário sobre `SO_EXCLUSIVEADDRUSE` no notebook importa: no Windows, `SO_REUSEADDR`
-permitiria **dois servidores na mesma porta** em silêncio — cada cliente caindo em um.
+No serial, a exclusividade do meio é natural: a porta COM **não admite duas aberturas** — não
+existe o risco clássico do TCP de dois servidores na mesma porta.
 
 ---
 
@@ -487,7 +492,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 | MLP com saída sem sentido | impulso v9 usa outra ordem e outro scaler | §6 — reexportar no Studio e conferir eixos + scaler |
 | `PCA == 0` entra como label | `0` é sentinela de faltante | o servidor já exclui; nos treinos, confira a fração de zeros |
 | Erro do modelo inflado no teste | `PCA == 0` entrou como label | exclua (o servidor faz isso) |
-| Dois servidores na mesma porta | `SO_REUSEADDR` no Windows | `SO_EXCLUSIVEADDRUSE` (já no `server.open_socket`) |
+| Porta serial ocupada no ensaio | outra abertura do COM29 (OpenOCD, monitor) | feche o OpenOCD; a porta COM não admite duas aberturas |
 | Diferença de 1 ULP ao comparar CSVs | o parser de CSV do pandas não é o inverso exato do `to_csv` | compare **bytes** (`Path.read_bytes()`), não floats |
 | Notebook não importa `common` | kernel `python3` caindo no Python do ESP-IDF | use o kernel `knob-senses` ou `sys.path.insert` da primeira célula |
 
@@ -502,7 +507,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 ├── models/src/mlp/         MLP (Keras): export para o Edge Impulse
 ├── models/tests/           checks locais: layout, dados, plots e MLP
 ├── src/
-│   ├── main.cpp            cliente WiFi + seleção do modelo pelo env (-DMODEL_*)
+│   ├── main.cpp            cliente de teste (CDC serial) + seleção do modelo pelo env (-DMODEL_*)
 │   ├── rf_model.cpp        wrapper do RF (pca_prever + impressão)
 │   └── mlp_model.cpp       wrapper do EI (run_classifier + impressão)
 ├── include/

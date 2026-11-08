@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <string.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
+#include <HWCDC.h>     /* a CDC do USB-Serial/JTAG (porta "USB" nativa) carrega os dados */
 
 /* O modelo ativo vem do ENV do PlatformIO (platformio.ini): um env por modelo, com as
  * flags especificas isoladas (ex.: o Edge Impulse so' no mlp). Nao troque o include a
@@ -26,66 +25,75 @@ typedef ei_impulse_result_t result_t;
 #error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp)"
 #endif
 
-#define SERVER_IP "192.168.1.102"
-#define SERVER_PORT 3333
-#define WIFI_SSID "Taluana"
-#define WIFI_PASSWORD "DLNT1806"
-
-/* ---------------------------------------------- protocolo v2 (README secao 4)
+/* ---------------------------------------------------- protocolo v3 (lotes)
  *
- * A sessao inteira vive em UMA conexao TCP: o cliente pede a amostra `seq`, infere e
- * devolve a predicao da MESMA seq; o servidor confirma com um ACK depois de gravar a
- * linha. O numero de sequencia volta ecoado em toda resposta - sem ele, uma perda
- * desalinhava o log em silencio (real e pred trocados por linha) e ninguem via.
+ * O transporte do ensaio e' a CDC do USB-Serial/JTAG (COM29); o log de execucao vai
+ * pela UART0 (COM28). O host manda LOTES de amostras e recebe LOTES de predicoes:
+ * UM par de transferencias por lote, em vez de duas por linha.
  *
- * A seq so' avanca com o ACK. Qualquer falha (connect, escrita parcial, leitura
- * incompleta, seq ou tipo diferentes) => stop() e a MESMA amostra volta no proximo
- * tick: nunca se pula amostra. O mesmo byte de tipo vale nos dois sentidos - 0x01 e'
- * pedido no sentido ESP->servidor e amostra no contrario; 0x03 e' predicao e ACK.
+ *   lote (host -> ESP):   0x01 + base u32 + count u32 + count x 3 float32
+ *   resposta (ESP -> host): 0x03 + base u32 + count u32 + count x float32
+ *
+ * Menos mensagens = menos exposicao a soluços do elo. Medido nesta bancada: o
+ * downlink (host -> ESP) deste par de driver/placa tem soluços de ~2 s a cada ~30
+ * mensagens pequenas; com o protocolo linha a linha, cada soluço envenenava a troca
+ * seguinte (o ACK duplicado do reenvio chegava atrasado e virava o cabecalho da
+ * proxima amostra). Em lote, um soluço custa UM reenvio por ~64 linhas.
+ *
+ * O firmware e' APATRIDA por lote: nao ha' seq nem retentativa. Quem controla o
+ * andamento e' o host - ele reenvia o MESMO lote se a resposta nao chegar, e o
+ * reprocessamento e' inofensivo (mesmas amostras, mesmas predicoes). O handshake
+ * continua com as duas magias: RESET (0x52) e' o primeiro de cada serve_serial
+ * (nova usina); RESUME (0x4B) e' a reentrada apos um soluço. O dreno pos-MAGIC
+ * descarta as copias velhas do MAGIC que o host reenvia ate' a resposta chegar.
  */
-#define MSG_REQUEST 0x01    /* ESP -> servidor: 0x01 + seq u32 (5 bytes)             */
-#define MSG_SAMPLE 0x01     /* servidor -> ESP: 0x01 + seq u32 + kAxes x float32     */
-#define MSG_END 0x02        /* servidor -> ESP: 0x02 + seq u32 (nao ha' seq < len)   */
-#define MSG_PREDICTION 0x03 /* ESP -> servidor: 0x03 + seq u32 + pred float32 (9 B)  */
-#define MSG_ACK 0x03        /* servidor -> ESP: 0x03 + seq u32 (linha `seq` logada)  */
+#define MSG_BATCH 0x01        /* host -> ESP: cabecalho do lote de amostras        */
+#define MSG_BATCH_REPLY 0x03  /* ESP -> host: cabecalho do lote de predicoes       */
+#define MSG_MAGIC 0x4B        /* 'K': RESUME - host -> ESP; e o ACK do handshake   */
+#define MSG_MAGIC_RESET 0x52  /* 'R': RESET - host -> ESP                          */
+#define BATCH_MAX 64U         /* maximo de amostras por lote (payload 768 B)       */
 
-/* WiFiClient::setTimeout() recebe SEGUNDOS (o core multiplica por 1000) e vale para o
- * connect E para o readBytes (Stream::_timeout, POR byte; o SO_RCVTIMEO que ele tambem
- * seta nao e' consultado pelo leitor). 2 s: o servidor tem 5 s, entao quem desiste
- * primeiro e' sempre o firmware - e' ele que reconecta e retenta. */
+/* Tempo maximo POR BYTE numa leitura, em SEGUNDOS (a unidade de negocio; o
+ * Stream::setTimeout quer MILISSEGUNDOS - ver setup()). O host aguenta 5 s: o
+ * firmware desiste PRIMEIRO e volta a aguardar o MAGIC. */
 #define SERVER_TIMEOUT_S 2U
 
 /* ------------------------------------------------------------------ estado */
 
-static uint32_t g_nextDueMs = 0;
-static uint32_t g_seq = 0;      /* proxima amostra a pedir: so' avanca com o ACK */
-static bool g_done = false;     /* o servidor avisou o fim do dataset */
+static bool g_session = false;  /* true entre o MAGIC e o fim/erro da sessao */
 static bool g_serverOk = true;  /* false apos uma falha; true de proposito, para o
                                  * primeiro "servidor fora do ar" imprimir a transicao */
-static uint32_t g_overruns = 0; /* ticks em que atrasamos um periodo inteiro */
-static uint32_t g_dropouts = 0; /* trocas falhadas, que serao RETENTADAS (a seq nao avanca) */
+static uint32_t g_dropouts = 0; /* falhas de sessao; o host reenvia o lote, nada se perde */
 static bool g_inferenceFailed = false;
 result_t g_result;
-WiFiClient g_client;
 
-/* O veredito de uma troca: e' o que o loop usa para decidir a proxima acao. */
-enum Exchange
-{
-  EXCHANGE_OK,            /* amostra recebida, predicao logada e ACK conferido */
-  EXCHANGE_END,           /* o servidor nao tem esta seq: acabou o dataset */
-  EXCHANGE_ERR_WRITE,     /* write() parcial ou zero */
-  EXCHANGE_ERR_READ,      /* readBytes() incompleto (timeout / conexao caida) */
-  EXCHANGE_ERR_SEQ,       /* o seq que voltou nao e' o que foi pedido */
-  EXCHANGE_ERR_TYPE,      /* tipo de mensagem inesperado para este momento */
-  EXCHANGE_ERR_ACK,       /* a resposta a predicao nao foi o ACK da seq */
-  EXCHANGE_ERR_INFERENCE, /* runInference() falhou: fatal, para de inferir */
-};
+/* Diagnostico do lote: acumulados impressos a cada 10 lotes. */
+static uint32_t g_diag_lotes = 0;
+static uint32_t g_diag_ms = 0;
 
-static bool ensure_server(WiFiClient &client);
 static void record_failure(const char *reason);
 static void record_success(void);
-static const char *exchange_reason(Exchange outcome);
-static Exchange exchange_sample(void);
+static uint8_t await_magic(HWCDC &s);
+static bool write_all(Stream &client, const uint8_t *buf, size_t len);
+static bool read_all(Stream &client, uint8_t *buf, size_t len);
+static void put_u32(uint8_t *p, uint32_t v);
+static uint32_t get_u32(const uint8_t *p);
+
+/* Le o byte magico do host e devolve QUAL magia veio (0 = nada ainda). O ROM
+ * bootloader escreve na CDC antes de nos: bytes anteriores ao MAGIC sao lixo de
+ * boot, nao protocolo. */
+static uint8_t await_magic(HWCDC &s)
+{
+  while (s.available() > 0)
+  {
+    const int b = s.read();
+    if (b == MSG_MAGIC || b == MSG_MAGIC_RESET)
+    {
+      return (uint8_t)b;
+    }
+  }
+  return 0;
+}
 
 /* ------------------------------------------------------------------- setup */
 
@@ -109,83 +117,144 @@ void setup()
 {
   ledSetup();
 
-  Serial.begin(115200);
+  Serial.begin(115200);   /* log na UART0 (CH343, COM28) */
 
   printBanner();
 
-  g_client.setTimeout(SERVER_TIMEOUT_S); /* segundos! vale para o connect e para cada byte lido */
-
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Conectando ao WiFi");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("WiFi conectado");
+  /* Dados do ensaio na CDC do USB-Serial/JTAG (COM29). O baud e' virtual em USB:
+   * so' precisa ser valido; a taxa real e' a do barramento. */
+  USBSerial.begin(115200);
+  /* Um lote cheio sao 777 bytes: a fila de RX padrao (256 B) nao comporta. */
+  USBSerial.setRxBufferSize(1024);
+  /* Stream::setTimeout e' em MILISSEGUNDOS (o WiFiClient e' que recebia segundos). */
+  USBSerial.setTimeout(SERVER_TIMEOUT_S * 1000U);
 }
 
 /* -------------------------------------------------------------------- loop */
 
 void loop()
 {
-  const uint32_t now = millis();
-  if ((uint32_t)(now - g_nextDueMs) < kPeriodMs)
-  {
-    return;
-  }
-
-  g_nextDueMs += kPeriodMs;
-  if ((uint32_t)(millis() - g_nextDueMs) >= kPeriodMs)
-  {
-    g_overruns++; /* atrasamos um periodo inteiro: nao tenta recuperar em rajada */
-    g_nextDueMs = millis();
-  }
-
-  if (g_done)
-  {
-    return; /* dataset inteiro: parou de pedir (a conexao ja' foi fechada no MSG_END) */
-  }
+  /* Sem gate de ritmo: o ensaio anda na velocidade do lote (o kPeriodMs dos
+   * cabecalhos e' o ritmo da inferencia em tempo real, nao do ensaio). A sessao
+   * comeca com o MAGIC do host e re-arma sozinha apos fim/erro. */
   if (g_inferenceFailed)
   {
     return;
   }
-  if (!ensure_server(g_client))
+  if (!g_session)
   {
-    record_failure("sem conexao com o servidor");
+    const uint8_t magia = await_magic(USBSerial);
+    if (magia == 0)
+    {
+      return;
+    }
+    /* O host reenvia o MAGIC ate' a resposta chegar: a fila pode ter VARIOS
+     * magicos atras do primeiro, e cada um envenenaria o primeiro lote. Esvazia
+     * tudo: antes do MAGIC_ACK o host nao manda nada que preste. */
+    while (USBSerial.available() > 0)
+    {
+      USBSerial.read();
+    }
+    USBSerial.write(MSG_MAGIC); /* MAGIC de volta: daqui em diante so' protocolo */
+    if (magia == MSG_MAGIC_RESET)
+    {
+      Serial.println("sessao serial iniciada (RESET)");
+    }
+    else
+    {
+      Serial.println("sessao serial retomada (RESUME)");
+    }
+    g_session = true;
+  }
+
+  const uint32_t t0 = millis();
+
+  /* Cabecalho do lote: tipo + base + count. */
+  uint8_t header[9];
+  if (!read_all(USBSerial, header, sizeof(header)))
+  {
+    record_failure("cabecalho do lote");
+    g_session = false;
+    return;
+  }
+  if (header[0] != MSG_BATCH)
+  {
+    record_failure("tipo do lote");
+    g_session = false;
+    return;
+  }
+  const uint32_t base = get_u32(header + 1);
+  const uint32_t count = get_u32(header + 5);
+  if (count == 0)
+  {
+    g_session = false; /* fim do dataset: o host encerrou; volta a aguardar o MAGIC */
+    Serial.println("fim do dataset (lote vazio)");
+    return;
+  }
+  if (count > BATCH_MAX)
+  {
+    record_failure("tamanho do lote");
+    g_session = false;
     return;
   }
 
-  ledWrite(true);
-  const Exchange outcome = exchange_sample();
-  ledWrite(false);
-
-  if (outcome == EXCHANGE_END)
+  /* Payload: count amostras de kAxes floats, em grandeza bruta. */
+  float batch[BATCH_MAX][kAxes];
+  for (uint32_t i = 0; i < count; i++)
   {
-    Serial.print("fim do dataset (o servidor nao tem a seq ");
-    Serial.print(g_seq);
-    Serial.println(") - nada mais a pedir");
-    g_client.stop();
-    g_done = true;
-    return;
-  }
-  if (outcome == EXCHANGE_ERR_INFERENCE)
-  {
-    g_inferenceFailed = true;
-    Serial.println("ERRO FATAL na inferencia - parando de inferir");
-    Serial.println("(insistir vazaria a arena do TFLite a cada segundo)");
-    g_client.stop(); /* a amostra ficou sem predicao: a seq NAO avanca */
-    return;
-  }
-  if (outcome != EXCHANGE_OK)
-  {
-    record_failure(exchange_reason(outcome));
-    return;
+    if (!read_all(USBSerial, (uint8_t *)batch[i], kAxes * sizeof(float)))
+    {
+      record_failure("payload do lote");
+      g_session = false;
+      return;
+    }
   }
 
-  record_success(); /* so' AQUI: o servidor confirmou o log desta seq */
-  printResult(g_result);
-  g_seq++;
+  /* Inferencia do lote inteiro e a resposta numa escrita so'. */
+  static uint8_t reply[9 + BATCH_MAX * sizeof(float)];
+  reply[0] = MSG_BATCH_REPLY;
+  put_u32(reply + 1, base);
+  put_u32(reply + 5, count);
+  for (uint32_t i = 0; i < count; i++)
+  {
+    ledWrite(true);
+    const bool ok = runInference(batch[i], &g_result);
+    ledWrite(false);
+    if (!ok)
+    {
+      g_inferenceFailed = true;
+      Serial.println("ERRO FATAL na inferencia - parando de inferir");
+      Serial.println("(insistir vazaria a arena do TFLite a cada segundo)");
+      g_session = false;
+      return;
+    }
+#if defined(RF_MODEL_H)
+    float f_result = g_result;
+#elif defined(MLP_MODEL_H)
+    float f_result = g_result.classification[0].value;
+#else
+#error "Invalid model!"
+#endif
+    memcpy(reply + 9 + i * sizeof(float), &f_result, sizeof(float));
+  }
+  if (!write_all(USBSerial, reply, 9 + count * sizeof(float)))
+  {
+    record_failure("envio da resposta");
+    g_session = false;
+    return;
+  }
+
+  record_success();
+  g_diag_lotes++;
+  g_diag_ms += millis() - t0;
+  if ((g_diag_lotes % 10U) == 0U)
+  {
+    Serial.print("lotes: ");
+    Serial.print(g_diag_lotes);
+    Serial.printf(" | media %lu ms/lote | ultimo base=%lu count=%lu\n",
+                  (unsigned long)(g_diag_ms / g_diag_lotes),
+                  (unsigned long)base, (unsigned long)count);
+  }
 }
 
 /* -------------------------------------------------- funcoes do protocolo */
@@ -205,10 +274,9 @@ static uint32_t get_u32(const uint8_t *p)
          ((uint32_t)p[3] << 24);
 }
 
-/* write() devolve o que conseguiu enviar - pode ser PARCIAL - e devolve 0 com a conexao
- * caida. Mensagem so' sai inteira com este laco; parcial e' falha, e falha e' stop() +
- * a MESMA amostra no proximo tick. */
-static bool write_all(WiFiClient &client, const uint8_t *buf, size_t len)
+/* write() devolve o que conseguiu enviar - pode ser PARCIAL - e devolve 0 se o
+ * transporte caiu. Mensagem so' sai inteira com este laco; parcial e' falha. */
+static bool write_all(Stream &client, const uint8_t *buf, size_t len)
 {
   size_t sent = 0;
   while (sent < len)
@@ -225,164 +293,34 @@ static bool write_all(WiFiClient &client, const uint8_t *buf, size_t len)
 
 /* readBytes() para no timeout e devolve o que veio (o timeout e' POR byte). Mensagem de
  * tamanho fixo nao tem leitura parcial aproveitavel: ou veio tudo, ou e' falha. */
-static bool read_all(WiFiClient &client, uint8_t *buf, size_t len)
+static bool read_all(Stream &client, uint8_t *buf, size_t len)
 {
   return client.readBytes((char *)buf, len) == len;
 }
 
-/* Mantem UMA conexao viva pela sessao inteira - e' o unico lugar que conecta. O
- * connected() so' olha o socket local: servidor morto sem RST continua "conectado", e
- * por isso quem decide a falha e' a troca (timeout de leitura), nao este pre-filtro. */
-static bool ensure_server(WiFiClient &client)
-{
-  if (client.connected())
-  {
-    return true;
-  }
-  client.stop();
-  if (!client.connect(SERVER_IP, SERVER_PORT))
-  {
-    return false;
-  }
-  client.setNoDelay(true); /* mensagens de 5..25 B: o Nagle seguraria o ACK */
-  return true;
-}
-
-/* Falha = a MESMA amostra volta no proximo tick: conta, fecha a conexao (a tentativa
- * recomeca do zero) e imprime SO' a transicao - a 40 Hz, um print por tick vira parede
- * de log e esconde o que importa. */
+/* Falha = o host reenviara' o MESMO lote no proximo MAGIC: conta e imprime SO' a
+ * transicao - na velocidade do ensaio, um print por falha vira parede de log. */
 static void record_failure(const char *reason)
 {
   g_dropouts++;
-  g_client.stop();
   if (g_serverOk)
   {
-    Serial.print("troca falhou (");
+    Serial.print("lote falhou (");
     Serial.print(reason);
-    Serial.print(") - retenta a MESMA amostra; a seq nao avanca. dropouts=");
+    Serial.print(") - o host reenviara' o MESMO lote. falhas=");
     Serial.println(g_dropouts);
     g_serverOk = false;
   }
 }
 
-/* O ACK chegou: o log do servidor tem esta seq. */
+/* O lote saiu inteiro: a sessao esta' viva. */
 static void record_success(void)
 {
   if (!g_serverOk)
   {
-    Serial.print("servidor respondeu de novo (trocas falhadas ate agora: ");
+    Serial.print("servidor respondeu de novo (falhas ate agora: ");
     Serial.print(g_dropouts);
     Serial.println(")");
     g_serverOk = true;
   }
-}
-
-static const char *exchange_reason(Exchange outcome)
-{
-  switch (outcome)
-  {
-  case EXCHANGE_ERR_WRITE:
-    return "escrita incompleta";
-  case EXCHANGE_ERR_READ:
-    return "leitura incompleta (timeout)";
-  case EXCHANGE_ERR_SEQ:
-    return "seq ecoado diferente do pedido";
-  case EXCHANGE_ERR_TYPE:
-    return "tipo de resposta inesperado";
-  case EXCHANGE_ERR_ACK:
-    return "resposta a predicao nao foi o ACK";
-  case EXCHANGE_ERR_INFERENCE:
-    return "inferencia";
-  default:
-    return "?";
-  }
-}
-
-/* Pede a amostra `seq` e le a resposta em DUAS fases: os 5 bytes de cabecalho (tipo +
- * seq) primeiro, e so' depois, se for amostra, os kAxes floats. Ler tudo de uma vez
- * travaria na resposta de fim (5 bytes): o servidor nao manda mais nada e so' haveria
- * timeout. E' seguro porque cada sentido tem um unico escritor e um unico leitor, o
- * servidor manda cabecalho+payload num sendall so', e o firmware nunca deixa byte para
- * tras (qualquer divergencia fecha a conexao em vez de seguir lendo). */
-static Exchange request_sample(uint32_t seq, float out[kAxes], WiFiClient &client)
-{
-  uint8_t request[5];
-  request[0] = MSG_REQUEST;
-  put_u32(request + 1, seq);
-  if (!write_all(client, request, sizeof(request)))
-  {
-    return EXCHANGE_ERR_WRITE;
-  }
-
-  uint8_t header[5];
-  if (!read_all(client, header, sizeof(header)))
-  {
-    return EXCHANGE_ERR_READ;
-  }
-  if (get_u32(header + 1) != seq) /* tripwire barato: fluxo dessincronizado */
-  {
-    return EXCHANGE_ERR_SEQ;
-  }
-  if (header[0] == MSG_END)
-  {
-    return EXCHANGE_END;
-  }
-  if (header[0] != MSG_SAMPLE)
-  {
-    return EXCHANGE_ERR_TYPE;
-  }
-  if (!read_all(client, (uint8_t *)out, kAxes * sizeof(float)))
-  {
-    return EXCHANGE_ERR_READ;
-  }
-  return EXCHANGE_OK;
-}
-
-/* A predicao da amostra `seq` e o ACK que confirma o log. Sem ACK a seq nao avanca:
- * adivinhar que a predicao chegou e' exatamente o que trocava real e pred de linha. */
-static Exchange send_prediction(uint32_t seq, const result_t &result, WiFiClient &client)
-{
-  uint8_t msg[9];
-  msg[0] = MSG_PREDICTION;
-  put_u32(msg + 1, seq);
-/* ESP32 e' little-endian como o PC: os 4 bytes do float saem na ordem que o
- * struct.unpack("<f") do servidor espera. */
-#if defined(RF_MODEL_H)
-  float f_result = result;
-#elif defined(MLP_MODEL_H)
-  float f_result = result.classification[0].value;
-#else
-#error "Invalid model!"
-#endif
-  memcpy(msg + 5, &f_result, sizeof(float));
-  if (!write_all(client, msg, sizeof(msg)))
-  {
-    return EXCHANGE_ERR_WRITE;
-  }
-  uint8_t response[5];
-  if (!read_all(client, response, sizeof(response)))
-  {
-    return EXCHANGE_ERR_READ;
-  }
-  if (response[0] != MSG_ACK || get_u32(response + 1) != seq)
-  {
-    return EXCHANGE_ERR_ACK;
-  }
-  return EXCHANGE_OK;
-}
-
-/* A troca completa de UMA amostra, na MESMA conexao da anterior. */
-static Exchange exchange_sample(void)
-{
-  float sample[kAxes];
-  const Exchange outcome = request_sample(g_seq, sample, g_client);
-  if (outcome != EXCHANGE_OK)
-  {
-    return outcome;
-  }
-  if (!runInference(sample, &g_result))
-  {
-    return EXCHANGE_ERR_INFERENCE;
-  }
-  return send_prediction(g_seq, g_result, g_client);
 }

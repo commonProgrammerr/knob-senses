@@ -22,13 +22,14 @@ granularidade.
 \section{Ensaio na Placa}
 
 O ensaio E3 da matriz experimental --- o Random Forest na granularidade de
-1~h, com a biblioteca C embarcada na ESP32-S3 --- percorreu as 4\,042 linhas
-do teste de 2025 da usina \texttt{ifpee1}, das quais 775 estavam em
-\textit{gap} artificial. Fora dos \textit{gaps}, o caminho embarcado
-reproduz o modelo treinado: MAE de $0{,}069$~kW, RMSE de $0{,}089$~kW,
-R$^2$ de $0{,}968$ e viés de $+0{,}009$~kW, praticamente idênticos aos
-números da avaliação \textit{offline} --- a cadeia código C $\rightarrow$
-firmware $\rightarrow$ protocolo não degrada a inferência.
+1~h, com a biblioteca C embarcada na ESP32-S3 e o protocolo de lotes pela
+CDC serial --- percorreu as 4\,042 linhas do teste de 2025 da usina
+\texttt{ifpee1}, das quais 775 estavam em \textit{gap} artificial. Fora dos
+\textit{gaps}, o caminho embarcado reproduz o modelo treinado: MAE de
+$0{,}066$~kW, RMSE de $0{,}083$~kW, R$^2$ de $0{,}972$ e viés de
+$+0{,}003$~kW, praticamente idênticos aos números da avaliação
+\textit{offline} --- a cadeia código C $\rightarrow$ firmware $\rightarrow$
+protocolo não degrada a inferência.
 
 Dentro dos \textit{gaps}, o soft-sensor mantém o erro: MAE de
 $0{,}065$~kW, ligeiramente menor que o erro fora deles. A comparação com as
@@ -36,7 +37,7 @@ baselines é o que sustenta a viabilidade: a interpolação linear erra
 $0{,}312$~kW nos \textit{gaps} e a persistência $0{,}376$~kW --- cerca de
 cinco vezes mais que o soft-sensor. A \autoref{tab:ensaio-gaps} desagrega o
 resultado por duração do bloco: o erro do soft-sensor permanece entre
-$0{,}047$ e $0{,}069$~kW da falha de 1~h ao \textit{gap} de 3 dias, enquanto
+$0{,}037$ e $0{,}071$~kW da falha de 1~h ao \textit{gap} de 3 dias, enquanto
 as baselines degradam conforme o buraco cresce. A \autoref{fig:ensaio-gap}
 mostra o maior \textit{gap} do ensaio (72~h) coberto pelo soft-sensor, com as
 baselines se afastando da série real.
@@ -49,11 +50,11 @@ baselines se afastando da série real.
     \toprule
     Duração & Amostras & MAE soft (kW) & MAE interp. (kW) & MAE persist. (kW) \\
     \midrule
-    1 h & 4 & 0{,}047 & 0{,}220 & 0{,}269 \\
-    6 h & 24 & 0{,}063 & 0{,}374 & 0{,}438 \\
-    24 h & 96 & 0{,}069 & 0{,}505 & 0{,}491 \\
-    3 dias & 288 & 0{,}061 & 0{,}447 & 0{,}459 \\
-    Esporádica & 363 & 0{,}068 & 0{,}150 & 0{,}276 \\
+    1 h & 4 & 0{,}037 & 0{,}220 & 0{,}269 \\
+    6 h & 24 & 0{,}069 & 0{,}374 & 0{,}438 \\
+    24 h & 96 & 0{,}071 & 0{,}505 & 0{,}491 \\
+    3 dias & 288 & 0{,}066 & 0{,}447 & 0{,}459 \\
+    Esporádica & 363 & 0{,}063 & 0{,}150 & 0{,}276 \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}

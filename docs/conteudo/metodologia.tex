@@ -61,7 +61,7 @@ na \autoref{tab:ferramentas}.
     \node[caixa, below = of split] (treino) {Treino\\Random Forest · MLP};
     \node[caixa, below = of treino] (geracao) {Artefatos\\lib C (emlearn) · impulso (Edge Impulse)};
     \node[caixa, below = of geracao] (firmware) {Firmware ESP32-S3\\env \texttt{rf} · env \texttt{mlp}};
-    \node[caixa, below = of firmware] (protocolo) {Protocolo TCP :3333\\pedido · amostra · predição · ACK};
+    \node[caixa, below = of firmware] (protocolo) {Protocolo do ensaio\\CDC serial (USB-Serial/JTAG)\\lotes de amostras e predições};
     \node[caixa, below = of protocolo] (ensaio) {Ensaio E2E\\métricas MAE · RMSE · R$^2$ · viés};
     \draw[seta] (dados) -- (prep);
     \draw[seta] (prep) -- (split);
@@ -395,12 +395,16 @@ embarcada correspondente; upload e monitoração são comuns aos dois. Cada
 modelo é compilado em firmware próprio e ensaiado isoladamente, seguindo o
 procedimento de \citeonline{moraesneto2024}.
 
-O firmware é um cliente WiFi que não lê sensores: pede cada amostra ao
-servidor de teste, executa a inferência e devolve a predição. O gancho
-\texttt{exchange\_sample()} é o ponto de aquisição --- em campo, é ali que
+O firmware é um cliente de teste que não lê sensores: recebe lotes de amostras
+do servidor, executa a inferência de cada uma e devolve as predições em lote
+pela CDC do controlador USB-Serial/JTAG do próprio ESP32-S3, com o log de
+execução mantido na UART0. O gancho de inferência
+(\texttt{runInference()}) é o ponto de aquisição --- em campo, é ali que
 entram os sensores da usina, sem alterar o restante do pipeline. As constantes
-de operação (1 amostra, 3 eixos, quadro de 3 \textit{floats}; período de
-10~ms no RF e 1~ms no MLP) vêm dos cabeçalhos gerados de cada modelo.
+de operação (1 amostra, 3 eixos, quadro de 3 \textit{floats}) vêm dos
+cabeçalhos gerados de cada modelo; o período nominal de inferência (10~ms no
+RF e 1~ms no MLP) é o ritmo da operação em tempo real, e o ensaio o dispensa,
+andando na velocidade dos lotes.
 
 O contrato de normalização é: o firmware sempre entrega grandezas
 brutas. No caminho RF, a normalização acontece dentro da biblioteca; no
@@ -414,18 +418,22 @@ fragmentação de memória.
 
 \section{Protocolo de Comunicação}
 
-O ensaio na placa usa uma única conexão TCP (\textit{Transmission Control
-Protocol}) na porta 3333, com mensagens binárias \textit{little-endian} de
-tamanho fixo (\autoref{tab:protocolo}). O número de sequência
-(\texttt{seq}, u32) endereça a linha do \textit{split} de teste a que a
-mensagem se refere e ecoa em toda resposta. O fluxo por amostra é pedido
-$\rightarrow$ amostra $\rightarrow$ predição $\rightarrow$ ACK
-(\textit{acknowledgment}) $\rightarrow$ \texttt{seq++}: a sequência só avança
-com o ACK recebido, de modo
-que qualquer falha faz o firmware repetir a mesma amostra no ciclo
-seguinte --- um ensaio completo cobre exatamente todas as linhas do teste, sem
-buracos nem trocas. Predição repetida (retentativa com ACK perdido no caminho)
-é ignorada pelo servidor, que repete o ACK.
+O ensaio na placa usa mensagens binárias \textit{little-endian}
+(\autoref{tab:protocolo}) sobre a CDC do controlador USB-Serial/JTAG do
+ESP32-S3, em lotes: o servidor envia um lote de até 64 amostras numa escrita
+só e recebe as predições correspondentes numa leitura só, em vez de duas
+transferências por linha. Medições na bancada mostraram que o enlace
+apresenta pausas de cerca de 2~s a cada dezenas de mensagens pequenas; o lote
+amortiza cada pausa por até 64 linhas. Um \textit{handshake} de um byte de
+sincronização marca o início de cada sessão e deixa para trás os resíduos do
+\textit{bootloader} escritos na porta antes do ensaio, em duas variantes: o
+\texttt{0x52} (\texttt{RESET}), usado uma vez por usina, e o \texttt{0x4B}
+(\texttt{RESUME}), usado nas retomadas --- como o host reenvia o byte até a
+resposta chegar, o firmware descarta os bytes que sobrarem na fila atrás
+dele. O lote endereça as linhas do teste pela base (primeira linha) e pelo
+tamanho \texttt{n}, e o firmware é apátrida por lote: quem controla o
+andamento do ensaio é o servidor, e um lote reenviado reprocessa exatamente as
+mesmas amostras.
 
 \begin{table}[H]
   \centering
@@ -435,31 +443,31 @@ buracos nem trocas. Predição repetida (retentativa com ACK perdido no caminho)
     \toprule
     Mensagem & Sentido & Bytes & Descrição \\
     \midrule
-    Pedido de amostra & ESP32 $\rightarrow$ servidor & 5 & \texttt{0x01} + \texttt{seq} (u32) \\
-    Amostra & servidor $\rightarrow$ ESP32 & 17 & \texttt{0x01} + \texttt{seq} + 3 \texttt{float32} \\
-    Fim do dataset & servidor $\rightarrow$ ESP32 & 5 & \texttt{0x02} + \texttt{seq} \\
-    Predição & ESP32 $\rightarrow$ servidor & 9 & \texttt{0x03} + \texttt{seq} + \texttt{float32} \\
-    ACK & servidor $\rightarrow$ ESP32 & 5 & \texttt{0x03} + \texttt{seq} \\
+    Lote de amostras & servidor $\rightarrow$ ESP32 & $9 + 12n$ & \texttt{0x01} + base (u32) + $n$ (u32) + $n \times 3$ \texttt{float32} \\
+    Lote de predições & ESP32 $\rightarrow$ servidor & $9 + 4n$ & \texttt{0x03} + base (u32) + $n$ (u32) + $n \times$ \texttt{float32} \\
+    Fim do dataset & servidor $\rightarrow$ ESP32 & 9 & \texttt{0x01} + base + $n = 0$ \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}
 \end{table}
 
-O servidor tolera reconexão: o estado da sessão é a sequência, não a conexão.
-Cada conexão tem \textit{timeout} de 5~s --- maior que o de leitura do
-firmware (2~s), para que o cliente sempre desista primeiro ---, e o ensaio
-termina quando o firmware pede uma sequência além do fim do dataset.
+O servidor tolera reconexão: o estado do ensaio é o lote pendente, não o
+meio. O \textit{timeout} de leitura é assimétrico (2~s no firmware e 5~s no
+servidor, para que o cliente sempre desista primeiro); quando a leitura do
+servidor estoura, o \textit{handshake} \texttt{RESUME} refaz a sessão e o
+servidor reenvia o mesmo lote --- idempotente por construção. O ensaio termina
+com um lote vazio ($n$~=~0), após o qual o firmware se re-arma e aguarda o
+\texttt{RESET} da próxima usina.
 
 \section{Ensaio na Placa}
 
-O servidor de teste (\url{utils/model_teste.ipynb}) abre um \textit{socket}
-em \url{0.0.0.0:3333} e serve as linhas do \textit{split} de teste da
-granularidade do ensaio, endereçadas pela sequência, na ordem das
-características do contrato. Cada predição confirmada vira uma linha
-\texttt{sample, real, pred, err} no log do ensaio. O servidor usa
-\texttt{SO\_EXCLUSIVEADDRUSE} para impedir dois processos na mesma porta no
-Windows. Um ensaio é executado por inversor, usando as cópias do ano de teste
-de cada usina.
+O servidor de teste (\url{utils/model_teste.ipynb}) abre a porta CDC do
+USB-Serial/JTAG e serve as linhas do \textit{split} de teste da granularidade
+do ensaio, endereçadas pela base do lote, na ordem das características do
+contrato. Cada predição confirmada vira uma linha
+\texttt{sample, real, pred, err} no log do ensaio; a exclusividade do meio é
+natural --- a porta serial não admite duas aberturas. Um ensaio é executado
+por inversor, usando as cópias do ano de teste de cada usina.
 
 O ensaio valida o soft-sensor no cenário que justifica a sua existência: a
 falha de telemetria do inversor. Para isso, o servidor introduz \textit{gaps}

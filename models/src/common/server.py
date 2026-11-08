@@ -1,12 +1,17 @@
 """O protocolo do servidor de teste (v2): sessao unica, com numero de sequencia.
 
 O firmware pede a amostra `seq`, infere e devolve a predicao da MESMA seq, que o
-servidor grava em model_eval.csv - e' o banco de comparacao estimado x medido.
+servidor grava no log do ensaio - e' o banco de comparacao estimado x medido.
 
-A sessao inteira vive em UMA conexao TCP, e o numero de sequencia e' a chave de tudo:
-diz a que linha do df a mensagem pertence e volta ecoado em toda resposta. Perda nao
-desalinha: conexao que morre volta ao accept() e o cliente reconecta reenviando a mesma
-seq (predicao repetida e' ignorada, sem relogar). O fluxo completo esta' no serve().
+O transporte e' a CDC do USB-Serial/JTAG do ESP32-S3 (COM29); o log do firmware fica
+na UART0 (COM28). A sessao comeca com um handshake de 1 byte (MAGIC/MAGIC_ACK, nas
+variantes RESET e RESUME) que deixa para tras o lixo de boot do ROM. O fluxo e' em
+LOTES: o host manda um lote de amostras (0x01 + base + count + payload) e recebe um
+lote de predicoes (0x03 + base + count + payload) - um par de transferencias por lote
+(medido nesta bancada: o downlink deste elo tem soluços de ~2 s a cada ~30 mensagens
+pequenas, e o lote amortiza cada soluço por ~64 linhas). O lote e' idempotente:
+leitura que estoura o timeout refaz o handshake e o host reenvia o MESMO lote. O
+fluxo completo esta' no serve_serial().
 
 AXES e' um alias de contract.RF_FEATURES de proposito: a ordem que o servidor transmite
 e a ordem que o modelo espera, e o check_axis_order() confere isso contra o
@@ -15,8 +20,8 @@ da' erro, da' previsao errada em silencio.
 """
 
 import json
-import socket
 import struct
+import time
 from pathlib import Path
 
 import numpy as np
@@ -25,9 +30,6 @@ import pandas as pd
 from . import contract, paths
 
 AXES = contract.RF_FEATURES         # alias: nao e' uma segunda lista
-
-HOST = "0.0.0.0"
-PORT = 3333
 
 # Os bytes do protocolo v2 (ver README secao 4). O MESMO valor nos dois sentidos e'
 # contrato, nao descuido: 0x01 e' REQUEST_SAMPLE no sentido ESP->servidor e SAMPLE no
@@ -38,12 +40,25 @@ END_OF_DATA = 0x02      # servidor -> ESP: nao ha' seq >= len(df); o serve() ret
 PREDICTION = 0x03       # ESP -> servidor: a predicao da amostra `seq` (float32 LE)
 ACK = 0x03              # servidor -> ESP: a linha `seq` esta' no log (duplicata: idem)
 
-# Silencio maior que isto e' conexao morta/meia-aberta (ESP reiniciado sem FIN). 5 s >
-# o timeout de leitura do firmware (2 s), entao quem desiste primeiro e' sempre o
-# cliente: o servidor so' recolhe socket que o cliente ja' abandonou. Custo: o accept()
-# fica preso ate' 5 s numa conexao zumbi (medido 4,8 s) - nesse meio-tempo o cliente
-# retenta, e reenviar o pedido e' inofensivo (leitura pura, re-serve).
-CONN_TIMEOUT = 5.0
+# --------------------------------------------------------- transporte serial
+# A CDC do USB-Serial/JTAG (COM29) carrega os dados do ensaio; o log do firmware
+# fica na UART0 (COM28). Mesmo protocolo v2, outro meio. O MAGIC absorve o lixo
+# de boot do ROM (o ESP escreve na CDC antes de nos) e marca o inicio da sessao;
+# o MAGIC de volta fecha o handshake. Duas variantes: RESET (nova usina: a seq
+# do firmware volta a 0) e RESUME (re-handshake da MESMA sessao: a seq fica onde
+# esta - sem isso, um soluço faria o firmware re-percorrer o dataset do zero).
+# Sem resposta, o MAGIC e' reenviado: o firmware pode ter consumido um como
+# parte de uma troca interrompida.
+MAGIC = 0x4B          # RESUME, e o byte de volta (MAGIC_ACK) do firmware
+MAGIC_RESET = 0x52    # RESET: a seq do firmware volta a 0
+MAGIC_RETRIES = 5
+MAGIC_INTERVAL_S = 2.0
+# 5 s > os 2 s do firmware: quem desiste primeiro e' SEMPRE o firmware (como no
+# TCP antigo) - o host aguenta um soluço e reencontra o cliente pelo handshake.
+SERIAL_READ_TIMEOUT_S = 5.0
+
+# Amostras por lote do protocolo v3: 777 B no sentido host->ESP, 265 B na volta.
+BATCH = 64
 
 
 def check_axis_order(path: Path = paths.LIB_RF / "normalizacao.json") -> list[str]:
@@ -65,177 +80,159 @@ def sample_bytes(sample) -> bytes:
     return np.array([sample[f] for f in AXES], dtype=np.float32).tobytes()
 
 
-def open_socket(host: str = HOST, port: int = PORT) -> socket.socket:
-    """O socket do servidor, com a protecao de porta do Windows.
+def _record_line(record: dict) -> str:
+    """A linha de progresso do painel, identica nos dois transportes."""
+    return "sample %(sample)s: real=%(real).4f, pred=%(pred).4f, err=%(err).4f" % record
 
-    SO_EXCLUSIVEADDRUSE no Windows, e NAO SO_REUSEADDR. Medido nesta maquina:
-      - com SO_REUSEADDR, um segundo processo consegue fazer bind na porta de um socket
-        que ja esta escutando, em silencio: viram dois servidores na mesma porta e cada
-        cliente cai em um.
-      - SO_EXCLUSIVEADDRUSE bloqueia isso (WSAEADDRINUSE) e, medido tambem, ainda permite
-        reabrir logo apos um cliente desconectar (TIME_WAIT).
-    Nos outros sistemas SO_REUSEADDR e' o certo: la ele NAO permite sequestro, e e' ele
-    que evita o TIME_WAIT.
+
+def _log_prediction(df, seq, pred, logged, records, eval_log) -> dict | None:
+    """Grava a predicao `seq` (uma vez: duplicata so' re-ACK) e devolve o registro.
+
+    PCA == 0 e' sentinela de faltante e PCA NaN e' gap artificial: a linha fica no
+    log com real/err NaN, fora do erro (quem mede o erro DENTRO dos gaps junta o
+    log com o dataset original).
     """
-    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    _exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
-    if _exclusive is not None:
-        srv.setsockopt(socket.SOL_SOCKET, _exclusive, 1)
-    else:
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        srv.bind((host, port))          # erro de porta estoura AQUI
-        # listen(4), nao 1: medido nesta maquina, com a fila cheia (dreno de uma conexao
-        # zumbi) o Windows RECUSA o SYN do cliente - fila rasa transforma a recuperacao
-        # de queda numa rajada de connect recusado.
-        srv.listen(4)
-    except OSError:
-        srv.close()
-        raise
-    # O timeout do accept() (0,5 s, so' para o Ctrl+C/Jupyter voltar ao bytecode mesmo
-    # com o servidor ocioso) e' responsabilidade do serve(), que e' quem itera.
-    return srv
+    if seq in logged:
+        return None
+    logged.add(seq)
+    row = df.iloc[seq]
+    real = row[contract.TARGET]
+    real_valid = real != 0.0 and not np.isnan(real)
+    record = dict(
+        sample=row[contract.INDEX],
+        pred=pred,
+        real=real if real_valid else float("nan"),
+        err=abs(pred - real) if real_valid else float("nan"),
+    )
+    records.append(record)
+    # Ordem do CABECALHO (o reply do painel usa a ordem dele).
+    eval_log.write(
+        f"{record['sample']},{record['real']},{record['pred']},{record['err']}\n")
+    eval_log.flush()    # o CSV e' o fallback: que exista ja'
+    return record
 
 
-def _recv_exact(conn: socket.socket, n: int) -> bytes:
-    """Le exatamente n bytes ou levanta.
+def _serial_read_exact(ser, n: int, timeout_s: float = SERIAL_READ_TIMEOUT_S) -> bytes:
+    """Le exatamente n bytes da serial ou levanta.
 
-    recv() num fluxo devolve o que tiver: os 4 bytes de um float podem chegar em dois
-    pedacos. Ler "o que veio" era o que desalinhava a predicao do servidor antigo
-    (recv(4) curto = float errado em silencio). EOF (b"") levanta; timeout do
-    conn.settimeout() tambem - e quem chama trata os dois igual: a conexao morreu, o
-    cliente reconecta e reenvia a seq.
-    """
+    read() devolve o que tiver: os 4 bytes de um float podem chegar em pedacos,
+    e "ler o que veio" desalinha a predicao em silencio. O timeout e' o da
+    sessao: o fio se perdeu, e quem chama re-faz o handshake (a seq nao
+    avancou; o log ja' gravado e' idempotente)."""
     buf = b""
+    deadline = time.monotonic() + timeout_s
     while len(buf) < n:
-        chunk = conn.recv(n - len(buf))
-        if not chunk:
-            raise ConnectionResetError(f"EOF com {len(buf)}/{n} bytes")
-        buf += chunk
+        chunk = ser.read(n - len(buf))
+        if chunk:
+            buf += chunk
+        elif time.monotonic() > deadline:
+            raise ConnectionResetError(f"serial: {len(buf)}/{n} bytes no timeout")
     return buf
 
 
-def serve(df: pd.DataFrame, log_path: Path = paths.EVAL_LOG,
-          srv: socket.socket | None = None) -> pd.DataFrame:
-    """O laco do servidor: serve a amostra `seq` e loga a predicao confirmada.
+def _serial_handshake(ser, reset: bool = False, tentativas: int = MAGIC_RETRIES,
+                      intervalo_s: float = MAGIC_INTERVAL_S) -> None:
+    """MAGIC do host, MAGIC_ACK do firmware, lixo de boot fora do caminho.
 
-    UMA conexao para a sessao inteira (o cliente mantem o socket). Mensagens de tamanho
-    FIXO, little-endian (a tabela dos bytes esta' no README secao 4):
-
-      ESP -> servidor  0x01 + seq u32             pede a amostra seq
-      servidor -> ESP  0x01 + seq u32 + 4*f32     a amostra (grandeza BRUTA)
-      ESP -> servidor  0x03 + seq u32 + f32       a predicao da amostra seq
-      servidor -> ESP  0x03 + seq u32             ACK: a linha seq esta' no log
-      servidor -> ESP  0x02 + seq u32             END_OF_DATA: seq >= len(df); retorna
-
-    Duplicata e' idempotente: o ACK pode ter se perdido, entao o cliente reenvia a MESMA
-    predicao - ela nao entra no log duas vezes e o ACK se repete. Conexao que morre no
-    meio nao perde estado: o laco externo volta ao accept() e o cliente reconecta
-    reenviando a seq em que parou.
-
-    Termina quando o cliente pede uma amostra ALEM do fim (o END_OF_DATA fecha a sessao) e
-    devolve o `reply` do painel. Se a maquina do cliente morrer antes, fica esperando -
-    o CSV ja' gravado e' o fallback que o notebook le quando `reply is None`.
-
-    LIMITACAO CONHECIDA: reiniciar serve() no meio do ensaio comeca um log VAZIO (o modo
-    "w" trunca) e o cliente CONTINUA da seq dele - nao ha' estado em disco. O ensaio
-    retoma do seq atual, mas as linhas anteriores se perdem. Para recomecar do zero:
-    suba o servidor e de' reset no ESP (a seq volta a 0; o que ja' esta' logado volta
-    como duplicata e nao e' relogado).
+    reset=True manda o RESET (a seq do firmware volta a 0): e' o handshake do
+    INICIO de cada serve_serial() (nova usina). reset=False manda o RESUME: e' a
+    reentrada apos um soluço, e a seq fica onde estava. O reset_input_buffer()
+    descarta o que o ROM escreveu na CDC antes de nos (e o resto de uma sessao
+    anterior). Sem resposta, reenvia o MAGIC: o firmware pode ter consumido um
+    como parte de uma troca interrompida (desync) e ficado aguardando outro.
+    Depois do MAGIC_ACK o fluxo e' so' protocolo.
     """
-    try:
-        srv = srv if srv is not None else open_socket()
-        log_path = Path(log_path)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+    magia = bytes([MAGIC_RESET if reset else MAGIC])
+    for _ in range(tentativas):
+        ser.reset_input_buffer()
+        ser.write(magia)
+        deadline = time.monotonic() + intervalo_s
+        while time.monotonic() < deadline:
+            if ser.read(1) == bytes([MAGIC]):
+                return
+    raise ConnectionResetError("serial: firmware nao respondeu o MAGIC")
 
-        records: list[dict] = []        # uma entrada por predicao ACEITA, na ordem de chegada
-        logged: set[int] = set()        # seq ja' no log: duplicata nao entra de novo
-        last_duplicate: int | None = None
-        n = len(df)
 
-        # 0,5 s so' para o accept() VOLTAR ao bytecode: com o accept() bloqueado, o Ctrl+C
-        # (parar a celula do Jupyter) fica pendente e so seria entregue quando chegasse um
-        # cliente - ou seja, nunca, que e' justamente o estado ocioso do servidor.
-        srv.settimeout(0.5)
-        print(f"Server started at {srv.getsockname()[0]}:{srv.getsockname()[1]}", flush=True)
+def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
+                 log_path: Path = paths.EVAL_LOG) -> pd.DataFrame:
+    """O laco do servidor pela CDC do USB-Serial/JTAG (COM29), em LOTES.
+
+    O log do firmware fica na UART0 (COM28). O host manda lotes de BATCH amostras
+    numa escrita so' e recebe lotes de predicoes numa leitura so': um par de
+    transferencias por lote em vez de duas por linha (o downlink deste elo tem
+    soluços de ~2 s a cada ~30 mensagens pequenas; em lote, um soluço custa UM
+    reenvio por ~64 linhas). O lote e' idempotente: reenviar o MESMO lote
+    reprocessa as mesmas amostras. Quando a leitura exata estoura o timeout (5 s,
+    contra 2 s do firmware - o cliente desiste primeiro), o handshake RESUME
+    refaz a sessao e o host reenvia o lote pendente. Termina com um lote vazio
+    (count=0), que o firmware trata como fim do dataset e re-arma para a proxima
+    usina. O print e' a cada lote e a cada 100 linhas logadas.
+    """
+    import serial  # pyserial: import aqui para o caminho WiFi nao depender dele
+
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    records: list[dict] = []
+    logged: set[int] = set()
+    n = len(df)
+    base = 0
+
+    # serial_for_url: nome comum de porta (ex.: COM29) cai na classe da
+    # plataforma; URL (ex.: loop://, nos testes) abre o dispositivo virtual.
+    ser = serial.serial_for_url(porta, baud, timeout=0.2, write_timeout=1.0)
+    ser.dtr = False     # nao asserta DTR/RTS: adaptador nenhum pode resetar a placa
+    ser.rts = False
+    with ser:
+        _serial_handshake(ser, reset=True)
+        print(f"Serial aberta em {porta} (baud virtual em USB): sessao iniciada", flush=True)
 
         with open(log_path, "w") as eval_log:
             eval_log.write("sample,real,pred,err\n")
-            while True:                     # laco externo: tolera reconexao; o estado e' a seq
+            while base < n:
+                fim = min(base + BATCH, n)
+                count = fim - base
+                payload = b"".join(
+                    sample_bytes(df.iloc[i]) for i in range(base, fim))
+                lote = struct.pack("<BII", REQUEST_SAMPLE, base, count) + payload
                 try:
-                    conn, _ = srv.accept()
-                except socket.timeout:
-                    continue                # volta ao bytecode (o Ctrl+C e' entregue aqui)
-                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                conn.settimeout(CONN_TIMEOUT)
-                done = False
-                with conn:
-                    try:
-                        while not done:
-                            msg_type, seq = struct.unpack("<BI", _recv_exact(conn, 5))
-                            if msg_type == REQUEST_SAMPLE:
-                                if seq >= n:
-                                    conn.sendall(struct.pack("<BI", END_OF_DATA, seq))
-                                    print(f"fim do dataset: pediram a seq {seq}, ha' {n}",
-                                        flush=True)
-                                    done = True
-                                else:
-                                    # posicional (df.iloc), como o `for sample in df.iloc` de antes
-                                    conn.sendall(struct.pack("<BI", SAMPLE, seq)
-                                                + sample_bytes(df.iloc[seq]))
-                            elif msg_type == PREDICTION:
-                                (pred,) = struct.unpack("<f", _recv_exact(conn, 4))
-                                if seq >= n:
-                                    # Nao ha' linha para esta seq: dessincronia. Sem ACK, o
-                                    # cliente trata como falha e retenta pelo caminho certo.
-                                    print(f"predicao para seq fora do dataset: {seq}", flush=True)
-                                    break
-                                if seq not in logged:
-                                    logged.add(seq)
-                                    row = df.iloc[seq]
-                                    real = row[contract.TARGET]
-                                    # PCA == 0 e' sentinela de faltante, nao medicao: a linha
-                                    # fica no log, mas fora do erro.
-                                    real_valid = real != 0.0 and not np.isnan(real)
-                                    record = dict(
-                                        sample=row[contract.INDEX],
-                                        pred=pred,
-                                        real=real if real_valid else 0.0,
-                                        err=abs(pred - real) if real_valid else 0.0,
-                                    )
-                                    records.append(record)
-                                    # Ordem do CABECALHO (o reply do painel usa a ordem dele).
-                                    eval_log.write(
-                                        f"{record['sample']},{record['real']},"
-                                        f"{record['pred']},{record['err']}\n")
-                                    eval_log.flush()    # o CSV e' o fallback: que exista ja'
-                                    # ACK ANTES do print: com a linha no log, o print (lento no
-                                    # Jupyter) nao segura o cliente.
-                                    conn.sendall(struct.pack("<BI", ACK, seq))
-                                    print("sample %(sample)s: real=%(real).4f, pred=%(pred).4f, "
-                                        "err=%(err).4f" % record, flush=True)
-                                else:
-                                    conn.sendall(struct.pack("<BI", ACK, seq))
-                                    if seq != last_duplicate:
-                                        # rajada (ex.: reboot do ESP) imprime uma vez so'
-                                        print(f"seq {seq}: predicao duplicada (ACK se repete, "
-                                            "sem relogar)", flush=True)
-                                    last_duplicate = seq
-                            else:
-                                # 0x00 (o antigo PULA) e qualquer outro byte: fluxo fora do
-                                # protocolo; fechar a conexao e' a unica saida segura.
-                                print(f"mensagem desconhecida: tipo 0x{msg_type:02x}", flush=True)
-                                break
-                    except OSError:
-                        pass                # cliente caiu/meia-aberta: volta ao accept
-                if done:
-                    break
-        return pd.DataFrame(records, columns=["sample", "pred", "real", "err"])
-    finally:
-        srv.close()
+                    ser.write(lote)
+                    resposta = _serial_read_exact(ser, 9 + 4 * count)
+                except (ConnectionResetError, serial.SerialException):
+                    print(f"serial: leitura perdida no lote base={base} - "
+                          "refazendo o handshake (RESUME)", flush=True)
+                    _serial_handshake(ser)
+                    continue          # reenvia o MESMO lote (base nao avancou)
+                tipo, r_base, r_count = struct.unpack("<BII", resposta[:9])
+                if tipo != PREDICTION or r_base != base or r_count != count:
+                    print(f"serial: resposta fora do lote (tipo 0x{tipo:02x}, "
+                          f"base {r_base}/{base}, count {r_count}/{count}) - "
+                          "refazendo o handshake (RESUME)", flush=True)
+                    _serial_handshake(ser)
+                    continue          # reenvia o MESMO lote
+                preds = struct.unpack(f"<{count}f", resposta[9:])
+                for i, pred in enumerate(preds):
+                    record = _log_prediction(df, base + i, pred, logged,
+                                             records, eval_log)
+                    if record is not None and (len(records) % 100) == 1:
+                        print(_record_line(record), flush=True)
+                base = fim
+                print(f"lote base={base - count}..{base - 1} ok "
+                      f"({len(records)}/{n} linhas)", flush=True)
+
+        # Fim do dataset: lote vazio; o firmware re-arma e aguarda a proxima usina.
+        ser.write(struct.pack("<BII", REQUEST_SAMPLE, 0, 0))
+        print(f"fim do dataset: {n} linhas", flush=True)
+    return pd.DataFrame(records, columns=["sample", "pred", "real", "err"])
+
 
 def eval_metrics(df_eval: pd.DataFrame) -> dict:
-    """R2/MAE/vies/amplitude do log do servidor — os numeros do painel de avaliacao."""
+    """R2/MAE/vies/amplitude do log do servidor — os numeros do painel de avaliacao.
+
+    Linhas com real NaN (gaps artificiais, sentinela de faltante) ficam fora do
+    calculo: quem mede o erro DENTRO dos gaps junta o log com o dataset original.
+    """
+    df_eval = df_eval.dropna(subset=["real", "pred"])
     np_real = df_eval["real"].to_numpy()
     np_pred = df_eval["pred"].to_numpy()
     ss_res = np.sum((np_pred - np_real) ** 2)
