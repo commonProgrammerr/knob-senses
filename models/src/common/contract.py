@@ -18,3 +18,14 @@ SEED = 42
 # So' ifpee1 tem historico para treinar. O split temporal (train/calibration/test)
 # vive no utils/dataset_prep.ipynb, que e' a fonte da verdade.
 TRAIN_INVERSOR = "ifpee1"
+
+# Granularidades do split (valores da coluna `freq` de data/splits/*.csv, escrita
+# pelo utils/dataset_prep.ipynb), da mais fina para a mais grossa.
+GRANULARIDADES = ("5min", "10min", "1h", "1D")
+
+GRANULARIDADE_LABEL = {
+    "5min": "5 min",
+    "10min": "10 min",
+    "1h": "1 h",
+    "1D": "1 d",
+}

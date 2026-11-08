@@ -49,9 +49,17 @@ def load_pool(data_dir: Path = paths.RAW) -> pd.DataFrame:
     return pd.concat(parts, ignore_index=True)
 
 
-def load_split(name: str) -> pd.DataFrame:
-    """Le data/splits/{nome}.csv (o que os treinos e o servidor consomem)."""
-    return read_csv(paths.SPLITS / f"{name}.csv")
+def load_split(name: str, freq: str | None = None) -> pd.DataFrame:
+    """Le data/splits/{nome}.csv (o que os treinos e o servidor consomem).
+
+    `freq` filtra a granularidade (valores de `contract.GRANULARIDADES`); sem
+    ele, devolve todas as linhas, como no formato antigo (sem coluna `freq`).
+    """
+    df = read_csv(paths.SPLITS / f"{name}.csv")
+    if freq is not None:
+        assert "freq" in df.columns, f"{name}.csv nao tem a coluna freq (rodo o prep?)"
+        df = df[df["freq"] == freq].reset_index(drop=True)
+    return df
 
 
 def fit_normalization(train: pd.DataFrame, features=contract.RF_FEATURES):
