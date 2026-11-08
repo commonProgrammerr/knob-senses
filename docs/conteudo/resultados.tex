@@ -1,4 +1,74 @@
 \chapter{Resultados}
 \label{cap:resultados}
 
-Texto.
+A avaliação do MLP no \textit{split} de teste de 2025 confirma a tendência
+esperada da estimação contemporânea: a agregação temporal suaviza os
+desvios aleatórios e o erro absoluto cai com a granularidade. O MAE passa
+de $0{,}163$~kW em 5~min para $0{,}114$~kW em 10~min, $0{,}062$~kW em 1~h e
+$0{,}031$~kW em 1~d; o R$^2$ fica entre $0{,}797$ (5~min) e $0{,}975$
+(1~h); e o viés residual permanece abaixo de $0{,}010$~kW em todos os
+casos, contido pelo \textit{offset} de calibração. A
+\autoref{fig:mlp-avaliacao} mostra o estimado contra o medido em cada
+granularidade.
+
+\begin{figure}[H]
+  \centering
+  \caption{Estimado contra medido no teste de 2025, por granularidade do MLP, com MAE, RMSE, R$^2$ e viés de cada caso.}
+  \label{fig:mlp-avaliacao}
+  \includegraphics[width=\textwidth]{mlp_avaliacao_granularidades}
+  \source{Elaborado pelo autor.}
+\end{figure}
+
+\section{Ensaio na Placa}
+
+O ensaio E3 da matriz experimental --- o Random Forest na granularidade de
+1~h, com a biblioteca C embarcada na ESP32-S3 --- percorreu as 4\,042 linhas
+do teste de 2025 da usina \texttt{ifpee1}, das quais 775 estavam em
+\textit{gap} artificial. Fora dos \textit{gaps}, o caminho embarcado
+reproduz o modelo treinado: MAE de $0{,}069$~kW, RMSE de $0{,}089$~kW,
+R$^2$ de $0{,}968$ e viés de $+0{,}009$~kW, praticamente idênticos aos
+números da avaliação \textit{offline} --- a cadeia código C $\rightarrow$
+firmware $\rightarrow$ protocolo não degrada a inferência.
+
+Dentro dos \textit{gaps}, o soft-sensor mantém o erro: MAE de
+$0{,}065$~kW, ligeiramente menor que o erro fora deles. A comparação com as
+baselines é o que sustenta a viabilidade: a interpolação linear erra
+$0{,}312$~kW nos \textit{gaps} e a persistência $0{,}376$~kW --- cerca de
+cinco vezes mais que o soft-sensor. A \autoref{tab:ensaio-gaps} desagrega o
+resultado por duração do bloco: o erro do soft-sensor permanece entre
+$0{,}047$ e $0{,}069$~kW da falha de 1~h ao \textit{gap} de 3 dias, enquanto
+as baselines degradam conforme o buraco cresce. A \autoref{fig:ensaio-gap}
+mostra o maior \textit{gap} do ensaio (72~h) coberto pelo soft-sensor, com as
+baselines se afastando da série real.
+
+\begin{table}[H]
+  \centering
+  \caption{Erro dentro dos \textit{gaps} por duração do bloco --- ensaio E3 (Random Forest, 1 h, ifpee1).}
+  \label{tab:ensaio-gaps}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Duração & Amostras & MAE soft (kW) & MAE interp. (kW) & MAE persist. (kW) \\
+    \midrule
+    1 h & 4 & 0{,}047 & 0{,}220 & 0{,}269 \\
+    6 h & 24 & 0{,}063 & 0{,}374 & 0{,}438 \\
+    24 h & 96 & 0{,}069 & 0{,}505 & 0{,}491 \\
+    3 dias & 288 & 0{,}061 & 0{,}447 & 0{,}459 \\
+    Esporádica & 363 & 0{,}068 & 0{,}150 & 0{,}276 \\
+    \bottomrule
+  \end{tabular}
+  \source{Elaborado pelo autor.}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \caption{Ensaio na placa com \textit{gap} artificial de 72 h na usina ifpee1: em cima, a série medida, o soft-sensor e as baselines dentro do \textit{gap}; embaixo, o resíduo do soft-sensor com linha de zero.}
+  \label{fig:ensaio-gap}
+  \includegraphics[width=\textwidth]{ensaio_gap_ifpee1}
+  \source{Elaborado pelo autor.}
+\end{figure}
+
+O critério de viabilidade da metodologia é atendido com folga: o erro dentro
+dos \textit{gaps} é muito menor que o da interpolação linear --- a baseline
+forte da literatura --- e permanece próximo do erro fora deles. Os ensaios
+das demais combinações da matriz e das usinas \texttt{ifpee2} e
+\texttt{ifpee3} permanecem pendentes.
