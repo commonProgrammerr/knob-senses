@@ -1,0 +1,164 @@
+% !TeX program = lualatex
+% ============================================================================
+% Monografia — TCC UPE-POLI 2026.1 (modelo abnTeX2 da ECOMP-POLI)
+% Template: preencha seus dados em pretextuais/capa.tex
+% ============================================================================
+\documentclass[
+    section=TITLE,      % títulos de seções em maiúsculas
+    12pt,
+    oneside,
+    a4paper,
+    english,            % idioma adicional (resumo em inglês)
+    brazil              % idioma principal
+]{monografia-abntex2}
+
+% --- Pacotes básicos ---
+\usepackage{fontspec}
+\IfFileExists{fonts/Arial/Arial.ttf}{%
+    \setmainfont{Arial}[
+        Path=./fonts/Arial/,
+        UprightFont=Arial.ttf,
+        BoldFont=Arial_Bold.ttf,
+        ItalicFont=Arial_Italic.ttf,
+        BoldItalicFont=Arial_Bold_Italic.ttf
+    ]%
+    \setsansfont{Arial}[
+        Path=./fonts/Arial/,
+        UprightFont=Arial.ttf,
+        BoldFont=Arial_Bold.ttf,
+        ItalicFont=Arial_Italic.ttf,
+        BoldItalicFont=Arial_Bold_Italic.ttf
+    ]%
+}{%
+    \setmainfont{Arial}%
+    \setsansfont{Arial}%
+}
+\usepackage{lastpage}
+\usepackage{indentfirst}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{algorithm}        % ambiente flutuante para algoritmos
+\usepackage{algpseudocode}    % pseudocódigo (algorithmicx)
+\usepackage{tikz}             % fluxograma da metodologia
+\usetikzlibrary{positioning, arrows.meta}
+
+% --- Algoritmos em português ---
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\listalgorithmname}{Lista de algoritmos}
+\algrenewcommand\algorithmicrequire{\textbf{Entrada:}}
+\algrenewcommand\algorithmicensure{\textbf{Saída:}}
+\algrenewcommand\algorithmicfor{\textbf{para}}
+\algrenewcommand\algorithmicforall{\textbf{para todo}}
+\algrenewcommand\algorithmicdo{\textbf{faça}}
+\algrenewcommand\algorithmicwhile{\textbf{enquanto}}
+\algrenewcommand\algorithmicend{\textbf{fim}}
+\algrenewcommand\algorithmicif{\textbf{se}}
+\algrenewcommand\algorithmicthen{\textbf{então}}
+\algrenewcommand\algorithmicelse{\textbf{senão}}
+\algrenewcommand\algorithmicreturn{\textbf{retorne}}
+
+% --- Citações ABNT (autor-data, backend bibtex) ---
+\usepackage[alf,abnt-repeated-title-omit=yes,abnt-emphasize=bf,abnt-etal-list=0]{abntex2cite}
+\usepackage{pdfpages}
+
+% Sumário: entrada REFERÊNCIAS recuada à coluna dos títulos de capítulo
+% (deck ECOMP "Formatação final", slides 27-30: não alinhar Referências à margem)
+\renewcommand{\bibsection}{%
+  \chapter*{\bibname}
+  \bibmark
+  \ifnobibintoc\else
+  \phantomsection
+  \addcontentsline{toc}{chapter}{\texorpdfstring{\protect\numberline{}\MakeTextUppercase{Referências}}{Referências}}
+  \fi
+  \prebibhook
+}
+\citebrackets()
+
+% --- Diretórios de imagens ---
+\graphicspath{{imagens/}{figuras/}}
+
+% --- Fonte de figuras/tabelas (ABNT) ---
+\newcommand{\source}[1]{\par\vspace{2pt}{\footnotesize\textbf{Fonte:} #1}\par}
+
+% --- Dados do trabalho (capa e folha de rosto) ---
+\include{pretextuais/capa}
+
+% --- Informações do PDF ---
+\makeatletter
+\hypersetup{
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfcreator={LaTeX with abnTeX2},
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue,
+    bookmarksdepth=4
+}
+\makeatother
+
+% --- Espaçamentos ---
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0pt}
+
+% ============================================================================
+\begin{document}
+\selectlanguage{brazil}
+\frenchspacing
+
+% ----------------------------------------------------------
+% ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+\imprimircapa
+\imprimirfolhaderosto
+
+% Elementos obtidos pós-defesa / depósito:
+% Ficha catalográfica (verso da folha de rosto).
+% Ao inserir, manter o \addtocounter: capa e ficha NÃO contam na numeração (regra ECOMP).
+%\includepdf{pretextuais/ficha_catalografica.pdf}\addtocounter{page}{-1}
+%\includepdf{pretextuais/folha_aprovacao.pdf}        % Avaliação Final assinada pela banca
+%\includepdf{pretextuais/termo_autorizacao.pdf}      % autorização de divulgação assinada
+
+% Resumo e Abstract
+\include{pretextuais/resumos}
+
+% Listas
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+% Sumário
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ----------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% ----------------------------------------------------------
+\textual
+
+\include{conteudo/introducao}
+\include{conteudo/fundamentacao}
+\include{conteudo/metodologia}
+\include{conteudo/resultados}
+\include{conteudo/conclusao}
+
+% ----------------------------------------------------------
+% ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+\bibliography{referencias}
+
+\end{document}
