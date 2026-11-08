@@ -17,8 +17,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from common import contract, data, paths
 from common.templates import fill_template
 
-# Escolhidos na varredura (ver treino_random_forest.ipynb, secao 5): e' onde a curva
-# dobra — comprar acuracia a partir dali custa flash em proporcao bem pior.
+# Padroes do train(). O notebook NAO usa estes valores: treina o VENCEDOR da
+# varredura (ver treino_random_forest.ipynb, secao 5).
 N_TREES, MIN_LEAF = 30, 50
 N_JOBS = -1
 
@@ -41,29 +41,70 @@ def tree_depth(model) -> int:
     return max(e.tree_.max_depth for e in model.estimators_)
 
 
-def sweep(X_train, y_train, X_val, y_val, configs=((300, 2), (100, 2), (50, 5), (50, 20),
-                                                   (30, 50), (20, 100), (12, 200), (6, 400))):
-    """Tamanho x acuracia: quantas arvores e quantas amostras minimas por folha.
+# Varredura de tamanho x acuracia: (arvores, amostras_minimas_por_folha, max_depth).
+# max_depth None = arvore sem teto de profundidade. As configuracoes intermediarias
+# fecham o vao entre 12/200 e 6/400, onde a varredura antiga nao tinha pontos, e
+# (6, 200) testa mais capacidade com o MESMO numero de arvores do vencedor antigo.
+CONFIGS_SWEEP = (
+    (300, 2, None),
+    (100, 2, None),
+    (50, 5, None),
+    (50, 5, 8),
+    (50, 20, None),
+    (30, 50, None),
+    (20, 100, None),
+    (15, 150, None),
+    (12, 200, None),
+    (10, 300, None),
+    (8, 400, None),
+    (6, 200, None),
+    (6, 400, None),
+    (6, 800, None),
+)
 
-    Avalia na VALIDACAO temporal (2024H2), nunca no teste: escolher o tamanho no
-    teste transforma a metrica final em treino disfarcado. Devolve a tabela (quem
-    imprime e' o notebook). A coluna `kb` e' estimativa grosseira (12 bytes por
-    no' + 4 por folha) — serve para COMPARAR configuracoes, nao para prometer
-    flash: o numero real sai da compilacao, secao 9 do notebook.
+
+def sweep(X_train, y_train, X_val, y_val, X_test=None, y_test=None,
+          configs=CONFIGS_SWEEP):
+    """Tamanho x acuracia: arvores, amostras minimas por folha e teto de profundidade.
+
+    Avalia na VALIDACAO temporal (2024H2), nunca no teste para ESCOLHER: escolher
+    o tamanho no teste transforma a metrica final em treino disfarcado. O ranking
+    usa `r2_cal` — o R2 da validacao com o offset de calibracao do PROPRIO
+    candidato aplicado, porque o modelo entregue e' sempre o calibrado: um
+    candidato com vies maior e forma melhor nao pode ser punido por um defeito
+    que a entrega corrige. `mae`/`r2` (brutos) ficam na tabela so' para mostrar
+    quanto o offset mudou. As colunas `mae_tes`/`r2_tes` sao REPORT ONLY: mostram
+    o teto de acuracia que o teste permite, mas nao entram no criterio de
+    selecao. A coluna `kb` e' estimativa grosseira (12 bytes por no' + 4 por
+    folha) — serve para COMPARAR configuracoes, nao para prometer flash: o
+    numero real sai da compilacao, secao 9 do notebook.
     """
     rows = []
-    for n_trees, min_leaf in configs:
+    for n_trees, min_leaf, max_depth in configs:
         t0 = time.perf_counter()
         m = RandomForestRegressor(n_estimators=n_trees, min_samples_leaf=min_leaf,
-                                  n_jobs=N_JOBS, random_state=contract.SEED).fit(X_train, y_train)
+                                  max_depth=max_depth, n_jobs=N_JOBS,
+                                  random_state=contract.SEED).fit(X_train, y_train)
         secs = time.perf_counter() - t0
         pred = m.predict(X_val)
+        offset = float(np.mean(y_val - pred))          # offset do PROPRIO candidato
+        pred_cal = pred + offset
         n_nodes, n_leaves = count_nodes(m), count_leaves(m)
-        rows.append({
-            "arvores": n_trees, "folha": min_leaf, "nos": n_nodes,
+        row = {
+            "arvores": n_trees, "folha": min_leaf, "prof_max": max_depth,
+            "nos": n_nodes,
             "kb": (n_nodes * 12 + n_leaves * 4) / 1024, "prof": tree_depth(m),
-            "mae": mean_absolute_error(y_val, pred), "r2": r2_score(y_val, pred), "s": secs,
-        })
+            "mae": mean_absolute_error(y_val, pred), "r2": r2_score(y_val, pred),
+            "offset": offset,
+            "mae_cal": mean_absolute_error(y_val, pred_cal),
+            "r2_cal": r2_score(y_val, pred_cal),
+            "s": secs,
+        }
+        if X_test is not None and y_test is not None:
+            pred_tes = m.predict(X_test) + offset
+            row["mae_tes"] = mean_absolute_error(y_test, pred_tes)
+            row["r2_tes"] = r2_score(y_test, pred_tes)
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -115,6 +156,7 @@ HEADER_TEMPLATE = '''/*
 #define KNOB_RF_N_ARVORES    @@N_TREES@@
 #define KNOB_RF_FOLHA_MIN    @@MIN_LEAF@@
 #define KNOB_RF_N_NOS        @@N_NODES@@
+#define KNOB_RF_FREQ         "@@FREQ@@"   /* granularidade do split de treino */
 #define KNOB_RF_MAE_TESTE    @@MAE@@f   /* kW, no split de teste (futuro) */
 #define KNOB_RF_R2_TESTE     @@R2@@f
 
@@ -217,6 +259,7 @@ floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago, nao con
 | arvores | @@N_TREES@@ |
 | folha minima | @@MIN_LEAF@@ |
 | nos | @@N_NODES@@ |
+| granularidade | @@FREQ@@ |
 | MAE no teste | @@MAE@@ kW |
 | R2 no teste | @@R2@@ |
 | calibracao (vies) | @@OFFSET@@ kW |
@@ -240,7 +283,7 @@ O flash depende do numero de nos; a celula xtensa do notebook mede no objeto.
 MANIFEST_TEMPLATE = '''{
   "name": "knob-senses-rf",
   "version": "1.0.0",
-  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@. Recebe @@N_FEATURES@@ grandezas brutas, normaliza em z-score internamente e devolve kW. Arvores em codigo (0 de RAM); o flash depende do tamanho e deve ser medido no objeto.",
+  "description": "Random Forest de regressao de PCA (potencia CA do inversor, kW) do knob-senses, gerada com emlearn. @@N_TREES@@ arvores, folha minima @@MIN_LEAF@@, granularidade @@FREQ@@. Recebe @@N_FEATURES@@ grandezas brutas, normaliza em z-score internamente e devolve kW. Arvores em codigo (0 de RAM); o flash depende do tamanho e deve ser medido no objeto.",
   "keywords": "random-forest, emlearn, tinyml, machine-learning, regression, arduino, esp32",
   "frameworks": "arduino",
   "platforms": "*",
@@ -252,6 +295,7 @@ MANIFEST_TEMPLATE = '''{
 
 
 def generate_c_lib(model, mean, std, mae, r2, offset: float = 0.0,
+                   freq: str = "1h",
                    dest_dir: Path = paths.LIB_RF,
                    src_dir: Path = paths.LIB_RF_SRC) -> dict[Path, int]:
     """Escreve a lib do PlatformIO inteira: header, implementacao, README, manifesto,
@@ -277,7 +321,7 @@ def generate_c_lib(model, mean, std, mae, r2, offset: float = 0.0,
     values = dict(
         N_FEATURES=len(contract.RF_FEATURES), N_TREES=model.n_estimators,
         MIN_LEAF=model.min_samples_leaf,
-        N_NODES=n_nodes, MAE=f"{mae:.4f}", R2=f"{r2:.4f}", OFFSET=f"{offset:.6f}",
+        N_NODES=n_nodes, FREQ=freq, MAE=f"{mae:.4f}", R2=f"{r2:.4f}", OFFSET=f"{offset:.6f}",
         ORDER_C="\n".join(f" *   bruto[{i}] = {c}" for i, c in enumerate(contract.RF_FEATURES)),
         ORDER_LIST=", ".join(contract.RF_FEATURES),
         MEAN_C=",\n".join(f"    {mean[c]:.6f}f" for c in contract.RF_FEATURES),
@@ -292,6 +336,7 @@ def generate_c_lib(model, mean, std, mae, r2, offset: float = 0.0,
     normalization = json.dumps({
         "modelo": "knob-senses-rf",
         "gerado_por": "utils/treino_random_forest.ipynb",
+        "freq": freq,
         "features": contract.RF_FEATURES,
         "media": {c: float(mean[c]) for c in contract.RF_FEATURES},
         "desvio": {c: float(std[c]) for c in contract.RF_FEATURES},

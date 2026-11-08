@@ -45,16 +45,17 @@
 
 /* ------------------------------------------------------------ procedencia */
 
-#define KNOB_RF_N_ARVORES    12
-#define KNOB_RF_FOLHA_MIN    200
-#define KNOB_RF_N_NOS        4532
-#define KNOB_RF_MAE_TESTE    0.1137f   /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE     0.9109f
+#define KNOB_RF_N_ARVORES    50
+#define KNOB_RF_FOLHA_MIN    20
+#define KNOB_RF_N_NOS        34568
+#define KNOB_RF_FREQ         "1h"   /* granularidade do split de treino */
+#define KNOB_RF_MAE_TESTE    0.0666f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.9716f
 
 /* Calibracao de vies: somada antes do clip. Foi ajustada na janela de
  * calibracao (2024H2), nunca no teste, para corrigir a deriva de eficiencia
  * 2024->2025. Se o modelo for retreinado, recalcule-a no notebook. */
-#define KNOB_RF_OFFSET       -0.099050f
+#define KNOB_RF_OFFSET       -0.106076f
 
 #ifdef __cplusplus
 extern "C" {

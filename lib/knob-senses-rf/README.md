@@ -41,12 +41,13 @@ floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago, nao con
 
 | | |
 |---|---|
-| arvores | 12 |
-| folha minima | 200 |
-| nos | 4532 |
-| MAE no teste | 0.1137 kW |
-| R2 no teste | 0.9109 |
-| calibracao (vies) | -0.099050 kW |
+| arvores | 50 |
+| folha minima | 20 |
+| nos | 34568 |
+| granularidade | 1h |
+| MAE no teste | 0.0666 kW |
+| R2 no teste | 0.9716 |
+| calibracao (vies) | -0.106076 kW |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
 entao os numeros sao pessimistas na medida certa. O offset de calibracao foi ajustado
