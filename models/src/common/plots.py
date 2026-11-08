@@ -63,13 +63,71 @@ def _formata_horas(delta: pd.Timedelta) -> str:
     return f"{texto} h"
 
 
+def plot_serie(ax, serie: pd.Series, *, cor, rotulo: str | None = None,
+               janela: int | str = 1, freq: str | None = None,
+               ignorar_noite: bool = True, hora_dia: tuple[int, int] = (6, 18),
+               alpha: float = 0.22, lw: float = 0.6, lw_media: float = 1.8,
+               marcador: str | None = ".", sombrear: bool = True,
+               ls: str = "-", crua: bool = True, centro: bool = True
+               ) -> tuple[int, pd.Timedelta]:
+    """Uma serie temporal num eixo dado, no estilo do projeto.
+
+    Desenha a linha crua (fina, translucida) e a media movel (grossa, com o
+    `rotulo`). Com `sombrear=True` e `freq` informado, sombreia os periodos
+    esperados sem leitura — a mesma conta dos paineis do `plot_time_series`,
+    da qual este e' o nucleo extraido para reuso em grades maiores (como a
+    figura de gaps do model_teste). `serie` ja' deve estar amostrada na
+    frequencia final; `freq` e' o alias usado para gerar a grade esperada
+    ("1h", "1D", ...). `ls` e' o estilo da linha (ex.: ":" para pontilhado),
+    `crua=False` desenha SO a media movel — util em janelas curtas, onde a
+    linha crua e a media coincidiriam e o ponto duplo criaria um moire — e
+    `centro=False` usa media movel NAO centrada (como a anotacao de valor
+    final do painel de avaliacao). Devolve `(periodos_faltando, duracao_total)`.
+
+    Para reuso: passe o eixo e os estilos; com `rotulo=None` nada entra na
+    legenda e quem enfeita o painel e' o chamador.
+    """
+    if serie.empty:
+        return 0, pd.Timedelta(0)
+    passo = serie.index.to_series().diff().median()
+    if pd.isna(passo) or passo <= pd.Timedelta(0):
+        passo = pd.Timedelta(days=1)
+    meio = passo / 2
+
+    if crua:
+        ax.plot(serie.index, serie.values, color=cor, lw=lw, alpha=alpha,
+                marker=marcador, ms=2, ls=ls)
+    ax.plot(serie.rolling(janela, center=centro, min_periods=1).mean(),
+            color=cor, lw=lw_media, label=rotulo, ls=ls)
+
+    falhas, duracao = 0, pd.Timedelta(0)
+    if sombrear and freq is not None:
+        esperado = pd.date_range(serie.index.min(), serie.index.max(), freq=freq)
+        if ignorar_noite:
+            base = freq.upper().lstrip("0123456789").split("-")[0]
+            if base in _SUB_DIARIO:
+                inicio, fim = hora_dia
+                esperado = esperado[(esperado.hour >= inicio) & (esperado.hour < fim)]
+        faltando = esperado.difference(serie.index)
+        if len(faltando):
+            blocos = faltando.to_series().diff().ne(passo).cumsum()
+            for _, bloco in faltando.to_series().groupby(blocos):
+                ax.axvspan(bloco.iloc[0] - meio, bloco.iloc[-1] + meio,
+                           facecolor=cor, alpha=0.10, zorder=0)
+            falhas += len(faltando)
+            duracao += passo * len(faltando)
+    return falhas, duracao
+
+
 def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
                      freq: str = "D", time_col: str = "datetime",
                      grupo_col: str | None = None, alvo: str = "PCA",
                      unidade: str = "kW", drop_zero: bool = True,
                      sharey: bool = True, ignorar_noite: bool = True,
                      hora_dia: tuple[int, int] = (6, 18),
-                     mostrar: bool = True):
+                     mostrar: bool = True, ax=None,
+                     cor: str | dict | None = None,
+                     ls: str = "-", crua: bool = True, sombrear: bool = True):
     """Série de PCA por grupo, agregada na granularidade pedida.
 
     `freq` é um alias do pandas: "h" (horário), "D" (diário), "W" (semanal),
@@ -81,6 +139,15 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
     painel mostra quantos períodos faltam e a duração total (ex.: "3 períodos
     sem leitura (12 h)", sempre em horas). Com `mostrar=True` (default) chama
     `plt.show()` e devolve `None`; com `mostrar=False` devolve a `Figure`.
+
+    Com `ax` (reuso): desenha UM painel nesse eixo, com todos os grupos e o
+    período inteiro do dataset — sem parear anos, sem criar figura e sem
+    `plt.show()`; devolve o eixo. Nesse modo quem enfeita é o chamador (esta
+    função não chama `enfeitar` nem `legend`), o rótulo de cada linha é apenas
+    o nome do grupo, e `cor` escolhe a paleta: uma str vale para todos os
+    grupos, um dict `{grupo: cor}` dá a cor de cada um — é assim que a figura
+    de gaps do model_teste desenha real e predito no mesmo eixo. `ls`, `crua`
+    e `sombrear` são repassados ao `plot_serie`.
     """
     if time_col not in dataset.columns:
         raise ValueError(f"coluna de tempo {time_col!r} ausente")
@@ -100,7 +167,25 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
     anos, grupos = sorted(d["ano"].unique()), sorted(d[grupo_col].unique())
     if not anos or not grupos:
         raise ValueError("dataset sem anos ou grupos para plotar")
-    cores = dict(zip(grupos, plt.cm.tab10(np.linspace(0, 1, len(grupos)))))
+    if cor is None:
+        cores = dict(zip(grupos, plt.cm.tab10(np.linspace(0, 1, len(grupos)))))
+    elif isinstance(cor, str):
+        cores = dict.fromkeys(grupos, cor)
+    else:
+        cores = {g: cor.get(g, c)
+                 for g, c in zip(grupos, plt.cm.tab10(np.linspace(0, 1, len(grupos))))}
+
+    if ax is not None:
+        for grupo in grupos:
+            serie = (d[d[grupo_col] == grupo]
+                     .set_index(time_col)[alvo].resample(freq).mean().dropna())
+            if serie.empty:
+                continue
+            plot_serie(ax, serie, cor=cores[grupo], rotulo=grupo,
+                       janela=janela, freq=freq,
+                       ignorar_noite=ignorar_noite, hora_dia=hora_dia,
+                       ls=ls, crua=crua, sombrear=sombrear)
+        return ax
 
     # pares DE TRAS PARA FRENTE: com contagem impar, o ano mais antigo fica sozinho.
     pares, i = [], len(anos)
@@ -114,51 +199,33 @@ def plot_time_series(dataset: pd.DataFrame, janela: int | str = 7, *,
     base = freq.upper().lstrip("0123456789").split("-")[0]
     rotulo_freq = _ROTULOS_FREQ.get(base, freq)
 
-    for ax, par in zip(axs.ravel(), pares):
+    for ax_, par in zip(axs.ravel(), pares):
         falhas, duracao = 0, pd.Timedelta(0)
         for grupo in grupos:
             d_g = d[(d[grupo_col] == grupo) &
                     (d["ano"] >= par[0]) & (d["ano"] <= par[-1])]
             if d_g.empty:
                 continue
-
             serie = d_g.set_index(time_col)[alvo].resample(freq).mean().dropna()
             if serie.empty:
                 continue
-            cor = cores[grupo]
-            passo = serie.index.to_series().diff().median()
-            if pd.isna(passo) or passo <= pd.Timedelta(0):
-                passo = pd.Timedelta(days=1)
-            meio = passo / 2
-
-            ax.plot(serie.index, serie.values, color=cor, lw=0.6, alpha=0.22,
-                    marker=".", ms=2)
             rotulo = f"{grupo} {par[0]}" if len(par) == 1 else f"{grupo} {par[0]}-{par[-1]}"
-            ax.plot(serie.rolling(janela, center=True, min_periods=1).mean(),
-                    color=cor, lw=1.8,
-                    label=f"{rotulo} ({serie.mean():.2f} {unidade})")
-
-            esperado = pd.date_range(serie.index.min(), serie.index.max(), freq=freq)
-            if ignorar_noite and base in _SUB_DIARIO:
-                inicio, fim = hora_dia
-                esperado = esperado[(esperado.hour >= inicio) & (esperado.hour < fim)]
-            faltando = esperado.difference(serie.index)
-            if len(faltando):
-                blocos = faltando.to_series().diff().ne(passo).cumsum()
-                for _, bloco in faltando.to_series().groupby(blocos):
-                    ax.axvspan(bloco.iloc[0] - meio, bloco.iloc[-1] + meio,
-                               facecolor=cor, alpha=0.10, zorder=0)
-                falhas += len(faltando)
-                duracao += passo * len(faltando)
+            f_, dur_ = plot_serie(ax_, serie, cor=cores[grupo],
+                                  rotulo=f"{rotulo} ({serie.mean():.2f} {unidade})",
+                                  janela=janela, freq=freq,
+                                  ignorar_noite=ignorar_noite, hora_dia=hora_dia,
+                                  ls=ls, crua=crua, sombrear=sombrear)
+            falhas += f_
+            duracao += dur_
 
         titulo = str(par[0]) if len(par) == 1 else f"{par[0]} - {par[-1]}"
         if falhas:
             nome = "período" if falhas == 1 else "períodos"
             titulo += (f"  -  {falhas} {nome} sem leitura "
                        f"({_formata_horas(duracao)})")
-        enfeitar(ax, titulo, "data", f"PCA médio {rotulo_freq} ({unidade})")
-        ax.legend(frameon=False, loc="upper left", fontsize=9,
-                  labelcolor=TINTA, ncol=3)
+        enfeitar(ax_, titulo, "data", f"PCA médio {rotulo_freq} ({unidade})")
+        ax_.legend(frameon=False, loc="upper left", fontsize=9,
+                   labelcolor=TINTA, ncol=3)
 
     fig.subplots_adjust(top=0.94, bottom=0.05, left=0.06, right=0.98, hspace=0.18)
     if mostrar:
