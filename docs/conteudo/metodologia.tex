@@ -16,12 +16,12 @@ sem variáveis defasadas \cite{moraesneto2024}:
 \hat{P}_{CA}(t) = f\left(G_{ghi}(t),\, T_{amb}(t),\, T_{mod}(t)\right),
 \end{equation}
 em que $G_{ghi}$ é a irradiância global horizontal (GHI) transposta para o
-plano dos módulos fotovoltaicos --- denominada GHI transversal ---, $T_{amb}$
+plano dos módulos fotovoltaicos (denominada GHI transposta), $T_{amb}$
 a temperatura ambiente e $T_{mod}$ a temperatura do módulo fotovoltaico
 estimada pelo modelo de Jacques \cite{jacques2013}.
 
-A cadeia metodológica completa --- aquisição, preparação, treino, geração de
-artefatos, firmware e ensaio na placa --- está resumida no fluxograma da
+A cadeia metodológica completa (aquisição, preparação, treino, geração de
+artefatos, firmware e ensaio na placa) está resumida no fluxograma da
 \autoref{fig:fluxograma}. As ferramentas empregadas em cada etapa estão listadas
 na \autoref{tab:ferramentas}.
 
@@ -80,27 +80,24 @@ Os dados provêm da Rede Solarimétrica de Pernambuco (RedeSolarPE),
 rede mantida pelo Instituto Federal de Pernambuco (IFPE), \textit{campus}
 Pesqueira, que consolida em banco de dados centralizado registros operacionais
 de usinas fotovoltaicas conectadas à rede no estado
-\cite{pedrosafilho2022,pedrosafilho2025}. Foram disponibilizadas séries de seis
-usinas (códigos \texttt{ifpec1}--\texttt{ifpec3} e
-\texttt{ifpee1}--\texttt{ifpee3}); o estudo utiliza os três inversores
-\texttt{ifpee}, da planta do \textit{campus} Pesqueira --- de 86~kWp (296
-módulos de 245~Wp e 102 de 140~Wp), com dezoito inversores de 3~kW, dois de
-2~kW e um de 8,2~kW \cite{moraesneto2024}.
+\cite{pedrosafilho2022,pedrosafilho2025}. O estudo utiliza os três inversores
+de 2~kW da planta do \textit{campus} Pesqueira, de 86~kWp (296 módulos de
+245~Wp e 102 de 140~Wp), denominados E1, E2 e E3, todos do mesmo modelo e
+fabricante \cite{moraesneto2024}.
 
-O inversor \texttt{ifpee1}, de 2~kW, é o único com histórico longo
-(2021--2025); \texttt{ifpee2} e \texttt{ifpee3} cobrem 2024--2025. As demais
-usinas da rede (\texttt{ifpec1}--\texttt{ifpec3}) permanecem disponíveis nos
-arquivos brutos, fora do escopo deste estudo.
+O inversor E1 é o único com histórico longo (2021--2025); E2 e E3 cobrem
+2024--2025. Os demais inversores da rede (C1--C3) permanecem fora dos dados
+deste estudo.
 
 A resolução nativa das séries é de 5 minutos, contendo apenas registros
 diurnos (filtro de ângulo zenital solar $\leq 80^{\circ}$ na origem). O alvo é a
 potência ativa CA (PCA, em kW) reportada pelo inversor. As variáveis
 explicativas incluem a irradiância global horizontal (GHI) transposta para o
-plano dos módulos fotovoltaicos, a GHI transversal (\texttt{ghit}, em
+plano dos módulos fotovoltaicos, a GHI transposta (\texttt{ghit}, em
 W/m$^2$), a temperatura ambiente (\texttt{temperatura\_ambiente}) e a
-temperatura do módulo estimada pelo modelo de Jacques (\texttt{jacques}) ---
+temperatura do módulo estimada pelo modelo de Jacques (\texttt{jacques}),
 selecionado por \citeonline{moraesneto2024} entre dez modelos empíricos, com
-R$^2 = 0{,}906$ ---, além de índices de claridade (\texttt{kt}, \texttt{kc}) e
+R$^2 = 0{,}906$, além de índices de claridade (\texttt{kt}, \texttt{kc}) e
 temperaturas de célula por modelos empíricos alternativos
 (\texttt{pvsyst\_cell}, \texttt{sandia}, \texttt{sandia\_cell}); as colunas
 restantes ficam disponíveis para análise exploratória.
@@ -111,17 +108,41 @@ potência nula; e (ii) a saída do inversor satura fisicamente em 2~kW, de modo
 que valores acima desse teto correspondem a recorte (\textit{clipping}) do
 instrumento.
 
+\section{Análise Exploratória}
+
+A análise exploratória (\url{utils/dataset_analysis.ipynb}) precede a
+preparação e orienta as decisões do pipeline. O perfil horário da potência
+por inversor confirma o formato de sino esperado da geração diurna, e a
+eficiência mensal $\text{PCA}/\text{ghit}$ (razão que cancela a sazonalidade
+do recurso solar) serve de indicador de degradação do sistema ao longo dos
+meses, sem participar do pipeline de treino.
+
+As séries têm lacunas de leitura: E1 tem 13{,}68\% dos períodos diurnos
+esperados (grade de 5~min entre 6~h e 18~h) sem registro, E2 tem 13{,}45\%
+e E3, 13{,}43\%; a maior lacuna contínua observada é de 12~h, e a pior
+cobertura anual é a de 2022 no E1 (17{,}1\%). Além das lacunas, 9\,607
+leituras do conjunto bruto (2{,}3\%) registram PCA nulo, sentinela de
+falha de telemetria tratada na preparação.
+
+A função de autocorrelação parcial (PACF), a autocorrelação inversa (IACF)
+da série horária de PCA, a distribuição do alvo (assimétrica, concentrada em
+valores baixos com cauda até a saturação de 2~kW) e a matriz de correlação
+das variáveis meteorológicas foram inspecionadas nesta etapa. Essas análises
+orientam as escolhas da modelagem: a estimação contemporânea, sem variáveis
+defasadas, a transformação de Box-Cox no caminho do MLP e a definição das
+três características do contrato.
+
 \section{Preparação dos Dados}
 
 A preparação segue quatro etapas, aplicadas de forma idêntica às quatro
 granularidades do desenho experimental (5~min, 10~min, 1~h e 1~d):
 
-Etapa 1 --- carga e descarte. Os arquivos
+Etapa 1: carga e descarte. Os arquivos
 \texttt{data/raw/ifpee*.csv} (nove arquivos, 410\,451 registros) são
 concatenados; as colunas não utilizadas são descartadas e as linhas com PCA
 nulo são removidas.
 
-Etapa 2 --- filtros de qualidade. Antes da agregação, são eliminados:
+Etapa 2: filtros de qualidade. Antes da agregação, são eliminados:
 (i) registros de apagão ($\text{PCA} = 0$ com
 $\text{ghit} > 50$~W/m$^2$), que representam interrupção do inversor, e não a
 relação irradiância--potência que se deseja modelar \cite{severiano2026};
@@ -132,73 +153,74 @@ atribuídos a falha de sensor. Os registros em saturação
 preservando a informação de recorte do inversor na média do período
 \cite{balfour2021}.
 
-Etapa 3 --- agregação temporal. Os registros de 5~min são agregados
+Etapa 3: agregação temporal. Os registros de 5~min são agregados
 por média na granularidade desejada: o alvo é a potência média do
 período (em kW), e não a energia acumulada; a irradiância entra como média, e
-as temperaturas e os índices --- grandezas intensivas --- também como médias.
+as temperaturas e os índices (grandezas intensivas) também como médias.
 Períodos com valores nulos após a agregação são preservados: as leituras com
 PCA nulo (sentinela de telemetria) entram no treino. O Random Forest as trata
 diretamente; no MLP, um deslocamento de $0{,}001$~kW é somado ao alvo antes
 da transformação de Box-Cox \cite{boxcox1964}, que exige alvo estritamente
 positivo, e a inversa subtrai o mesmo valor.
 
-Etapa 4 --- separação temporal. O \textit{split} é temporal e
+Etapa 4: separação temporal. O \textit{split} é temporal e
 sem embaralhamento, para evitar vazamento de informação entre
 períodos vizinhos \cite{albelali2025,cerqueira2019}: treino de 2021
 até 30/06/2024, calibração no segundo semestre de 2024 e
-teste em 2025, sempre com dados do \texttt{ifpee1}. A janela de
+teste em 2025, sempre com dados do E1. A janela de
 calibração é o período em que o viés dos modelos é medido, para posterior
 correção na implantação \cite{cho2020,kebir2024}. Cópias do ano de teste de
 cada inversor (\url{data/splits/test/{inversor}.csv}) permitem avaliar os
-modelos nas três usinas no mesmo ano.
+modelos nos três inversores no mesmo ano.
 
 O contrato de modelagem é fixado em um único módulo
-(\url{models/src/common/contract.py}): três características ---
-\texttt{temperatura\_ambiente}, \texttt{ghit} e \texttt{jacques}, nessa ordem
----, alvo \texttt{PCA}, índice temporal e semente aleatória 42. A ordem das
+(\url{models/src/common/contract.py}): três características
+(\texttt{temperatura\_ambiente}, \texttt{ghit} e \texttt{jacques}, nessa ordem),
+alvo \texttt{PCA}, índice temporal e semente aleatória 42. A ordem das
 características faz parte do contrato: trocá-la não provoca erro, apenas
 predição errada e silenciosa. Não há colunas defasadas nem janelas de entradas
 passadas: o alvo é a potência do mesmo período das entradas.
 
-Uma análise exploratória complementar
-(\url{utils/dataset_analysis.ipynb}) inspeciona a distribuição horária, as
-lacunas de leitura e a eficiência mensal $\text{PCA}/\text{ghit}$ --- indicador
-usado na detecção de degradação --- sem participar do pipeline de treino.
-
 \section{Modelos Preditivos}
 
-Dois modelos --- o Random Forest (RF) e o perceptron de múltiplas camadas
-(MLP) --- são treinados sobre o mesmo dataset, o mesmo \textit{split} e a
+Dois modelos, o Random Forest (RF) e o perceptron de múltiplas camadas
+(MLP), são treinados sobre o mesmo dataset, o mesmo \textit{split} e a
 mesma avaliação, para comparação direta \cite{grinsztajn2022}. Todos os
-processos estocásticos usam a semente 42. A linha de base de referência é a
-predição da média do treino: qualquer modelo precisa superá-la para
-demonstrar aprendizado. A seleção de configurações usa apenas a janela de
-calibração --- nunca o teste. O treino do MLP percorre as quatro
-granularidades do \textit{split} em uma execução; o do RF é repetido uma
-granularidade por vez, pois cada execução gera a biblioteca C que o
-firmware embarca.
+processos estocásticos usam a semente 42. A linha de base de referência é
+uma regressão linear múltipla nas mesmas características: treino imediato e
+um nível de acerto que qualquer modelo não linear precisa superar para
+justificar a complexidade. A seleção de configurações usa apenas a janela de
+calibração, nunca o teste. Os dois treinos percorrem as quatro
+granularidades do \textit{split} em uma execução; a biblioteca C que o
+firmware embarca é gerada em etapa separada, para a granularidade escolhida
+do ensaio.
 
 \subsection{Random Forest}
 
 O Random Forest combina árvores de decisão treinadas por \textit{bagging}
 com seleção aleatória de características em cada nó, reduzindo a variância
-de uma árvore única \cite{breiman2001}. O tamanho da floresta --- número de
-árvores e mínimo de amostras por folha --- domina o compromisso entre
+de uma árvore única \cite{breiman2001}. O tamanho da floresta (número de
+árvores e mínimo de amostras por folha) domina o compromisso entre
 acurácia e custo embarcado: mais árvores e folhas menores aproximam melhor
 a relação irradiância--potência, mas aumentam o número de nós e,
 proporcionalmente, o flash ocupado pelo código gerado \cite{probst2018}.
 Por isso, o procedimento de treino, repetido em cada granularidade, segue
-três passos: (i) varredura de oito configurações, de 300 árvores com mínimo
-de 2 amostras por folha até 6 árvores com mínimo de 400, cada uma avaliada
-pelo R$^2$ na janela de calibração --- nunca no teste, para não transformar
-a métrica final em treino disfarçado; (ii) seleção entre as duas
-configurações de maior R$^2$ na calibração, com desempate pelo menor tempo
-de treino, usado como aproximação do custo de inferência; e (iii) treino da
-floresta final e geração da biblioteca C por \citeonline{emlearn2024}, com
-o modelo emitido como código \textit{inline} --- e não como tabela em RAM,
-de modo que a floresta não ocupa memória de dados. A configuração
-selecionada depende da granularidade; no \textit{split} de 1~h, por exemplo,
-a varredura escolheu 12 árvores com mínimo de 200 amostras por folha.
+três passos: (i) varredura de 14 configurações de tamanho, de 300 árvores
+com mínimo de 2 amostras por folha até 6 árvores com mínimo de 800, uma
+delas com teto de profundidade, cada uma avaliada pelo R$^2$ da calibração
+já com o \textit{offset} do próprio candidato aplicado (o modelo entregue é
+sempre o calibrado), nunca no teste, para não transformar a métrica final
+em treino disfarçado; as colunas de teste da varredura são apenas
+reportadas; (ii) seleção entre as duas configurações de maior R$^2$
+calibrado, com desempate pelo menor tempo de inferência por amostra, medido
+na validação; e (iii) treino da floresta final e salvamento do
+modelo em disco, para a análise cruzada e para a geração posterior da
+biblioteca C, feita pelo script \url{utils/gerar_lib_rf.py} com o
+\citeonline{emlearn2024}, que emite o modelo como código \textit{inline}, e
+não como tabela em RAM, de modo que a floresta não ocupa memória de dados. A configuração selecionada depende da granularidade: 10 árvores com
+mínimo de 300 amostras por folha em 5~min, 15 árvores com mínimo de 150 em
+10~min, e 50 árvores com mínimo de 5 e teto de profundidade 8 em 1~h e em
+1~d.
 
 A biblioteca gerada (\url{lib/knob-senses-rf/}) encapsula o
 pré-processamento: recebe as três grandezas brutas, aplica a normalização
@@ -222,15 +244,17 @@ de flash e RAM (\url{models/src/common/verify.py}).
 \subsection{MLP}
 
 O MLP é uma rede densa \textit{feedforward} treinada no framework Keras
-\cite{chollet2015}, com três camadas ocultas de 128, 64 e 32 neurônios ---
-cerca de 10,9 mil parâmetros treináveis ---, ativação GELU
-(\textit{Gaussian Error Linear Unit}), \textit{dropout} de 0,1 e saída
-linear com viés inicializado na média do alvo transformado. A GELU suaviza
-a transição da ReLU na origem, o que tende a estabilizar o gradiente em
-redes rasas; o \textit{dropout} desliga aleatoriamente 10\% das ativações a
+\cite{chollet2015}, com três camadas ocultas de 128, 64 e 32 neurônios
+(cerca de 10,9 mil parâmetros treináveis), ativação ReLU
+(\textit{Rectified Linear Unit}), \textit{dropout} de 0,1 e saída
+linear com viés inicializado na média do alvo transformado. A ReLU foi
+adotada por ser quantizável para \textit{int8}, ao contrário da GELU, cujas
+operações de erro não têm equivalente inteiro no conversor do Edge
+Impulse; nos testes, a troca também não reduziu a acurácia. O
+\textit{dropout} desliga aleatoriamente 10\% das ativações a
 cada passo de treino, funcionando como regularização contra sobreajuste; e
 o viés da saída igual à média do alvo faz a rede começar prevendo a média
-do treino --- um ponto de partida sensato que o treino refina.
+do treino, um ponto de partida sensato que o treino refina.
 
 A entrada é normalizada por \textit{min-max} ajustado somente no treino:
 
@@ -243,16 +267,16 @@ A faixa $[0, 1]$ resultante é a exigida pela quantização \textit{int8} do
 caminho embarcado e evita que a irradiância, numericamente dominante,
 ofusque as demais entradas no gradiente.
 
-O alvo --- com o deslocamento de $0{,}001$~kW, que acomoda as leituras de
-PCA nulo preservadas no \textit{split} --- passa pela transformação de
+O alvo (com o deslocamento de $0{,}001$~kW, que acomoda as leituras de
+PCA nulo preservadas no \textit{split}) passa pela transformação de
 Box-Cox \cite{boxcox1964},
 \begin{equation}
 \label{eq:boxcox}
 y^{(\lambda)} = \frac{y^{\lambda} - 1}{\lambda},
 \end{equation}
 com $\lambda$ ajustado apenas no treino e específico de cada granularidade.
-A potência fotovoltaica é assimétrica --- concentrada em valores baixos,
-com cauda até a saturação de 2~kW ---, e a transformação aproxima a
+A potência fotovoltaica é assimétrica (concentrada em valores baixos,
+com cauda até a saturação de 2~kW), e a transformação aproxima a
 distribuição da normal, beneficiando a perda de Huber e a inicialização do
 viés da saída. Antes da inversa, a predição é ceifada no domínio válido da
 transformação ($1 + \lambda y > 0$), pela faixa observada no treino.
@@ -266,7 +290,7 @@ otimizador é o Adam \cite{kingma2015}, que mantém taxas de aprendizado
 adaptativas por parâmetro e dispensa o ajuste fino da taxa global.
 
 O treino valida na janela de calibração (2024H2), a mesma usada para medir
-o viés --- uma validação temporal, sem embaralhamento, em que nenhuma
+o viés: uma validação temporal, sem embaralhamento, em que nenhuma
 amostra vizinha ao teste vaza para o treino. Dois \textit{callbacks}
 regulam a convergência: a parada antecipada monitora o MAE de validação e
 restaura os melhores pesos ao final \cite{prechelt1998}, com paciência
@@ -274,8 +298,8 @@ igual ao dobro da paciência da \autoref{tab:hiperparametros}; e a redução
 da taxa por platô divide a taxa por 2 quando o MAE de validação estagna por
 8 épocas, até o mínimo de $10^{-8}$.
 
-Os demais hiperparâmetros dependem da granularidade --- percorrida uma a
-uma pelo treino ---, conforme a \autoref{tab:hiperparametros}. O padrão
+Os demais hiperparâmetros dependem da granularidade (percorrida uma a
+uma pelo treino), conforme a \autoref{tab:hiperparametros}. O padrão
 segue a literatura de previsão solar e as recomendações de
 \citeonline{bengio2012} e \citeonline{masters2018}: as granularidades finas
 (5 e 10~min) têm séries longas e gradientes ruidosos, então usam lotes
@@ -294,7 +318,7 @@ no número reduzido de passos por época.
     5 min & 400 & 512 & 60 & $3\times10^{-4}$ \\
     10 min & 400 & 256 & 60 & $3\times10^{-4}$ \\
     1 h & 300 & 64 & 40 & $5\times10^{-4}$ \\
-    1 d & 500 & 32 & 60 & $1\times10^{-3}$ \\
+    1 d & 600 & 32 & 60 & $1\times10^{-3}$ \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}
@@ -305,7 +329,7 @@ de validação estabiliza antes do limite de épocas em todas as
 granularidades, e a parada antecipada restaura os pesos do melhor ponto.
 A \autoref{fig:mlp-treino-1h} detalha as curvas de perda, MAE e RMSE na
 granularidade de 1~h, em que o descolamento entre treino e validação
-permanece pequeno --- sinal de que a regularização contém o sobreajuste.
+permanece pequeno, sinal de que a regularização contém o sobreajuste.
 
 \begin{figure}[H]
   \centering
@@ -324,14 +348,15 @@ permanece pequeno --- sinal de que a regularização contém o sobreajuste.
 \end{figure}
 
 O pós-processamento reconstitui a grandeza física em uma cadeia fixa,
-gravada em \url{dist/{freq}/transformacao_alvo.json} --- um arquivo por
-granularidade: a predição é ceifada no domínio da transformação, invertida
+gravada em \url{dist/{freq}/transformacao_alvo.json} (um arquivo por
+granularidade): a predição é ceifada no domínio da transformação, invertida
 pela função inversa de Box-Cox, subtraída do deslocamento de
 $0{,}001$~kW, somada ao \textit{offset} de calibração medido em 2024H2 e,
 por fim, ceifada na faixa física $[0, 2]$~kW. Para o caminho embarcado, o
-modelo é exportado em SavedModel, convertido para o formato TensorFlow
-Lite \cite{abadi2016} e treinado/exportado como impulso no Edge Impulse
-Studio \cite{edgeimpulse2024,tflitemicro2024}, com amostra de calibração e
+modelo é exportado em SavedModel e convertido para o formato TensorFlow
+Lite \cite{abadi2016}; o script \url{utils/exportar_mlp_ei.py} envia o
+modelo ao Edge Impulse Studio \cite{edgeimpulse2024,tflitemicro2024} e
+baixa a biblioteca C++ compilada pelo Studio, com amostra de calibração e
 a normalização do treino.
 
 \subsection{Avaliação e Métricas}
@@ -379,7 +404,7 @@ Além da avaliação na própria granularidade, uma análise cruzada aplica cada
 modelo treinado ao teste das demais granularidades, formando uma matriz em
 que a linha é a granularidade de treino e a coluna, a de avaliação. As
 entradas do teste são reescaladas com as constantes de normalização do
-treino --- fora da faixa $[0, 1]$ quando a granularidade de avaliação é mais
+treino, fora da faixa $[0, 1]$ quando a granularidade de avaliação é mais
 fina que a de treino, o que mede justamente a capacidade de extrapolação do
 modelo. A diagonal da matriz corresponde ao próprio modelo; abaixo dela está
 o cenário de interesse, o modelo grosso avaliado em dado fino.
@@ -399,8 +424,8 @@ O firmware é um cliente de teste que não lê sensores: recebe lotes de amostra
 do servidor, executa a inferência de cada uma e devolve as predições em lote
 pela CDC do controlador USB-Serial/JTAG do próprio ESP32-S3, com o log de
 execução mantido na UART0. O gancho de inferência
-(\texttt{runInference()}) é o ponto de aquisição --- em campo, é ali que
-entram os sensores da usina, sem alterar o restante do pipeline. As constantes
+(\texttt{runInference()}) é o ponto de aquisição (em campo, é ali que
+entram os sensores da usina, sem alterar o restante do pipeline). As constantes
 de operação (1 amostra, 3 eixos, quadro de 3 \textit{floats}) vêm dos
 cabeçalhos gerados de cada modelo; o período nominal de inferência (10~ms no
 RF e 1~ms no MLP) é o ritmo da operação em tempo real, e o ensaio o dispensa,
@@ -409,7 +434,7 @@ andando na velocidade dos lotes.
 O contrato de normalização é: o firmware sempre entrega grandezas
 brutas. No caminho RF, a normalização acontece dentro da biblioteca; no
 caminho MLP, o SDK do Edge Impulse aplica o escalonador embutido no impulso.
-A arena de memória do TensorFlow Lite é de 2\,732~bytes; o RF é código \textit{inline},
+A arena de memória do TensorFlow Lite é de 3\,174~bytes; o RF é código \textit{inline},
 sem tabela em RAM, com custo de flash medido no objeto compilado. O laço de
 execução registra atrasos de período (\textit{overruns}) e falhas de troca
 (\textit{dropouts}, com retentativa da mesma amostra), trata erro de
@@ -428,8 +453,8 @@ amortiza cada pausa por até 64 linhas. Um \textit{handshake} de um byte de
 sincronização marca o início de cada sessão e deixa para trás os resíduos do
 \textit{bootloader} escritos na porta antes do ensaio, em duas variantes: o
 \texttt{0x52} (\texttt{RESET}), usado uma vez por usina, e o \texttt{0x4B}
-(\texttt{RESUME}), usado nas retomadas --- como o host reenvia o byte até a
-resposta chegar, o firmware descarta os bytes que sobrarem na fila atrás
+(\texttt{RESUME}), usado nas retomadas, pois o host reenvia o byte até a
+resposta chegar; o firmware descarta os bytes que sobrarem na fila atrás
 dele. O lote endereça as linhas do teste pela base (primeira linha) e pelo
 tamanho \texttt{n}, e o firmware é apátrida por lote: quem controla o
 andamento do ensaio é o servidor, e um lote reenviado reprocessa exatamente as
@@ -439,7 +464,7 @@ mesmas amostras.
   \centering
   \caption{Mensagens do protocolo de ensaio}
   \label{tab:protocolo}
-  \begin{tabular}{llrl}
+  \begin{tabular}{llrp{6.2cm}}
     \toprule
     Mensagem & Sentido & Bytes & Descrição \\
     \midrule
@@ -455,23 +480,23 @@ O servidor tolera reconexão: o estado do ensaio é o lote pendente, não o
 meio. O \textit{timeout} de leitura é assimétrico (2~s no firmware e 5~s no
 servidor, para que o cliente sempre desista primeiro); quando a leitura do
 servidor estoura, o \textit{handshake} \texttt{RESUME} refaz a sessão e o
-servidor reenvia o mesmo lote --- idempotente por construção. O ensaio termina
+servidor reenvia o mesmo lote, idempotente por construção. O ensaio termina
 com um lote vazio ($n$~=~0), após o qual o firmware se re-arma e aguarda o
 \texttt{RESET} da próxima usina.
 
 \section{Ensaio na Placa}
 
 O servidor de teste (\url{utils/model_teste.ipynb}) abre a porta CDC do
-USB-Serial/JTAG e serve as linhas do \textit{split} de teste da granularidade
+USB\-Serial/JTAG e serve as linhas do \textit{split} de teste da granularidade
 do ensaio, endereçadas pela base do lote, na ordem das características do
 contrato. Cada predição confirmada vira uma linha
-\texttt{sample, real, pred, err} no log do ensaio; a exclusividade do meio é
-natural --- a porta serial não admite duas aberturas. Um ensaio é executado
+\url{sample, real, pred, err} no log do ensaio; a exclusividade do meio é
+natural: a porta serial não admite duas aberturas. Um ensaio é executado
 por inversor, usando as cópias do ano de teste de cada usina.
 
 O ensaio valida o soft-sensor no cenário que justifica a sua existência: a
 falha de telemetria do inversor. Para isso, o servidor introduz \textit{gaps}
-artificiais nas três usinas antes de servir os dados: blocos contíguos de
+artificiais nos três inversores antes de servir os dados: blocos contíguos de
 várias durações (1~h, 6~h, 24~h e 3 dias, com quatro blocos de cada duração
 que couber na granularidade do ensaio) e uma fração aleatória de 10\% das
 leituras restantes, simulando falhas esporádicas. O desenho segue o padrão
@@ -481,9 +506,9 @@ fotovoltaicos \cite{jang2025}: os mecanismos de missingness estruturados
 métodos, enquanto a remoção puramente aleatória tende a estimativas otimistas
 \cite{poette2026,toye2025}. A fração ocultada, entre 16\% e 20\% das
 leituras, fica dentro da faixa usual dos benchmarks, de 5\% a 30\%
-\cite{wongoutong2025}. Nas linhas de \textit{gap} apenas o PCA é ocultado ---
-as variáveis meteorológicas vêm de outro sistema de medição e seguem
-disponíveis ---, e o valor verdadeiro permanece guardado para a validação. O
+\cite{wongoutong2025}. Nas linhas de \textit{gap} apenas o PCA é ocultado
+(as variáveis meteorológicas vêm de outro sistema de medição e seguem
+disponíveis), e o valor verdadeiro permanece guardado para a validação. O
 firmware não muda: recebe as características, infere e devolve a predição,
 exatamente como em operação normal.
 
@@ -496,15 +521,15 @@ interpolação linear, que usa os dois lados do buraco e serve de referência
 \textit{offline}, e a persistência do último valor observado, causal como o
 soft-sensor embarcado. O soft-sensor é considerado viável como alternativa ao
 medidor dedicado se o seu erro dentro dos \textit{gaps} for igual ou menor
-que o da interpolação linear --- a baseline que a literatura reporta como
-consistentemente forte \cite{poette2026,toye2025} --- e permanecer próximo do
+que o da interpolação linear (a baseline que a literatura reporta como
+consistentemente forte \cite{poette2026,toye2025}) e permanecer próximo do
 erro fora deles, isto é, se a perda da telemetria não degradar a qualidade da
 estimativa.
 
 A matriz experimental (\autoref{tab:matriz}) define oito ensaios E1--E8,
-cobrindo os dois modelos nas quatro granularidades, repetidos nas três
-usinas. O procedimento de cada ensaio é: (i) gerar o artefato do modelo na
-granularidade --- a biblioteca C do RF ou o impulso do Edge Impulse,
+cobrindo os dois modelos nas quatro granularidades, repetidos nos três
+inversores. O procedimento de cada ensaio é: (i) gerar o artefato do modelo na
+granularidade: a biblioteca C do RF ou o impulso do Edge Impulse,
 reexportado no Studio com os dados e o contrato daquela granularidade; (ii)
 gravar o firmware do \textit{env} correspondente; (iii) subir o servidor de
 teste, que gera os \textit{gaps}; e (iv) reiniciar a placa e deixar o ensaio
@@ -512,7 +537,7 @@ rodar até o fim do dataset, com as métricas calculadas ao final. Antes de
 transmitir, a ordem dos eixos é conferida entre o servidor e a normalização
 da biblioteca (\texttt{check\_axis\_order()}), pois a troca de ordem produz
 predição errada sem erro. Uma limitação conhecida: reiniciar o servidor no
-meio do ensaio zera o log --- para recomeçar do zero, sobe-se o servidor e
+meio do ensaio zera o log; para recomeçar do zero, sobe-se o servidor e
 reinicia-se a placa.
 
 \begin{table}[H]
