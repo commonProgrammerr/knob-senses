@@ -75,9 +75,12 @@ def sweep(X_train, y_train, X_val, y_val, X_test=None, y_test=None,
     que a entrega corrige. `mae`/`r2` (brutos) ficam na tabela so' para mostrar
     quanto o offset mudou. As colunas `mae_tes`/`r2_tes` sao REPORT ONLY: mostram
     o teto de acuracia que o teste permite, mas nao entram no criterio de
-    selecao. A coluna `kb` e' estimativa grosseira (12 bytes por no' + 4 por
-    folha) — serve para COMPARAR configuracoes, nao para prometer flash: o
-    numero real sai da compilacao, secao 9 do notebook.
+    selecao. `s_inf` e' o tempo de inferencia POR AMOSTRA (predict na validacao),
+    medido para o desempate do notebook (menor s_inf entre os 2 maiores r2_cal;
+    na ausencia da medicao, cai para a menor quantidade de nos). A coluna `kb`
+    e' estimativa grosseira (12 bytes por no' + 4 por folha) — serve para
+    COMPARAR configuracoes, nao para prometer flash: o numero real sai da
+    compilacao, secao 9 do notebook.
     """
     rows = []
     for n_trees, min_leaf, max_depth in configs:
@@ -86,7 +89,9 @@ def sweep(X_train, y_train, X_val, y_val, X_test=None, y_test=None,
                                   max_depth=max_depth, n_jobs=N_JOBS,
                                   random_state=contract.SEED).fit(X_train, y_train)
         secs = time.perf_counter() - t0
+        t_inf = time.perf_counter()
         pred = m.predict(X_val)
+        s_inf = (time.perf_counter() - t_inf) / max(len(y_val), 1)   # s por amostra
         offset = float(np.mean(y_val - pred))          # offset do PROPRIO candidato
         pred_cal = pred + offset
         n_nodes, n_leaves = count_nodes(m), count_leaves(m)
@@ -98,7 +103,7 @@ def sweep(X_train, y_train, X_val, y_val, X_test=None, y_test=None,
             "offset": offset,
             "mae_cal": mean_absolute_error(y_val, pred_cal),
             "r2_cal": r2_score(y_val, pred_cal),
-            "s": secs,
+            "s": secs, "s_inf": s_inf,
         }
         if X_test is not None and y_test is not None:
             pred_tes = m.predict(X_test) + offset

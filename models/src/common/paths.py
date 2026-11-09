@@ -30,6 +30,8 @@ SCRATCH = DATA / "modelo_rf"                    # conferidor + residuo de build 
 
 LIB_RF = ROOT / "lib" / "knob-senses-rf"        # a entrega (gerada pelo notebook do RF)
 LIB_RF_SRC = LIB_RF / "src"
+LIB_MLP = ROOT / "lib" / "knob-senses"          # a entrega do MLP (SDK + impulso do Edge Impulse)
+LIB_MLP_SRC = LIB_MLP / "src"
 
 EVAL_LOG = ROOT / "utils" / "model_eval.csv"    # o log do servidor de teste
 
