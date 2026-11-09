@@ -36,6 +36,89 @@ estimado contra o medido.
   \source{Elaborado pelo autor.}
 \end{figure}
 
+\section{Avaliação Cruzada de Granularidades}
+
+A avaliação cruzada aplica cada modelo treinado ao teste das quatro
+granularidades, formando uma matriz em que a linha é a granularidade de
+treino e a coluna, a de avaliação. A diagonal corresponde ao próprio modelo;
+abaixo dela está o cenário de interesse, o modelo treinado em dado mais
+grosso avaliado em dado mais fino, em que as entradas saem da faixa
+$[0, 1]$ do treino e o modelo precisa extrapolar. A
+\autoref{tab:mlp-cruzada} e a \autoref{tab:rf-cruzada} mostram as matrizes
+de R$^2$ dos dois modelos.
+
+\begin{table}[H]
+  \centering
+  \caption{R$^2$ do MLP no teste de 2025 por par treinado (linhas) e avaliado (colunas). A diagonal é o próprio modelo.}
+  \label{tab:mlp-cruzada}
+  \begin{tabular}{lcccc}
+    \toprule
+    Treinado em & 5 min & 10 min & 1 h & 1 d \\
+    \midrule
+    5 min & 0{,}808 & 0{,}914 & 0{,}972 & 0{,}757 \\
+    10 min & 0{,}794 & 0{,}914 & 0{,}979 & 0{,}864 \\
+    1 h & 0{,}786 & 0{,}912 & 0{,}982 & 0{,}888 \\
+    1 d & 0{,}701 & 0{,}798 & 0{,}879 & 0{,}938 \\
+    \bottomrule
+  \end{tabular}
+  \source{Elaborado pelo autor.}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{R$^2$ do Random Forest no teste de 2025 por par treinado (linhas) e avaliado (colunas). A diagonal é o próprio modelo.}
+  \label{tab:rf-cruzada}
+  \begin{tabular}{lcccc}
+    \toprule
+    Treinado em & 5 min & 10 min & 1 h & 1 d \\
+    \midrule
+    5 min & 0{,}805 & 0{,}909 & 0{,}965 & 0{,}689 \\
+    10 min & 0{,}792 & 0{,}911 & 0{,}973 & 0{,}809 \\
+    1 h & 0{,}777 & 0{,}904 & 0{,}972 & 0{,}860 \\
+    1 d & 0{,}640 & 0{,}729 & 0{,}827 & 0{,}925 \\
+    \bottomrule
+  \end{tabular}
+  \source{Elaborado pelo autor.}
+\end{table}
+
+As matrizes mostram que a granularidade de treino não prende o modelo à
+granularidade do ensaio. Um modelo treinado em 1~h, avaliado em 5~min,
+mantém R$^2$ de $0{,}786$ (MLP) e $0{,}777$ (RF); treinado em 10~min,
+mantém $0{,}794$ e $0{,}792$ em 5~min. Já o modelo treinado em 1~d perde
+mais ao descer para o dado fino: R$^2$ de $0{,}701$ (MLP) e $0{,}640$ (RF)
+em 5~min, ainda que se recupere em 1~h ($0{,}879$ e $0{,}827$). Para cima,
+a agregação temporal ajuda: modelos finos avaliados em 1~h preservam
+R$^2$ acima de $0{,}96$ nos dois modelos, porque a média do período cancela
+boa parte do erro aleatório de cada linha. O MLP transfere um pouco melhor
+que o RF no cenário de interesse (abaixo da diagonal em todas as
+granularidades), particularmente a partir do modelo de 1~d.
+
+A \autoref{tab:comparativo} reúne os três modelos avaliados, para
+consolidar a comparação: o MLP é o de menor MAE e maior R$^2$ em todas as
+granularidades, o RF vem próximo, e os dois superam com folga a regressão
+linear de referência. A diferença entre MLP e RF é maior em 1~h
+($0{,}053$ contra $0{,}067$~kW) e se estreita em 5~min
+($0{,}160$ contra $0{,}164$~kW).
+
+\begin{table}[H]
+  \centering
+  \caption{MAE (kW) e R$^2$ dos três modelos no teste de 2025, por granularidade.}
+  \label{tab:comparativo}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    & \multicolumn{2}{c}{Regressão linear} & \multicolumn{2}{c}{Random Forest} & \multicolumn{2}{c}{MLP} \\
+    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+    Granularidade & MAE & R$^2$ & MAE & R$^2$ & MAE & R$^2$ \\
+    \midrule
+    5 min & 0{,}200 & 0{,}743 & 0{,}164 & 0{,}805 & 0{,}160 & 0{,}808 \\
+    10 min & 0{,}157 & 0{,}846 & 0{,}114 & 0{,}911 & 0{,}110 & 0{,}914 \\
+    1 h & 0{,}117 & 0{,}905 & 0{,}067 & 0{,}972 & 0{,}053 & 0{,}982 \\
+    1 d & 0{,}120 & 0{,}534 & 0{,}040 & 0{,}925 & 0{,}038 & 0{,}938 \\
+    \bottomrule
+  \end{tabular}
+  \source{Elaborado pelo autor.}
+\end{table}
+
 \section{Ensaio na Placa}
 
 O ensaio E3 da matriz experimental (o Random Forest na granularidade de
