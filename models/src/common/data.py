@@ -86,12 +86,13 @@ def valid_readings(df: pd.DataFrame) -> pd.DataFrame:
     potencia acima disso vira 2,0 kW para a media do bin refletir a saturacao.
     """
     df = df.copy()
-    df.loc[df["PCA"] > 2.0, "PCA"] = 2.0
+    # df.loc[df["PCA"] > 2.0, "PCA"] = 2.0
 
     invalido = (
         ((df["PCA"] == 0) & (df["ghit"] > 50))   # apagao com sol
         | (df["ghit"] < 5)                       # noite / irradiancia nula
-        | (df["temp_amb"] >= 50)     # sensor de temperatura
+        | (df["temp_amb"] >= 50)                 # sensor de temperatura
+        | (df["PCA"] >= 2.0)
     )
     return df[~invalido]
 
