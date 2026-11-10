@@ -8,7 +8,7 @@ modelo normalizando de novo, previsao colapsada num valor fixo e nenhum erro.
 
 # Ordem de entrada do Random Forest e dos eixos que o servidor transmite. Mudar aqui
 # muda as duas pontas — e o assert do servidor pega se o normalizacao.json discordar.
-RF_FEATURES = ("temperatura_ambiente", "ghit", "jacques")
+RF_FEATURES = ("temp_amb", "ghit", "jacques")
 
 TARGET = "PCA"         # potencia CA do inversor, em kW
 INDEX = "datetime"

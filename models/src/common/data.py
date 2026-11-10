@@ -91,7 +91,7 @@ def valid_readings(df: pd.DataFrame) -> pd.DataFrame:
     invalido = (
         ((df["PCA"] == 0) & (df["ghit"] > 50))   # apagao com sol
         | (df["ghit"] < 5)                       # noite / irradiancia nula
-        | (df["temperatura_ambiente"] >= 50)     # sensor de temperatura
+        | (df["temp_amb"] >= 50)     # sensor de temperatura
     )
     return df[~invalido]
 
@@ -111,7 +111,7 @@ DOWNSAMPLE_RULES = {
     "pvsyst_cell": "mean",
     "sandia": "mean",
     "sandia_cell": "mean",
-    "temperatura_ambiente": "mean",
+    "temp_amb": "mean",
 }
 
 
