@@ -1,3 +1,70 @@
 {
-  "cmake.sourceDirectory": "/home/scorel/Documents/knob-senses/lib/knob-senses"
+  "latex-workshop.latex.search.rootFiles.include": [
+    "docs/main.tex"
+  ],
+  "latex-workshop.latex.rootFile.doNotPrompt": true,
+  "latex-workshop.latex.bibDirs": [
+    "C:/Users/gusta/Documents/PlatformIO/Projects/knob-senses/docs"
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "xelatex-miktex",
+      "command": "C:/Users/gusta/AppData/Local/Programs/MiKTeX/miktex/bin/x64/xelatex.exe",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOCFILE%.tex"
+      ],
+      "env": {},
+      "cwd": "%DIR%"
+    },
+    {
+      "name": "bibtex-miktex",
+      "command": "C:/Users/gusta/AppData/Local/Programs/MiKTeX/miktex/bin/x64/bibtex.exe",
+      "args": [
+        "%DOCFILE%"
+      ],
+      "env": {},
+      "cwd": "%DIR%"
+    },
+    {
+      "name": "tectonic",
+      "command": "tectonic",
+      "args": [
+        "-X",
+        "compile",
+        "--keep-logs",
+        "%DOC%.tex"
+      ],
+      "env": {},
+      "cwd": "%DIR%"
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "MiKTeX (XeLaTeX)",
+      "tools": [
+        "xelatex-miktex",
+        "bibtex-miktex",
+        "xelatex-miktex",
+        "xelatex-miktex"
+      ]
+    },
+    {
+      "name": "tectonic",
+      "tools": [
+        "tectonic"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipe.default": "MiKTeX (XeLaTeX)",
+  "latex-workshop.latex.build.enableMagicComments": false,
+  "cSpell.words": [
+    "ghit",
+    "hiperparâmetros",
+    "IFPE",
+    "jacques",
+    "Solarimétrica"
+  ]
 }

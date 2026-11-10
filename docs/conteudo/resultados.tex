@@ -1,15 +1,42 @@
 \chapter{Resultados}
 \label{cap:resultados}
 
-A avaliação do MLP no \textit{split} de teste de 2025 confirma a tendência
-esperada da estimação contemporânea: a agregação temporal suaviza os
-desvios aleatórios e o erro absoluto cai com a granularidade. O MAE passa
-de $0{,}160$~kW em 5~min para $0{,}110$~kW em 10~min, $0{,}053$~kW em 1~h e
-$0{,}038$~kW em 1~d; o R$^2$ fica entre $0{,}808$ (5~min) e $0{,}982$
-(1~h); e o viés residual permanece abaixo de $0{,}013$~kW em todos os
-casos, contido pelo \textit{offset} de calibração. A
-\autoref{fig:mlp-avaliacao} mostra o estimado contra o medido em cada
-granularidade.
+\section{Treinamento e Convergência}
+
+A convergência do MLP é ilustrada na \cref{fig:mlp-treino}: a perda de
+validação estabilizou antes do limite de épocas em todas as granularidades, e
+a parada antecipada restaurou os pesos do melhor ponto. A
+\cref{fig:mlp-treino-1h} detalha as curvas de perda, MAE e RMSE na
+granularidade de 1~h, em que o descolamento entre treino e validação
+permaneceu pequeno, sinal de que a regularização continha o sobreajuste.
+
+\begin{figure}[H]
+  \centering
+  \caption{Evolução da perda de treino e de validação do MLP em cada granularidade do desenho experimental.}
+  \label{fig:mlp-treino}
+  \includegraphics[width=\textwidth]{mlp_treino_granularidades}
+  \source{Elaborado pelo autor.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \caption{Curvas de perda, MAE e RMSE do treino do MLP na granularidade de 1 h.}
+  \label{fig:mlp-treino-1h}
+  \includegraphics[width=\textwidth]{mlp_treino_1h}
+  \source{Elaborado pelo autor.}
+\end{figure}
+
+\section{Avaliação no Teste de 2025}
+
+A avaliação do MLP no \textit{split} de teste de 2025 confirma o efeito
+esperado da agregação temporal: ela suavizou os desvios aleatórios e o erro
+absoluto caiu com a granularidade. O MAE foi de $0{,}160$~kW em 5~min a
+$0{,}037$~kW em 1~d, e o R$^2$ ficou entre $0{,}808$ e $0{,}981$; a
+\cref{tab:comparativo} traz os valores de cada granularidade. O viés
+residual permaneceu abaixo de $0{,}013$~kW em todos os casos, contido pelo
+\textit{offset} de calibração, o que indica que o modelo não tinha
+deslocamento sistemático relevante. A \cref{fig:mlp-avaliacao} mostra o
+estimado contra o medido em cada granularidade.
 
 \begin{figure}[H]
   \centering
@@ -19,14 +46,17 @@ granularidade.
   \source{Elaborado pelo autor.}
 \end{figure}
 
-A avaliação do Random Forest no mesmo \textit{split} acompanha a
-tendência: o MAE passa de $0{,}164$~kW em 5~min para $0{,}114$~kW em
-10~min, $0{,}067$~kW em 1~h e $0{,}040$~kW em 1~d; o R$^2$ fica entre
-$0{,}805$ (5~min) e $0{,}972$ (1~h); e o viés permanece abaixo de
-$0{,}013$~kW. Em todas as granularidades a floresta supera a regressão
-linear de referência, cujo R$^2$ vai de $0{,}743$ (5~min) a $0{,}905$
-(1~h) e chega a $0{,}534$ em 1~d. A \autoref{fig:rf-avaliacao} mostra o
-estimado contra o medido.
+A avaliação do Random Forest no mesmo \textit{split} acompanhou a
+tendência: o MAE foi de $0{,}164$~kW em 5~min a $0{,}040$~kW em 1~d, o
+R$^2$ ficou entre $0{,}805$ e $0{,}972$, e o viés permaneceu no máximo em
+$0{,}013$~kW. O comportamento foi muito próximo ao do MLP, com uma diferença
+pequena em favor da rede neural. Em todas as granularidades a floresta
+superou a regressão linear de referência, cuja queda em 1~d foi o contraste
+mais evidente: com a agregação diária, a relação entre as variáveis
+meteorológicas e a potência média deixou de ser bem descrita por uma
+combinação linear, e a regressão ficou em R$^2 = 0{,}534$, enquanto os
+modelos não lineares mantiveram R$^2$ acima de $0{,}92$. A
+\cref{fig:rf-avaliacao} mostra o estimado contra o medido.
 
 \begin{figure}[H]
   \centering
@@ -36,16 +66,41 @@ estimado contra o medido.
   \source{Elaborado pelo autor.}
 \end{figure}
 
+A \cref{tab:comparativo} reúne os três modelos avaliados, para
+consolidar a comparação. O MLP foi o de menor MAE e maior R$^2$ em todas as
+granularidades; o RF veio próximo, com diferença que variou de quatro
+milésimos de kW em 5~min a doze milésimos em 1~h; e os dois superaram com
+folga a regressão linear de referência. Em termos de MAE, a vantagem do MLP
+foi modesta, mas consistente; em termos de custo embarcado, o MLP usou uma
+arena de 3\,174~bytes, enquanto o RF era código \textit{inline} e não usava
+arena.
+
+\begin{table}[H]
+  \centering
+  \caption{MAE (kW) e R$^2$ dos três modelos no teste de 2025, por granularidade.}
+  \label{tab:comparativo}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    & \multicolumn{2}{c}{Regressão linear} & \multicolumn{2}{c}{Random Forest} & \multicolumn{2}{c}{MLP} \\
+    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+    Granularidade & MAE & R$^2$ & MAE & R$^2$ & MAE & R$^2$ \\
+    \midrule
+    5 min & 0{,}200 & 0{,}743 & 0{,}164 & 0{,}805 & 0{,}160 & 0{,}808 \\
+    10 min & 0{,}156 & 0{,}846 & 0{,}114 & 0{,}910 & 0{,}110 & 0{,}913 \\
+    1 h & 0{,}117 & 0{,}905 & 0{,}066 & 0{,}972 & 0{,}054 & 0{,}981 \\
+    1 d & 0{,}120 & 0{,}534 & 0{,}040 & 0{,}924 & 0{,}037 & 0{,}941 \\
+    \bottomrule
+  \end{tabular}
+  \source{Elaborado pelo autor.}
+\end{table}
+
 \section{Avaliação Cruzada de Granularidades}
 
-A avaliação cruzada aplica cada modelo treinado ao teste das quatro
-granularidades, formando uma matriz em que a linha é a granularidade de
-treino e a coluna, a de avaliação. A diagonal corresponde ao próprio modelo;
-abaixo dela está o cenário de interesse, o modelo treinado em dado mais
-grosso avaliado em dado mais fino, em que as entradas saem da faixa
-$[0, 1]$ do treino e o modelo precisa extrapolar. A
-\autoref{tab:mlp-cruzada} e a \autoref{tab:rf-cruzada} mostram as matrizes
-de R$^2$ dos dois modelos.
+A avaliação cruzada seguiu o desenho da metodologia: cada modelo treinado foi
+aplicado ao teste das quatro granularidades, e as matrizes de R$^2$ estão na
+\cref{tab:mlp-cruzada} e na \cref{tab:rf-cruzada}. A questão era se a
+granularidade de treino precisava coincidir com a de operação, ou se um modelo
+treinado em uma resolução podia ser aplicado a outra.
 
 \begin{table}[H]
   \centering
@@ -55,10 +110,10 @@ de R$^2$ dos dois modelos.
     \toprule
     Treinado em & 5 min & 10 min & 1 h & 1 d \\
     \midrule
-    5 min & 0{,}808 & 0{,}914 & 0{,}972 & 0{,}757 \\
-    10 min & 0{,}794 & 0{,}914 & 0{,}979 & 0{,}864 \\
-    1 h & 0{,}786 & 0{,}912 & 0{,}982 & 0{,}888 \\
-    1 d & 0{,}701 & 0{,}798 & 0{,}879 & 0{,}938 \\
+    5 min & 0{,}808 & 0{,}913 & 0{,}973 & 0{,}767 \\
+    10 min & 0{,}795 & 0{,}913 & 0{,}979 & 0{,}854 \\
+    1 h & 0{,}784 & 0{,}910 & 0{,}981 & 0{,}887 \\
+    1 d & 0{,}696 & 0{,}789 & 0{,}868 & 0{,}941 \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}
@@ -72,10 +127,10 @@ de R$^2$ dos dois modelos.
     \toprule
     Treinado em & 5 min & 10 min & 1 h & 1 d \\
     \midrule
-    5 min & 0{,}805 & 0{,}909 & 0{,}965 & 0{,}689 \\
-    10 min & 0{,}792 & 0{,}911 & 0{,}973 & 0{,}809 \\
-    1 h & 0{,}777 & 0{,}904 & 0{,}972 & 0{,}860 \\
-    1 d & 0{,}640 & 0{,}729 & 0{,}827 & 0{,}925 \\
+    5 min & 0{,}805 & 0{,}908 & 0{,}965 & 0{,}698 \\
+    10 min & 0{,}794 & 0{,}910 & 0{,}973 & 0{,}805 \\
+    1 h & 0{,}777 & 0{,}903 & 0{,}972 & 0{,}861 \\
+    1 d & 0{,}640 & 0{,}728 & 0{,}827 & 0{,}924 \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}
@@ -83,64 +138,49 @@ de R$^2$ dos dois modelos.
 
 As matrizes mostram que a granularidade de treino não prende o modelo à
 granularidade do ensaio. Um modelo treinado em 1~h, avaliado em 5~min,
-mantém R$^2$ de $0{,}786$ (MLP) e $0{,}777$ (RF); treinado em 10~min,
-mantém $0{,}794$ e $0{,}792$ em 5~min. Já o modelo treinado em 1~d perde
-mais ao descer para o dado fino: R$^2$ de $0{,}701$ (MLP) e $0{,}640$ (RF)
-em 5~min, ainda que se recupere em 1~h ($0{,}879$ e $0{,}827$). Para cima,
-a agregação temporal ajuda: modelos finos avaliados em 1~h preservam
-R$^2$ acima de $0{,}96$ nos dois modelos, porque a média do período cancela
-boa parte do erro aleatório de cada linha. O MLP transfere um pouco melhor
-que o RF no cenário de interesse (abaixo da diagonal em todas as
-granularidades), particularmente a partir do modelo de 1~d.
-
-A \autoref{tab:comparativo} reúne os três modelos avaliados, para
-consolidar a comparação: o MLP é o de menor MAE e maior R$^2$ em todas as
-granularidades, o RF vem próximo, e os dois superam com folga a regressão
-linear de referência. A diferença entre MLP e RF é maior em 1~h
-($0{,}053$ contra $0{,}067$~kW) e se estreita em 5~min
-($0{,}160$ contra $0{,}164$~kW).
-
-\begin{table}[H]
-  \centering
-  \caption{MAE (kW) e R$^2$ dos três modelos no teste de 2025, por granularidade.}
-  \label{tab:comparativo}
-  \begin{tabular}{lrrrrrr}
-    \toprule
-    & \multicolumn{2}{c}{Regressão linear} & \multicolumn{2}{c}{Random Forest} & \multicolumn{2}{c}{MLP} \\
-    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
-    Granularidade & MAE & R$^2$ & MAE & R$^2$ & MAE & R$^2$ \\
-    \midrule
-    5 min & 0{,}200 & 0{,}743 & 0{,}164 & 0{,}805 & 0{,}160 & 0{,}808 \\
-    10 min & 0{,}157 & 0{,}846 & 0{,}114 & 0{,}911 & 0{,}110 & 0{,}914 \\
-    1 h & 0{,}117 & 0{,}905 & 0{,}067 & 0{,}972 & 0{,}053 & 0{,}982 \\
-    1 d & 0{,}120 & 0{,}534 & 0{,}040 & 0{,}925 & 0{,}038 & 0{,}938 \\
-    \bottomrule
-  \end{tabular}
-  \source{Elaborado pelo autor.}
-\end{table}
+mantém R$^2$ de $0{,}784$ (MLP) e $0{,}777$ (RF); treinado em 10~min,
+mantém $0{,}795$ e $0{,}794$ em 5~min. A perda em relação à diagonal é de
+poucos centésimos, o que indica que o modelo aprendeu uma relação que se
+mantém válida quando a entrada fica mais fina. Já o modelo treinado em 1~d
+perde mais ao descer para o dado fino: R$^2$ de $0{,}696$ (MLP) e $0{,}640$
+(RF) em 5~min, ainda que se recupere em 1~h ($0{,}868$ e $0{,}827$), porque
+a agregação diária elimina a variação intradiária que o modelo fino precisa
+reconstruir. Para cima, a agregação temporal ajuda: modelos finos avaliados
+em 1~h preservam R$^2$ acima de $0{,}96$ nos dois modelos, porque a média do
+período cancela boa parte do erro aleatório de cada linha. O MLP transfere
+um pouco melhor que o RF no cenário de interesse (abaixo da diagonal em
+todas as granularidades), particularmente a partir do modelo de 1~d. Isso
+mostra que é possível treinar na granularidade em que há mais dados e operar
+em outra, com perda de R$^2$ que cresce conforme aumenta a distância entre
+as granularidades.
 
 \section{Ensaio na Placa}
 
-O ensaio E3 da matriz experimental (o Random Forest na granularidade de
+O ensaio E3 da matriz experimental, o Random Forest na granularidade de
 1~h, com a biblioteca C embarcada na ESP32-S3 e o protocolo de lotes pela
-CDC serial) percorreu as 4\,042 linhas do teste de 2025 do inversor
+CDC serial, percorreu as 4\,042 linhas do teste de 2025 do inversor
 E1, das quais 775 estavam em \textit{gap} artificial. Fora dos
-\textit{gaps}, o caminho embarcado reproduz o modelo treinado: MAE de
+\textit{gaps}, o caminho embarcado reproduziu o modelo treinado: MAE de
 $0{,}066$~kW, RMSE de $0{,}083$~kW, R$^2$ de $0{,}972$ e viés de
 $+0{,}003$~kW, praticamente idênticos aos números da avaliação
-\textit{offline}: a cadeia código C $\rightarrow$ firmware $\rightarrow$
-protocolo não degrada a inferência.
+\textit{offline}. Isso confirma que a cadeia código C, firmware e
+protocolo não degradou a inferência, e que o custo de embarcar o modelo não
+apareceu como perda de precisão.
 
-Dentro dos \textit{gaps}, o soft-sensor mantém o erro: MAE de
-$0{,}065$~kW, ligeiramente menor que o erro fora deles. A comparação com as
-baselines é o que sustenta a viabilidade: a interpolação linear erra
-$0{,}312$~kW nos \textit{gaps} e a persistência $0{,}376$~kW, cerca de
-cinco vezes mais que o soft-sensor. A \autoref{tab:ensaio-gaps} desagrega o
-resultado por duração do bloco: o erro do soft-sensor permanece entre
-$0{,}037$ e $0{,}071$~kW da falha de 1~h ao \textit{gap} de 3 dias, enquanto
-as baselines degradam conforme o buraco cresce. A \autoref{fig:ensaio-gap}
-mostra o maior \textit{gap} do ensaio (72~h) coberto pelo soft-sensor, com as
-baselines se afastando da série real.
+Dentro dos \textit{gaps}, o soft-sensor manteve o erro: MAE de
+$0{,}065$~kW, ligeiramente menor que o erro fora deles. O modelo não dependia
+de ver a potência para estimá-la, apenas das variáveis meteorológicas, que
+continuavam disponíveis durante a falha. A
+comparação com as \textit{baselines} mostrou a diferença: a
+interpolação linear errou $0{,}312$~kW nos \textit{gaps} e a persistência
+$0{,}376$~kW, cerca de cinco vezes mais que o soft-sensor. A
+\cref{tab:ensaio-gaps} desagregou o resultado por duração do bloco: o erro
+do soft-sensor permaneceu entre $0{,}037$ e $0{,}071$~kW para falhas de 1~h
+a 3 dias, enquanto as \textit{baselines} degradaram conforme o buraco crescia,
+porque a interpolação dependia de pontos próximos e a persistência repetia um
+valor que envelhecia. A \cref{fig:ensaio-gap} mostra o maior \textit{gap}
+do ensaio, de 72~h, coberto pelo soft-sensor, com as \textit{baselines} se
+afastando da série real.
 
 \begin{table}[H]
   \centering
@@ -168,8 +208,6 @@ baselines se afastando da série real.
   \source{Elaborado pelo autor.}
 \end{figure}
 
-O critério de viabilidade da metodologia é atendido com folga: o erro dentro
-dos \textit{gaps} é muito menor que o da interpolação linear (a baseline
-forte da literatura) e permanece próximo do erro fora deles. Os ensaios
-das demais combinações da matriz e dos inversores E2 e
-E3 permanecem pendentes.
+O critério definido na metodologia foi atendido: o erro dentro dos
+\textit{gaps} foi menor que o da interpolação linear e permaneceu próximo do
+erro fora deles.

@@ -1,4 +1,3 @@
-% !TeX program = lualatex
 % ============================================================================
 % Monografia — TCC UPE-POLI 2026.1 (modelo abnTeX2 da ECOMP-POLI)
 % Template: preencha seus dados em pretextuais/capa.tex
@@ -67,6 +66,14 @@
 % --- Citações ABNT (autor-data, backend bibtex) ---
 \usepackage[alf,abnt-repeated-title-omit=yes,abnt-emphasize=bf,abnt-etal-list=0]{abntex2cite}
 \usepackage{pdfpages}
+
+% --- Referências cruzadas ---
+\usepackage[brazilian]{cleveref}
+\crefname{figure}{Figura}{Figuras}
+\crefname{table}{Tabela}{Tabelas}
+\crefname{section}{Seção}{Seções}
+\crefname{chapter}{Capítulo}{Capítulos}
+\crefname{equation}{Equação}{Equações}
 
 % Sumário: entrada REFERÊNCIAS recuada à coluna dos títulos de capítulo
 % (deck ECOMP "Formatação final", slides 27-30: não alinhar Referências à margem)

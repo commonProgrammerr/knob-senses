@@ -1,4 +1,61 @@
+% ============================================================================
+% RASCUNHO COMENTADO: Conclusão
+% Para publicar, remova o "%" do início de cada linha.
+% ============================================================================
 \chapter{Conclusão}
 \label{cap:conclusao}
 
-Texto.
+% O trabalho partiu de um problema prático: quando a telemetria de um
+% inversor fotovoltaico falha, a potência gerada deixa de ser registrada, e
+% a lacuna compromete o acompanhamento da usina. A proposta foi reconstruir
+% essa potência a partir de variáveis meteorológicas medidas de forma
+% independente, com um soft-sensor embarcado, e avaliar o resultado tanto no
+% computador quanto no hardware que seria usado em campo.
+%
+% O pipeline cobriu a preparação dos dados em quatro granularidades, o
+% treino do Random Forest e do MLP, a geração das bibliotecas embarcadas, o
+% firmware e o ensaio na placa. A comparação controlada mostrou que o MLP
+% tem o menor erro em todas as granularidades e que o Random Forest fica
+% próximo, com diferença pequena em favor da rede neural. O Random Forest
+% leva vantagem no custo embarcado, por ser código \textit{inline} sem arena
+% de memória. A regressão linear de referência fica bem abaixo, sobretudo em
+% 1~d, com R$^2 = 0{,}534$.
+%
+% A análise cruzada de granularidades mostrou que a resolução de treino não
+% prende o modelo à resolução de operação. Um modelo treinado em 1~h e
+% avaliado em 5~min mantém R$^2$ de $0{,}784$ (MLP) e $0{,}777$ (RF); o
+% modelo treinado em 1~d perde mais ao descer para o dado fino, com
+% $0{,}696$ e $0{,}640$, mas se recupera em 1~h. Isso dá flexibilidade ao
+% projeto, ao custo de uma perda que cresce com a distância entre as
+% granularidades.
+%
+% O ensaio E3, com o Random Forest de 1~h na ESP32-S3, percorreu as 4\,042
+% linhas do teste de 2025 do inversor E1. Fora dos \textit{gaps}, o caminho
+% embarcado reproduziu o modelo treinado, com MAE de $0{,}066$~kW, RMSE de
+% $0{,}083$~kW, R$^2$ de $0{,}972$ e viés de $+0{,}003$~kW. Dentro dos
+% \textit{gaps}, o MAE foi de $0{,}065$~kW, enquanto a interpolação linear
+% errou $0{,}312$~kW e a persistência, $0{,}376$~kW. Os números mostram a
+% viabilidade do soft-sensor como complemento ao medidor: o erro dentro dos
+% \textit{gaps} fica próximo do erro normal e muito abaixo das alternativas
+% clássicas, que pioram à medida que o buraco cresce.
+%
+% As contribuições do trabalho são o pipeline completo, do dado bruto ao
+% ensaio embarcado; a comparação controlada entre um modelo de árvores e uma
+% rede neural nas mesmas condições; a análise cruzada de granularidades; o
+% ensaio com \textit{gaps} artificiais e baselines de imputação; e a
+% automação da geração dos artefatos no build.
+%
+% O trabalho tem limitações claras. Apenas o ensaio E3 foi executado; os
+% ensaios E1, E2 e E4 a E8 e os inversores E2 e E3 permanecem pendentes. O
+% ensaio é \textit{offline}: o firmware recebe lotes do servidor em vez de
+% ler sensores. Os \textit{gaps} são artificiais, não falhas reais de
+% telemetria. A calibração usa apenas o segundo semestre de 2024, e o
+% estudo cobre um \textit{campus} e inversores de 2~kW. Essas limitações
+% delimitam o alcance dos resultados, mas não mudam o que foi observado no
+% ensaio executado.
+%
+% Os desdobramentos naturais são completar a matriz experimental e ensaiar
+% os três inversores; levar o firmware para campo, com os sensores reais;
+% comparar outras arquiteturas e outras formas de quantização; e integrar o
+% soft-sensor ao sistema de aquisição da usina, para que a estimativa seja
+% produzida no momento da falha e registrada junto com a série medida.

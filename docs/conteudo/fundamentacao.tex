@@ -1,12 +1,174 @@
+% ============================================================================
+% RASCUNHO COMENTADO: Fundamentação Teórica
+% Para publicar, remova o "%" do início de cada linha.
+% As equações de z-score, min-max, Box-Cox, Huber, das métricas e a equação
+% do soft-sensor continuam na metodologia até a ativação deste capítulo; ao
+% ativar, mova-as para cá e deixe a metodologia remetendo a elas.
+% ============================================================================
+%
 \chapter{Fundamentação Teórica}
 \label{cap:fundamentacao}
-
-Texto. Exemplo de figura: \autoref{fig:exemplo}.
-
-\begin{figure}[H]
-  \centering
-  \caption{Legenda da figura}
-  \label{fig:exemplo}
-  \includegraphics[width=0.3\textwidth]{brasao}
-  \source{Elaborado pelo autor.}
-\end{figure}
+%
+% \section{Energia Solar Fotovoltaica e Variáveis Ambientais}
+%
+% A potência entregue por um módulo fotovoltaico depende da irradiância que
+% incide sobre as células e da temperatura de operação. A irradiância é
+% medida, em geral, no plano horizontal (GHI), mas os módulos ficam
+% inclinados e orientados para o norte ou para o equador; por isso, a GHI
+% precisa ser convertida para o plano dos módulos, dando origem à GHI
+% transposta. Essa conversão considera a geometria solar e a inclinação e a
+% orientação dos painéis, e a GHI transposta é a variável que melhor
+% representa a energia disponível para a conversão.
+%
+% A temperatura também afeta a eficiência: para a mesma irradiância, células
+% mais quentes entregam menos potência. A temperatura do módulo pode ser
+% medida diretamente ou estimada por modelos empíricos. O modelo de Jacques
+% \cite{jacques2013} estima a temperatura da célula a partir da temperatura
+% ambiente, da irradiância e de parâmetros térmicos do módulo, e foi
+% selecionado por \citeonline{moraesneto2024} entre dez modelos empíricos,
+% com R$^2 = 0{,}906$ no conjunto avaliado.
+%
+% A saída do inversor satura em 2~kW. Quando a potência disponível ultrapassa
+% esse limite, o inversor opera no teto e o valor registrado fica recortado
+% (\textit{clipping}) \cite{balfour2021}. O recorte não é falha: ele informa
+% que a usina operou em potência máxima. No conjunto de treino, esses
+% registros foram removidos, para não confundir o patamar de recorte com a
+% relação irradiância--potência. A detecção de baixo desempenho a partir dos
+% dados do inversor \cite{severiano2026} também depende de distinguir falha,
+% recorte e variação meteorológica.
+%
+% \section{Soft Sensors e Estimação Contemporânea}
+%
+% Um soft-sensor é um modelo que estima uma grandeza de difícil ou de cara
+% medição a partir de outras grandezas medidas com facilidade. Em usinas
+% fotovoltaicas, a potência do inversor é medida diretamente, mas a
+% telemetria pode falhar; as variáveis meteorológicas vêm de outro sistema
+% de medição e continuam disponíveis. O soft-sensor explora essa
+% disponibilidade: estima a potência a partir da irradiância e da
+% temperatura, sem depender do canal de telemetria do inversor.
+%
+% A formulação adotada é a estimação contemporânea, em que as entradas e o
+% alvo se referem ao mesmo intervalo de tempo, sem variáveis defasadas
+% \cite{moraesneto2024}. Essa formulação decorre do uso: o modelo precisa responder
+% qual é a potência no instante da falha, e não qual será a potência nos
+% períodos seguintes. Um modelo de previsão usaria o passado para estimar o
+% futuro; o soft-sensor usa o presente para reconstruir o presente.
+%
+% \section{Random Forest}
+%
+% O Random Forest é um conjunto de árvores de decisão treinadas por
+% \textit{bagging} \cite{breiman2001}. Cada árvore é ajustada sobre uma
+% amostra com reposição do conjunto de treino, e a predição final é a média
+% das árvores. A média reduz a variância de uma árvore única, que é sensível
+% às particularidades da amostra. Além do \textit{bagging}, o Random Forest
+% seleciona aleatoriamente um subconjunto de características em cada nó, o
+% que descorrelaciona as árvores e faz a média reduzir mais a variância.
+%
+% O tamanho da floresta, número de árvores e mínimo de amostras por folha,
+% controla o compromisso entre acurácia e custo. Mais árvores e folhas
+% menores aproximam melhor a relação entre as entradas e o alvo, mas
+% aumentam o número de nós e o espaço ocupado pelo modelo. Esses
+% hiperparâmetros são discutidos por \citeonline{probst2018}, e a comparação
+% com redes neurais em dados tabulares é feita por \citeonline{grinsztajn2022}.
+%
+% \section{Perceptron de Múltiplas Camadas}
+%
+% O perceptron de múltiplas camadas é uma rede densa formada por camadas de
+% neurônios interligados. Cada neurônio aplica uma transformação linear
+% seguida de uma função de ativação, e a composição das camadas permite
+% aproximar relações não lineares entre as entradas e o alvo. A ativação
+% ReLU (\textit{Rectified Linear Unit}) é comum em redes profundas por ser
+% simples de calcular e por não saturar para valores positivos.
+%
+% O treinamento ajusta os pesos para minimizar uma função de perda. O
+% \textit{dropout} desliga uma fração dos neurônios durante o treino e
+% funciona como regularização, reduzindo o sobreajuste. A inicialização do
+% viés de saída na média do alvo e a normalização das entradas ajudam a
+% convergência. O otimizador Adam \cite{kingma2015} adapta a taxa de
+% aprendizado por parâmetro, e a parada antecipada \cite{prechelt1998}
+% interrompe o treino quando a validação deixa de melhorar.
+%
+% Os lotes e as taxas dependem do tamanho e do ruído da série. As
+% recomendações de \citeonline{bengio2012} e de \citeonline{masters2018}
+% orientam a configuração adotada: séries finas, com mais amostras e
+% gradientes ruidosos, usam lotes maiores e taxas menores; séries grossas,
+% com poucas amostras, usam lotes menores e taxas maiores.
+%
+% \section{Transformação do Alvo, Perda e Otimização}
+%
+% A potência fotovoltaica é assimétrica: a maior parte das leituras fica em
+% valores baixos, e a cauda chega à saturação do inversor. A transformação de
+% Box-Cox \cite{boxcox1964} aproxima a distribuição do alvo da normal, o que
+% ajuda modelos que assumem erros simétricos e melhora a estabilidade do
+% treino. A transformação tem um parâmetro $\lambda$, ajustado no treino, e
+% exige alvo estritamente positivo; por isso, um deslocamento pequeno é
+% somado antes da transformação e subtraído depois da inversa.
+%
+% A perda de Huber \cite{huber1964} é quadrática para erros pequenos e linear
+% para erros grandes. Essa forma reduz a influência de valores atípicos sem
+% perder a sensibilidade na região de erro típico. O limiar que separa as
+% duas regiões pode ser fixo ou adaptado à escala do alvo.
+%
+% \section{Métricas de Avaliação}
+%
+% A avaliação de um modelo de regressão usa métricas complementares. O erro
+% absoluto médio (MAE) expressa o erro na unidade do alvo e é fácil de
+% interpretar. A raiz do erro quadrático médio (RMSE) penaliza mais os erros
+% grandes, porque eleva cada resíduo ao quadrado antes de tirar a média. O
+% coeficiente de determinação ($R^2$) compara o erro do modelo com a
+% variabilidade do alvo e indica quanto da variação é explicada. O erro
+% percentual absoluto médio (MAPE) relativiza o erro pelo valor medido, e o
+% viés mede o deslocamento sistemático entre a predição e a medição.
+%
+% O conjunto segue a prática de avaliação de modelos
+% fotovoltaicos \cite{chicco2021,hodson2022}. Nenhuma métrica isolada
+% descreve o desempenho: o MAE e o RMSE dependem da escala, o $R^2$ depende
+% da variabilidade do período, o MAPE é sensível a valores próximos de zero,
+% e o viés não mede a dispersão. A leitura conjunta evita conclusões
+% parciais.
+%
+% A validação temporal também importa. Em séries de tempo, separar treino e
+% teste aleatoriamente coloca amostras vizinhas nos dois lados e produz
+% estimativas otimistas; a separação deve respeitar a ordem temporal
+% \cite{cerqueira2019,albelali2025}. A janela de calibração, anterior ao
+% teste, serve para medir e corrigir o viés sem usar o teste
+% \cite{cho2020,kebir2024}.
+%
+% \section{TinyML e Implantação Embarcada}
+%
+% TinyML reúne técnicas para executar modelos de aprendizado de máquina em
+% microcontroladores, com memória e energia limitadas. A quantização reduz o
+% modelo de ponto flutuante para inteiros de 8 bits, o que diminui o tamanho
+% e o custo de inferência, ao preço de uma pequena perda de precisão. O
+% TensorFlow Lite for Microcontrollers \cite{tflitemicro2024} executa modelos
+% quantizados em microcontroladores, e o Edge Impulse \cite{edgeimpulse2024}
+% oferece o fluxo de exportação e de geração da biblioteca C++.
+%
+% Para modelos de árvores, o emlearn \cite{emlearn2024} gera código C a
+% partir do modelo treinado, sem uma tabela em memória de dados. Para redes
+% neurais, o caminho passa pelo TensorFlow Lite e pelo SDK do Edge Impulse.
+% O ESP32-S3 \cite{espressif2024} é o alvo deste trabalho: um microcontrolador
+% dual-core com unidade de ponto flutuante e controlador USB-Serial/JTAG, e o
+% PlatformIO \cite{platformio2024} organiza a compilação e a gravação.
+%
+% \section{Trabalhos Relacionados}
+%
+% \citeonline{moraesneto2024} comparam modelos de aprendizado de máquina e
+% LSTM para a estimação contemporânea da potência CA em sistemas
+% fotovoltaicos conectados à rede, com implantação em ESP32-S3 e uso do Edge
+% Impulse. Este trabalho parte da mesma formulação, mas compara o Random
+% Forest e o MLP nas quatro granularidades, analisa a transferência entre
+% granularidades e avalia o desempenho dentro de \textit{gaps} artificiais.
+%
+% A avaliação com dados faltantes segue a literatura de imputação. O padrão
+% \textit{block--random} é usado por \citeonline{jang2025} para avaliar a
+% imputação em séries fotovoltaicas, e a comparação de métodos de imputação
+% em séries temporais é discutida por \citeonline{poette2026},
+% \citeonline{toye2025} e \citeonline{wongoutong2025}. A interpolação linear
+% e a persistência são baselines comuns, e o desempenho de ambas cai quando o
+% buraco cresce.
+%
+% A detecção de baixo desempenho e o recorte do inversor aparecem em
+% \citeonline{severiano2026} e \citeonline{balfour2021}. Esses trabalhos
+% mostram por que a potência zero e o \textit{clipping} precisam de
+% tratamento próprio.

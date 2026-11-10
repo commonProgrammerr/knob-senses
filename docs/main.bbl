@@ -1,0 +1,148 @@
+\providecommand{\abntreprintinfo}[1]{%
+ \citeonline{#1}}
+\setlength{\labelsep}{0pt}\begin{thebibliography}{}
+\providecommand{\abntrefinfo}[3]{}
+\providecommand{\abntbstabout}[1]{}
+\abntbstabout{v-1.9.7 }
+
+\bibitem[Abadi et al. 2016]{abadi2016}
+\abntrefinfo{Abadi et al.}{ABADI et al.}{2016}
+{ABADI, M.; BARHAM, P.; CHEN, J.; CHEN, Z.; DAVIS, A.; DEAN, J.; DEVIN, M.;
+  GHEMAWAT, S.; IRVING, G.; ISARD, M. et al. {TensorFlow}: A system for
+  large-scale machine learning. In:  \textbf{Proceedings of the 12th USENIX
+  Symposium on Operating Systems Design and Implementation}. [S.l.: s.n.],
+  2016. p. 265--283.}
+
+\bibitem[Balfour et al. 2021]{balfour2021}
+\abntrefinfo{Balfour et al.}{BALFOUR et al.}{2021}
+{BALFOUR, J. et al. Masking of photovoltaic system performance problems by
+  inverter clipping and other design and operational practices.
+\textbf{Renewable and Sustainable Energy Reviews}, 2021.}
+
+\bibitem[Box e Cox 1964]{boxcox1964}
+\abntrefinfo{Box e Cox}{BOX; COX}{1964}
+{BOX, G. E.~P.; COX, D.~R. An analysis of transformations.
+\textbf{Journal of the Royal Statistical Society: Series B (Methodological)},
+  v.~26, n.~2, p. 211--252, 1964.}
+
+\bibitem[Breiman 2001]{breiman2001}
+\abntrefinfo{Breiman}{BREIMAN}{2001}
+{BREIMAN, L. Random forests.
+\textbf{Machine Learning}, v.~45, n.~1, p. 5--32, 2001.}
+
+\bibitem[Chicco, Warrens e Jurman 2021]{chicco2021}
+\abntrefinfo{Chicco, Warrens e Jurman}{CHICCO; WARRENS; JURMAN}{2021}
+{CHICCO, D.; WARRENS, M.~J.; JURMAN, G. The coefficient of determination
+  r-squared is more informative than {SMAPE}, {MAE}, {MAPE}, {MSE} and {RMSE}
+  in regression analysis evaluation.
+\textbf{PeerJ Computer Science}, v.~7, p.~e623, 2021.}
+
+\bibitem[Chollet et al. 2015]{chollet2015}
+\abntrefinfo{Chollet et al.}{CHOLLET et al.}{2015}
+{CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
+Acesso em: 2026-11-07.}
+
+\bibitem[{Edge Impulse} 2024]{edgeimpulse2024}
+\abntrefinfo{{Edge Impulse}}{{Edge Impulse}}{2024}
+{{Edge Impulse}. \textbf{Edge Impulse Documentation}. 2024.
+  \url{https://docs.edgeimpulse.com/}.
+Acesso em: 2026-11-07.}
+
+\bibitem[{Espressif Systems} 2024]{espressif2024}
+\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2024}
+{{Espressif Systems}. \textbf{{ESP32-S3} Series Datasheet}. 2024.
+  \url{https://www.espressif.com/}.
+Acesso em: 2026-11-07.}
+
+\bibitem[Filho 2022]{pedrosafilho2022}
+\abntrefinfo{Filho}{FILHO}{2022}
+{FILHO, M. H. d.~O. P. Rede solarim{\'e}trica de pernambuco. In:  CBENS.
+  \textbf{Anais do IX Congresso Brasileiro de Energia Solar}.
+  Florian{\'o}polis, 2022.}
+
+\bibitem[Filho 2025]{pedrosafilho2025}
+\abntrefinfo{Filho}{FILHO}{2025}
+{\underline{\ \ \ \ \ \ \ \ }. Pernambuco solarimetric network. In:  ISES.
+  \textbf{Proceedings of the Solar World Congress}. Fortaleza, 2025.}
+
+\bibitem[Gil 2002]{gil2002}
+\abntrefinfo{Gil}{GIL}{2002}
+{GIL, A.~C. \textbf{Como elaborar projetos de pesquisa}. 4. ed. S{\~a}o Paulo:
+  Atlas, 2002.}
+
+\bibitem[Google 2024]{tflitemicro2024}
+\abntrefinfo{Google}{GOOGLE}{2024}
+{GOOGLE. \textbf{{TensorFlow Lite} for Microcontrollers}. 2024.
+  \url{https://www.tensorflow.org/lite/microcontrollers}.
+Acesso em: 2026-11-07.}
+
+\bibitem[Grinsztajn, Oyallon e Varoquaux 2022]{grinsztajn2022}
+\abntrefinfo{Grinsztajn, Oyallon e Varoquaux}{GRINSZTAJN; OYALLON;
+  VAROQUAUX}{2022}
+{GRINSZTAJN, L.; OYALLON, E.; VAROQUAUX, G. Why do tree-based models still
+  outperform deep learning on typical tabular data? In:  \textbf{Advances in
+  Neural Information Processing Systems 35 (NeurIPS)}. [S.l.: s.n.], 2022.}
+
+\bibitem[Hodson 2022]{hodson2022}
+\abntrefinfo{Hodson}{HODSON}{2022}
+{HODSON, T.~O. Root-mean-square error ({RMSE}) or mean absolute error ({MAE}):
+  when to use them or not.
+\textbf{Geoscientific Model Development}, v.~15, p. 5481--5487, 2022.}
+
+\bibitem[Huber 1964]{huber1964}
+\abntrefinfo{Huber}{HUBER}{1964}
+{HUBER, P.~J. Robust estimation of a location parameter.
+\textbf{The Annals of Mathematical Statistics}, v.~35, n.~1, p. 73--101, 1964.}
+
+\bibitem[Jacques et al. 2013]{jacques2013}
+\abntrefinfo{Jacques et al.}{JACQUES et al.}{2013}
+{JACQUES, S.; CALDEIRA, A.; REN, Z.; SCHELLMANNS, A.; BATUT, N. Impact of the
+  cell temperature on the energy efficiency of a single glass {PV} module:
+  thermal modeling in steady-state and validation by experimental data.
+\textbf{Renewable Energy \& Power Quality Journal}, p. 291--294, 2013.}
+
+\bibitem[Kingma e Ba 2015]{kingma2015}
+\abntrefinfo{Kingma e Ba}{KINGMA; BA}{2015}
+{KINGMA, D.~P.; BA, J. Adam: A method for stochastic optimization. In:
+  \textbf{3rd International Conference on Learning Representations (ICLR)}.
+  [S.l.: s.n.], 2015.}
+
+\bibitem[Neto, Filho e Lima 2024]{moraesneto2024}
+\abntrefinfo{Neto, Filho e Lima}{NETO; FILHO; LIMA}{2024}
+{NETO, J.~O. M.; FILHO, M. H. d.~O. P.; LIMA, R. A.~d. Comparative analysis of
+  machine learning and {LSTM} models for contemporaneous {ACP} estimation in
+  grid-connected {PV} systems deployed on {ESP32-S3} using edge impulse.
+\textbf{IEEE Access}, 2024.}
+
+\bibitem[Nordby 2024]{emlearn2024}
+\abntrefinfo{Nordby}{NORDBY}{2024}
+{NORDBY, J. \textbf{emlearn: Machine Learning inference engine for
+  Microcontrollers}. 2024. \url{https://emlearn.readthedocs.io/}.
+Acesso em: 2026-11-07.}
+
+\bibitem[Pedregosa et al. 2011]{pedregosa2011}
+\abntrefinfo{Pedregosa et al.}{PEDREGOSA et al.}{2011}
+{PEDREGOSA, F.; VAROQUAUX, G.; GRAMFORT, A.; MICHEL, V.; THIRION, B.; GRISEL,
+  O.; BLONDEL, M.; PRETTENHOFER, P.; WEISS, R.; DUBOURG, V. et al.
+  Scikit-learn: Machine learning in {Python}.
+\textbf{Journal of Machine Learning Research}, v.~12, p. 2825--2830, 2011.}
+
+\bibitem[{PlatformIO Labs} 2024]{platformio2024}
+\abntrefinfo{{PlatformIO Labs}}{{PlatformIO Labs}}{2024}
+{{PlatformIO Labs}. \textbf{PlatformIO Documentation}. 2024.
+  \url{https://docs.platformio.org/}.
+Acesso em: 2026-11-07.}
+
+\bibitem[Prechelt 1998]{prechelt1998}
+\abntrefinfo{Prechelt}{PRECHELT}{1998}
+{PRECHELT, L. Early stopping---but when? In:  \textbf{Neural Networks: Tricks
+  of the Trade}. [S.l.]: Springer, 1998,  (Lecture Notes in Computer Science,
+  v.~1524). p. 55--69.}
+
+\bibitem[Severiano et al. 2026]{severiano2026}
+\abntrefinfo{Severiano et al.}{SEVERIANO et al.}{2026}
+{SEVERIANO, B.~M. et al. A robust rule-based method for detecting and
+  classifying underperformance in photovoltaic systems using inverter data.
+\textbf{Solar Energy}, 2026.}
+
+\end{thebibliography}
