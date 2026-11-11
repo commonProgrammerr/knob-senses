@@ -18,9 +18,10 @@ Fluxo (API do Edge Impulse):
        com o TFLiteConverter e os dados representativos; o job do Studio nao
        quantiza o float enviado;
     1. POST /v1/api/{projeto}/jobs/deploy-pretrained-model
-       (JSON com o .tflite quantizado em base64, o alvo "arduino" e o engine
-       tflite em int8; header x-api-key) - nao exige impulso configurado
-    2. GET  /v1/api/{projeto}/deployment/download?type=arduino&modelType=int8
+       (JSON com o .tflite quantizado em base64, o alvo "zip" (biblioteca
+       C++) e o engine tflite em int8; header x-api-key) - nao exige
+       impulso configurado
+    2. GET  /v1/api/{projeto}/deployment/download?type=zip&modelType=int8
     O zip baixado substitui os diretorios gerados em lib/knob-senses/src/
     (edge-impulse-sdk, model-parameters e tflite-model), mantendo o
     library.json, o README e o CMakeLists do projeto.
@@ -40,6 +41,11 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "models" / "src"))
 
 from common import contract, paths
+from mlp.transformacao import (
+    gerar_header,
+    verificar_modelo_embutido,
+    verificar_sincronia,
+)
 
 API = "https://studio.edgeimpulse.com/v1/api"
 PROJETO_PADRAO = "1160339"          # projeto do knob-senses no Edge Impulse
@@ -135,9 +141,9 @@ def _quantizar(freq):
 
 
 def _deploy(sessao, projeto, freq, seca, pular):
-    """POST jobs/deploy-pretrained-model (tflite em base64, alvo arduino,
-    engine tflite-eon, quantizacao int8) e aguarda. Nao exige impulso
-    configurado no projeto."""
+    """POST jobs/deploy-pretrained-model (tflite em base64, alvo zip
+    (biblioteca C++), engine tflite, quantizacao int8) e aguarda. Nao exige
+    impulso configurado no projeto."""
     if pular:
         print("deploy pulado (--pular-deploy): usando o ultimo build do projeto")
         return None
@@ -146,6 +152,9 @@ def _deploy(sessao, projeto, freq, seca, pular):
     if not float_.exists():
         raise FileNotFoundError(
             f"{float_} nao existe; rode a celula de export do treino_mlp.ipynb")
+    if seca:
+        print("seca: quantizacao e deploy nao executados")
+        return None
     # Envia o modelo JA' QUANTIZADO: o job do Studio nao quantiza o float.
     tflite = _quantizar(freq)
     print(f"quantizado localmente: {tflite.name} "
@@ -154,7 +163,7 @@ def _deploy(sessao, projeto, freq, seca, pular):
     corpo = {
         "modelFileBase64": base64.b64encode(tflite.read_bytes()).decode("ascii"),
         "modelFileType": "tflite",
-        "deploymentType": "arduino",
+        "deploymentType": "zip",
         "engine": "tflite",
         "deployModelType": "int8",
         "modelInfo": {
@@ -168,9 +177,7 @@ def _deploy(sessao, projeto, freq, seca, pular):
         corpo["representativeFeaturesBase64"] = base64.b64encode(
             npy.read_bytes()).decode("ascii")
         extra = f" + {npy.name}"
-    print(f"deploy: {tflite.relative_to(RAIZ)} (arduino, tflite, int8){extra}")
-    if seca:
-        return None
+    print(f"deploy: {tflite.relative_to(RAIZ)} (zip, tflite, int8){extra}")
     r = sessao.post(f"{API}/{projeto}/jobs/deploy-pretrained-model",
                     json=corpo, timeout=300)
     _checa(r)
@@ -182,9 +189,9 @@ def _deploy(sessao, projeto, freq, seca, pular):
 
 
 def _baixar(sessao, projeto, freq, seca):
-    """GET deployment/download?type=arduino; devolve o caminho do zip."""
-    params = {"type": "arduino", "modelType": "int8", "engine": "tflite"}
-    print("download: deployment type=arduino, modelType=int8, engine=tflite")
+    """GET deployment/download?type=zip; devolve o caminho do zip."""
+    params = {"type": "zip", "modelType": "int8", "engine": "tflite"}
+    print("download: deployment type=zip, modelType=int8, engine=tflite")
     if seca:
         return None
     r = sessao.get(f"{API}/{projeto}/deployment/download", params=params,
@@ -227,7 +234,7 @@ def main(argv=None) -> int:
     parser.add_argument("--seca", action="store_true",
                         help="valida os artefatos locais e mostra o plano, sem rede")
     parser.add_argument("--pular-deploy", action="store_true",
-                        help="nao dispara o deploy (usa o ultimo build)")
+                        help="nao dispara o deploy (usa o ultimo build zip)")
     args = parser.parse_args(argv)
 
     tflite = paths.EXPORT_MLP / args.freq / "modelo.tflite"
@@ -235,6 +242,19 @@ def main(argv=None) -> int:
         print(f"artefato ausente: {tflite}")
         print("Rode a celula de export do treino_mlp.ipynb antes.")
         return 1
+
+    if args.seca:
+        faltando = [
+            p for p in (paths.EXPORT_MLP / args.freq / "dados_representativos.npy",)
+            if not p.exists()
+        ]
+        if faltando:
+            print(f"artefato ausente: {faltando[0]}")
+            return 1
+        ok, mensagem = verificar_sincronia(args.freq)
+        print(mensagem)
+        if not ok:
+            return 1
 
     dotenv = _carregar_env()
     api_key = os.environ.get("EI_API_KEY") or dotenv.get("API_KEY")
@@ -249,6 +269,9 @@ def main(argv=None) -> int:
     caminho_zip = _baixar(sessao, projeto, args.freq, args.seca)
     if caminho_zip:
         _instalar(caminho_zip)
+        gerar_header(args.freq)
+        print(verificar_modelo_embutido(args.freq)
+              or "aviso: modelo_quantizado.tflite ausente; verificacao SHA-256 pulada")
     if args.seca:
         print("seca: nada foi enviado nem baixado")
     else:

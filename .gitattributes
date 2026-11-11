@@ -1,0 +1,2 @@
+# Bibliotecas geradas (Edge Impulse, emlearn) saem em LF; fixa LF no working tree.
+lib/knob-senses/** text=auto eol=lf

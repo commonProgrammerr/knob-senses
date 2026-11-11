@@ -37,16 +37,20 @@ def _freq() -> str:
 def _pre_build():
     if ENV not in mp.MODELOS:
         return
+    freq = _freq()
     if os.environ.get("KNOB_SKIP_PREBUILD"):
+        header = mp.caminho_header(RAIZ, ENV)
+        if header is not None and not header.exists():
+            print(f"[prebuild] AVISO: {header.relative_to(RAIZ)} ausente; "
+                  f"rode utils/gerar_header_mlp.py {freq}")
         print(f"[prebuild] {ENV}: pulado por KNOB_SKIP_PREBUILD")
         return
-    freq = _freq()
-    rodar, motivo = mp.precisa_rodar(RAIZ, ENV, freq)
-    if not rodar:
-        print(f"[prebuild] {ENV} ({freq}): {motivo}; lib mantida")
+    acao, motivo = mp.precisa_rodar(RAIZ, ENV, freq)
+    if acao == "nada":
+        print(f"[prebuild] {ENV} ({freq}): {motivo}; artefatos mantidos")
         return
     print(f"[prebuild] {ENV} ({freq}): {motivo}")
-    mp.executar(RAIZ, ENV, freq,
+    mp.executar(RAIZ, ENV, freq, acao=acao,
                 python=env.GetProjectOption("custom_python", "") or None)
 
 
