@@ -71,8 +71,8 @@ consolidar a comparação. O MLP foi o de menor MAE e maior R$^2$ em todas as
 granularidades; o RF veio próximo, com diferença que variou de quatro
 milésimos de kW em 5~min a doze milésimos em 1~h; e os dois superaram com
 folga a regressão linear de referência. Em termos de MAE, a vantagem do MLP
-foi modesta, mas consistente; em termos de custo embarcado, o MLP usou uma
-arena de 3\,174~bytes, enquanto o RF era código \textit{inline} e não usava
+foi modesta, mas consistente; em termos de custo embarcado, o MLP reservou uma
+arena de 8\,192~bytes, enquanto o RF era código \textit{inline} e não usava
 arena.
 
 \begin{table}[H]

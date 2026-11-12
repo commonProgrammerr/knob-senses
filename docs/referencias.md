@@ -442,11 +442,12 @@ Google. **TensorFlow Lite for Microcontrollers.** Documentação oficial
 - **Link:** [https://www.tensorflow.org/lite/microcontrollers](https://www.tensorflow.org/lite/microcontrollers)
 - **DOI:** não se aplica (documentação).
 
-### [49] Edge Impulse
+### [49] esp-tflite-micro
 
-Edge Impulse. **Documentation.** Plataforma usada no caminho do MLP embarcado.
+Espressif. **esp-tflite-micro.** Implementação do TensorFlow Lite for
+Microcontrollers para os SoCs da Espressif (runtime do MLP embarcado).
 
-- **Link:** [https://docs.edgeimpulse.com/](https://docs.edgeimpulse.com/)
+- **Link:** [https://github.com/espressif/esp-tflite-micro](https://github.com/espressif/esp-tflite-micro)
 - **DOI:** não se aplica (documentação).
 
 ### [50] scikit-learn — RandomForestRegressor
@@ -482,5 +483,5 @@ scikit-learn. **sklearn.ensemble.RandomForestRegressor.** Documentação oficial
 | modelo físico e features de geometria solar | [32] El Achouby et al.; [33] Krenzinger; [34] Naghapushanam et al.; [35] Tao et al. |
 | filtros de apagão, clipping e baixa irradiância | [39] Severiano et al.; [40] Balfour et al.; [41] Hara et al. |
 | perda de eficiência por soiling/degradação | [42] Said et al.; [43] Tahir et al. |
-| deploy em microcontrolador (emlearn/TFLite/Edge Impulse) | [36] Sanchez-Iborra e Skarmeta; [37] Tabanelli et al.; [38] Lin et al.; [47]–[49] |
+| deploy em microcontrolador (emlearn/TFLite/esp-tflite-micro) | [36] Sanchez-Iborra e Skarmeta; [37] Tabanelli et al.; [38] Lin et al.; [47]–[49] |
 | métricas MAE/RMSE/R² e viés | [44] Chicco et al.; [45] Hodson; [46] Solorzano e Plevris |

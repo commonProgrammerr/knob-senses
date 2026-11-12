@@ -39,10 +39,11 @@ listadas na \cref{tab:ferramentas}.
     Python & 3.13 & Notebooks de preparação, treino e ensaio \\
     pandas & 3.1 & Manipulação dos dados \\
     scikit-learn & 1.9.1 & Regressão, métricas e transformações \\
-    TensorFlow  & 2.21  & Treino do MLP \\
+    TensorFlow  & 2.21  & Treino e conversão do MLP \\
     Keras & 3.15 & Treino do MLP \\
     emlearn & 0.23 & Biblioteca C do Random Forest \\
-    Edge Impulse & Studio (API) & Deploy do TFLite e geração da lib C++ \\
+    esp-tflite-micro & 1.4.3 & Runtime do TFLite Micro no ESP32-S3 \\
+    esp-nn & 1.5.0 & Núcleos quantizados para o ESP32-S3 \\
     PlatformIO & 3.3.4 & Build e upload do firmware \\
     \bottomrule
   \end{tabular}
@@ -67,7 +68,7 @@ listadas na \cref{tab:ferramentas}.
     \node[caixa] (rf) at (-2.6, -5.5) {Random Forest};
     \node[caixa] (mlp) at (2.6, -5.5) {MLP};
     \node[caixa] (lib) at (-2.6, -7.4) {Biblioteca C\\emlearn};
-    \node[caixa] (ei) at (2.6, -7.4) {API\\Edge Impulse};
+    \node[caixa] (tflite) at (2.6, -7.4) {Conversão\\TFLite};
     \node[caixa larga] (firmware) at (0, -9.3) {Firmware ESP32-S3};
     \node[caixa larga] (protocolo) at (0, -11.2) {Protocolo CDC};
     \node[caixa larga] (ensaio) at (0, -13.1) {Ensaio com \textit{gaps}};
@@ -78,9 +79,9 @@ listadas na \cref{tab:ferramentas}.
     \draw[seta] (split.south) -- ++(0,-0.4) -| (mlp.north);
     \draw[seta] (split.east) -- (aval.west);
     \draw[seta] (rf) -- (lib);
-    \draw[seta] (mlp) -- (ei);
+    \draw[seta] (mlp) -- (tflite);
     \draw[seta] (lib.south) -- ++(0,-0.4) -| (firmware.north);
-    \draw[seta] (ei.south) -- ++(0,-0.4) -| (firmware.north);
+    \draw[seta] (tflite.south) -- ++(0,-0.4) -| (firmware.north);
     \draw[seta] (firmware) -- (protocolo);
     \draw[seta] (protocolo) -- (ensaio);
     \draw[seta] (ensaio.east) -- (coleta_res.west);
@@ -360,7 +361,7 @@ inferência, ao preço de uma pequena perda de precisão \cite{novac2021}. A
 ReLU foi escolhida por sua compatibilidade com esse esquema.
 A GELU, por sua vez, foi descartada nos testes, pois as operações envolvendo
 a função de erro necessárias à sua implementação não possuem equivalente
-inteiro no conversor do Edge Impulse.
+inteiro no conversor \textit{int8} do TensorFlow Lite.
 
 As entradas foram normalizadas pelo método \textit{min-max}, cujos parâmetros
 foram estimados exclusivamente com os dados de treino:
@@ -466,17 +467,26 @@ a positividade do alvo para a transformação Box-Cox e foi removido após sua
 inversão; a segunda compensou o viés residual do modelo na unidade física.
 
 Para a execução embarcada, o modelo foi exportado no formato SavedModel e
-convertido para TensorFlow Lite \cite{abadi2016}. O script
-\url{utils/exportar_mlp_ei.py} automatizou o envio do modelo ao Edge Impulse
-Studio \cite{edgeimpulse2024} e o posterior download da biblioteca C++
-compilada pela plataforma, utilizando a amostra de calibração para a
-quantização e os parâmetros de normalização estimados no treino para gerar o
-cabeçalho de normalização do firmware. Essa biblioteca reuniu o SDK de
-inferência do TensorFlow Lite for Microcontrollers \cite{tflitemicro2024},
-os parâmetros do modelo e o código gerado pelo Studio,
-sendo instalada diretamente em \url{lib/knob-senses/}. A biblioteca foi
-integrada ao firmware, no qual também foram executadas a inversa de Box-Cox,
-a remoção de $\varepsilon$, a correção de viés e a limitação física da saída.
+convertido para TensorFlow Lite \cite{abadi2016} com quantização
+\textit{int8}, calibrada pela amostra representativa do treino, que definiu a
+escala e o ponto zero dos tensores de entrada e de saída. A conversão
+produz um arquivo \texttt{.tflite} com a arquitetura e os pesos
+quantizados, e o script \url{utils/generate_model_data_mlp.py} converte esse
+arquivo em um vetor de bytes, gravado em \url{lib/knob-mlp-tflite/src/model_data.cc},
+de modo que o modelo integra o próprio firmware, sem leitura de arquivo em tempo 
+de execução.
+
+A biblioteca \url{lib/knob-mlp-tflite/} envolve o interpretador do TensorFlow
+Lite for Microcontrollers \cite{tflitemicro2024}, na implementação para o
+ESP-IDF mantida pela Espressif \cite{esptflitemicro2026}, e registra apenas os
+operadores necessários à rede. Na inferência, a biblioteca quantiza as três
+entradas normalizadas para \textit{int8}, com a escala e o ponto zero do tensor
+de entrada, executando o modelo e convertendo a saída de volta para ponto
+flutuante. As multiplicações de matrizes ficam a cargo dos \textit{kernels}
+quantizados da biblioteca esp-nn \cite{espnn2026}, que usam as instruções
+vetoriais otimizadas pela arquitetura ESP32-S3. Essa biblioteca foi integrada ao
+firmware, no qual também são executadas a inversa de Box-Cox, a remoção de 
+$\varepsilon$, a correção de viés e a limitação física da saída.
 
 \subsection{Avaliação e Métricas}
 
@@ -596,8 +606,8 @@ trabalho.
 
 O alvo de implantação foi o ESP32-S3 \cite{espressif2024}. O projeto usa o
 PlatformIO com um ambiente por modelo \cite{platformio2024}: os
-	extit{envs} \texttt{rf} e \texttt{mlp} definem a macro
-	exttt{MODEL\_*}, que seleciona em tempo de compilação a biblioteca
+	\textit{envs} \texttt{rf} e \texttt{mlp-tflite} definem a macro
+	\texttt{MODEL\_*}, que seleciona em tempo de compilação a biblioteca
 embarcada correspondente. Cada firmware contém apenas o modelo e as
 dependências de seu caminho; o processo de upload e monitoramento é comum aos
 dois. Cada modelo foi compilado em um firmware próprio e ensaiado
@@ -610,17 +620,19 @@ ambientes por \texttt{extra\_scripts}, é executado durante o carregamento do
 script do PlatformIO, antes da montagem do grafo de compilação, e não como
 uma ação do SCons, que só é acionada quando há algo a recompilar. O gancho
 armazena em \url{.pio/prebuild/{env}.json} a assinatura do artefato usado na
-última geração (data de modificação e tamanho) e a granularidade embarcada.
+última geração (data de modificação e tamanho), a granularidade embarcada e a
+quantização do MLP.
 
 Antes de compilar, o gancho compara essa assinatura com a do arquivo do
 modelo em disco. Se nada mudou, mantém a biblioteca existente e prossegue
-com o build; se o modelo ou a granularidade mudou, executa \url{gerar_lib_rf.py}
-ou \url{exportar_mlp_ei.py} para a granularidade definida nas opções do projeto 
-(\texttt{custom\_rf\_freq} e \texttt{custom\_mlp\_freq}, com valores válidos de 5min, 10min, 1h e 1D).
-Uma falha no script interrompe o build, evitando o uso de uma biblioteca
-desatualizada. A variável de ambiente \texttt{KNOB\_SKIP\_PREBUILD} permite
-dispensar essa etapa, por exemplo, para compilar sem acesso à rede até o
-Edge Impulse.
+com o build; se o modelo, a granularidade ou a quantização do MLP mudou,
+executa \url{utils/gerar_lib_rf.py} ou
+\url{utils/generate_model_data_mlp.py} para a granularidade definida nas
+opções do projeto (\texttt{custom\_rf\_freq} e \texttt{custom\_mlp\_freq},
+com valores válidos de 5min, 10min, 1h e 1D). Uma falha no script interrompe
+o build, evitando o uso de uma biblioteca desatualizada. A variável de
+ambiente \texttt{KNOB\_SKIP\_PREBUILD} permite dispensar essa etapa quando os
+artefatos já foram gerados.
 
 O firmware é um cliente de teste que não realiza aquisição direta de
 sensores. No ensaio, o computador host enviou lotes contendo exclusivamente
@@ -642,13 +654,13 @@ O contrato de entrada é explícito: durante o ensaio, o host transmitiu sempre
 as três grandezas meteorológicas em seus valores originais, sem enviar PCA
 medido, rótulos ou parâmetros de pós-processamento. No caminho RF, a
 normalização \textit{z-score} é realizada dentro da biblioteca. No caminho
-MLP, o SDK do Edge Impulse não aplica normalização; o firmware normaliza as
+MLP, o TensorFlow Lite Micro não aplica normalização; o firmware normaliza as
 três entradas pelo método \textit{min-max}, com as constantes do treino
 compiladas em um cabeçalho gerado, antes de montar o sinal de inferência. A
 inversa de Box-Cox, a subtração de $\varepsilon$, a correção de viés e a
 limitação da saída também são executadas no firmware; o host realiza apenas
 a comparação entre a estimativa recebida e o valor medido mantido localmente.
-A arena de memória do TensorFlow Lite ocupa 3\,174~bytes; o RF é código
+A arena de tensores do TensorFlow Lite foi fixada em 8\,192~bytes; o RF é código
 	\textit{inline}, sem tabela em RAM, e seu custo de flash é medido no objeto
 compilado. O laço de execução registra atrasos de período
 (\textit{overruns}) e falhas de troca (\textit{dropouts}, com retentativa da
@@ -755,9 +767,8 @@ Esse delineamento possibilitou comparar o custo de execução embarcada e a
 acurácia das combinações sob o mesmo cenário de falha, bem como relacionar
 esses resultados aos obtidos no teste \textit{offline}. Cada ensaio seguiu
 quatro etapas: (i) geração do artefato do modelo na granularidade
-correspondente para o Random Forest (RF), utilizou-se a biblioteca C; para
-o modelo do Edge Impulse, o impulso foi reexportado no Studio com os dados e
-o contrato dessa granularidade; (ii) gravação do firmware associado ao
+correspondente, com a biblioteca C do Random Forest (RF) ou o vetor de bytes
+do MLP; (ii) gravação do firmware associado ao
 \textit{env} correspondente; (iii) inicialização do servidor de teste,
 responsável por gerar os \textit{gaps}; e (iv) reinicialização da placa, que
 executou o ensaio até o fim do \textit{dataset}. As métricas foram calculadas

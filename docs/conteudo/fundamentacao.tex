@@ -141,12 +141,12 @@
 % modelo de ponto flutuante para inteiros de 8 bits, o que diminui o tamanho
 % e o custo de inferência, ao preço de uma pequena perda de precisão. O
 % TensorFlow Lite for Microcontrollers \cite{tflitemicro2024} executa modelos
-% quantizados em microcontroladores, e o Edge Impulse \cite{edgeimpulse2024}
-% oferece o fluxo de exportação e de geração da biblioteca C++.
+% quantizados em microcontroladores, e a implementação para o ESP-IDF
+% \cite{esptflitemicro2026} integra esse runtime aos SoCs da Espressif.
 %
 % Para modelos de árvores, o emlearn \cite{emlearn2024} gera código C a
 % partir do modelo treinado, sem uma tabela em memória de dados. Para redes
-% neurais, o caminho passa pelo TensorFlow Lite e pelo SDK do Edge Impulse.
+% neurais, o caminho passa pelo TensorFlow Lite e pelo seu runtime embarcado.
 % O ESP32-S3 \cite{espressif2024} é o alvo deste trabalho: um microcontrolador
 % dual-core com unidade de ponto flutuante e controlador USB-Serial/JTAG, e o
 % PlatformIO \cite{platformio2024} organiza a compilação e a gravação.

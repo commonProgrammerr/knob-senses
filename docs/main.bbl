@@ -68,17 +68,25 @@
 {CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
 Acesso em: 2026-11-07.}
 
-\bibitem[{Edge Impulse} 2024]{edgeimpulse2024}
-\abntrefinfo{{Edge Impulse}}{{Edge Impulse}}{2024}
-{{Edge Impulse}. \textbf{Edge Impulse Documentation}. 2024.
-  \url{https://docs.edgeimpulse.com/}.
-Acesso em: 2026-11-07.}
-
 \bibitem[{Espressif Systems} 2024]{espressif2024}
 \abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2024}
 {{Espressif Systems}. \textbf{{ESP32-S3} Series Datasheet}. 2024.
   \url{https://www.espressif.com/}.
 Acesso em: 2026-11-07.}
+
+\bibitem[{Espressif Systems} 2026]{espnn2026}
+\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2026a}
+{\underline{\ \ \ \ \ \ \ \ }. \textbf{{esp-nn}: Neural network kernels
+  optimized for {Espressif} chips}. 2026.
+  \url{https://github.com/espressif/esp-nn}.
+Acesso em: 2026-11-12.}
+
+\bibitem[{Espressif Systems} 2026]{esptflitemicro2026}
+\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2026b}
+{\underline{\ \ \ \ \ \ \ \ }. \textbf{{esp-tflite-micro}: {TensorFlow Lite}
+  for Microcontrollers for {ESP} SoCs}. 2026.
+  \url{https://github.com/espressif/esp-tflite-micro}.
+Acesso em: 2026-11-12.}
 
 \bibitem[Filho 2022]{pedrosafilho2022}
 \abntrefinfo{Filho}{FILHO}{2022}
