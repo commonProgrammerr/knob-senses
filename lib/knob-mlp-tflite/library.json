@@ -1,0 +1,10 @@
+{
+  "name": "knob-mlp-tflite",
+  "version": "0.1.0",
+  "description": "Prototipo: MLP knob-senses com TFLite Micro direto, sem o wrapper do Edge Impulse",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "build": {
+    "srcDir": "src"
+  }
+}

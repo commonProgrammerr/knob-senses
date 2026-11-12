@@ -21,8 +21,16 @@ typedef rf_result_t result_t;
 #define printBanner() mlp_print_banner()
 typedef ei_impulse_result_t result_t;
 
+#elif defined(MODEL_MLP_TFLITE)
+#include "mlp_model_tflite.h"
+
+#define runInference(frame, result) mlp_run_inference(frame, result)
+#define printResult(result) mlp_print_result(result)
+#define printBanner() mlp_print_banner()
+typedef float result_t;
+
 #else
-#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp)"
+#error "Nenhum modelo: use um env do platformio.ini (-e rf | -e mlp-ei | -e mlp-tflite)"
 #endif
 
 /* ---------------------------------------------------- protocolo v3 (lotes)
@@ -228,7 +236,7 @@ void loop()
       g_session = false;
       return;
     }
-#if defined(RF_MODEL_H)
+#if defined(RF_MODEL_H) || defined(MLP_MODEL_TFLITE_H)
     float f_result = g_result;
 #elif defined(MLP_MODEL_H)
     float f_result = g_result.classification[0].value;

@@ -31,7 +31,7 @@ MODELOS = {
         "script": "utils/gerar_lib_rf.py",
         "alvo": "lib/knob-senses-rf/src/modelo_pca.h",
     },
-    "mlp": {
+    "mlp-ei": {
         "modelo": "dist/{freq}/modelo.tflite",
         "representativos": "dist/{freq}/dados_representativos.npy",
         "transformacao": (
@@ -41,6 +41,18 @@ MODELOS = {
         "script": "utils/exportar_mlp_ei.py",
         "script_header": "utils/gerar_header_mlp.py",
         "alvo": "lib/knob-senses/src/tflite-model",
+        "header": "include/mlp_transformacao_alvo.h",
+    },
+    "mlp-tflite": {
+        "modelo": "dist/{freq}/modelo.tflite",
+        "representativos": "dist/{freq}/dados_representativos.npy",
+        "transformacao": (
+            "dist/{freq}/normalizacao.json",
+            "dist/{freq}/transformacao_alvo.json",
+        ),
+        "script": "utils/generate_model_data_mlp.py",
+        "script_header": "utils/gerar_header_mlp.py",
+        "alvo": "lib/knob-mlp-tflite/src/model_data.cc",
         "header": "include/mlp_transformacao_alvo.h",
     },
 }
@@ -108,7 +120,8 @@ def assinatura_conjunto(raiz: Path, caminhos: list[Path]) -> dict:
     }
 
 
-def precisa_rodar(raiz: Path, env: str, freq: str) -> tuple[str, str]:
+def precisa_rodar(raiz: Path, env: str, freq: str,
+                  quantization: str = "int8") -> tuple[str, str]:
     """Devolve (acao, motivo): 'completo', 'header' ou 'nada'."""
     assert env in MODELOS, f"env sem pre-build: {env}"
     modelo = caminho_modelo(raiz, env, freq)
@@ -132,6 +145,9 @@ def precisa_rodar(raiz: Path, env: str, freq: str) -> tuple[str, str]:
         return "completo", "carimbo ilegivel"
     if anterior.get("freq") != freq:
         return "completo", f"granularidade mudou ({anterior.get('freq')} -> {freq})"
+    if anterior.get("quantization", "int8") != quantization:
+        return "completo", (
+            f"quantization mudou ({anterior.get('quantization', 'int8')} -> {quantization})")
 
     atual_modelo = assinatura_conjunto(
         raiz, caminhos_modelo(raiz, env, freq))
@@ -160,7 +176,7 @@ def precisa_rodar(raiz: Path, env: str, freq: str) -> tuple[str, str]:
 
 
 def executar(raiz: Path, env: str, freq: str, acao: str,
-             python: str | None = None) -> None:
+             python: str | None = None, quantization: str = "int8") -> None:
     """Roda o script da acao e grava o carimbo (so' se ele passar)."""
     assert acao in ("completo", "header"), f"acao invalida: {acao}"
     cfg = MODELOS[env]
@@ -172,6 +188,11 @@ def executar(raiz: Path, env: str, freq: str, acao: str,
             raise RuntimeError(f"{env} nao tem script_header para a acao 'header'")
     script = raiz / rel
     cmd = [python_do_projeto(raiz, python), str(script), freq]
+    if env == "mlp-ei":
+        if quantization == "float32":
+            cmd.append("--float32")
+    else:
+        cmd.append(quantization)
     print(f"[prebuild] executando: {' '.join(cmd)}", flush=True)
     resultado = subprocess.run(cmd, cwd=raiz)
     if resultado.returncode != 0:
@@ -184,6 +205,7 @@ def executar(raiz: Path, env: str, freq: str, acao: str,
     dados = {
         "modelo": str(modelo.relative_to(raiz)),
         "freq": freq,
+        "quantization": quantization,
         "assinatura_modelo": assinatura_conjunto(
             raiz, caminhos_modelo(raiz, env, freq)),
     }
