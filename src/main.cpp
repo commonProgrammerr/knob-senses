@@ -40,7 +40,9 @@ typedef float result_t;
  * UM par de transferencias por lote, em vez de duas por linha.
  *
  *   lote (host -> ESP):   0x01 + base u32 + count u32 + count x 3 float32
- *   resposta (ESP -> host): 0x03 + base u32 + count u32 + count x float32
+ *   resposta (ESP -> host): 0x03 + base u32 + count u32
+ *                          + count x float32 (predicoes)
+ *                          + count x u32     (tempo de inference, em us)
  *
  * Menos mensagens = menos exposicao a soluços do elo. Medido nesta bancada: o
  * downlink (host -> ESP) deste par de driver/placa tem soluços de ~2 s a cada ~30
@@ -61,6 +63,10 @@ typedef float result_t;
 #define MSG_MAGIC_RESET 0x52  /* 'R': RESET - host -> ESP                          */
 #define BATCH_MAX 64U         /* maximo de amostras por lote (payload 768 B)       */
 
+/* O contrato do protocolo e' de float32/u32; no alvo sao 4 bytes. */
+static_assert(sizeof(float) == 4 && sizeof(uint32_t) == 4,
+              "o lote assume float32 e u32 de 4 bytes");
+
 /* Tempo maximo POR BYTE numa leitura, em SEGUNDOS (a unidade de negocio; o
  * Stream::setTimeout quer MILISSEGUNDOS - ver setup()). O host aguenta 5 s: o
  * firmware desiste PRIMEIRO e volta a aguardar o MAGIC. */
@@ -77,7 +83,9 @@ result_t g_result;
 
 /* Diagnostico do lote: acumulados impressos a cada 10 lotes. */
 static uint32_t g_diag_lotes = 0;
+static uint32_t g_diag_amostras = 0;
 static uint32_t g_diag_ms = 0;
+static uint64_t g_diag_inf_us = 0; /* 64 bits: us acumulados estouram u32 em ~71 min */
 
 static void record_failure(const char *reason);
 static void record_success(void);
@@ -143,7 +151,7 @@ void setup()
 void loop()
 {
   /* Sem gate de ritmo: o ensaio anda na velocidade do lote (o kPeriodMs dos
-   * cabecalhos e' o ritmo da inferencia em tempo real, nao do ensaio). A sessao
+   * cabecalhos e' o ritmo da inference em tempo real, nao do ensaio). A sessao
    * comeca com o MAGIC do host e re-arma sozinha apos fim/erro. */
   if (g_inferenceFailed)
   {
@@ -218,20 +226,26 @@ void loop()
     }
   }
 
-  /* Inferencia do lote inteiro e a resposta numa escrita so'. */
-  static uint8_t reply[9 + BATCH_MAX * sizeof(float)];
+  /* inference do lote inteiro e a resposta numa escrita so'. A resposta leva,
+   * por amostra, a predicao (float32) e o tempo da inference (u32, em us), em
+   * dois blocos paralelos: as predicoes continuam no mesmo offset de antes. */
+  static uint8_t reply[9 + BATCH_MAX * (sizeof(float) + sizeof(uint32_t))];
   reply[0] = MSG_BATCH_REPLY;
   put_u32(reply + 1, base);
   put_u32(reply + 5, count);
+  const size_t off_tempos = 9 + count * sizeof(float);
+  uint32_t lote_inf_us = 0;
   for (uint32_t i = 0; i < count; i++)
   {
     ledWrite(true);
+    const uint32_t t_inference = micros();
     const bool ok = runInference(batch[i], &g_result);
+    const uint32_t inference_us = micros() - t_inference;
     ledWrite(false);
     if (!ok)
     {
       g_inferenceFailed = true;
-      Serial.println("ERRO FATAL na inferencia - parando de inferir");
+      Serial.println("ERRO FATAL na inference - parando de inferir");
       Serial.println("(insistir vazaria a arena do TFLite a cada segundo)");
       g_session = false;
       return;
@@ -244,8 +258,10 @@ void loop()
 #error "Invalid model!"
 #endif
     memcpy(reply + 9 + i * sizeof(float), &f_result, sizeof(float));
+    put_u32(reply + off_tempos + i * sizeof(uint32_t), inference_us);
+    lote_inf_us += inference_us;
   }
-  if (!write_all(USBSerial, reply, 9 + count * sizeof(float)))
+  if (!write_all(USBSerial, reply, off_tempos + count * sizeof(uint32_t)))
   {
     record_failure("envio da resposta");
     g_session = false;
@@ -254,13 +270,17 @@ void loop()
 
   record_success();
   g_diag_lotes++;
+  g_diag_amostras += count;
   g_diag_ms += millis() - t0;
+  g_diag_inf_us += lote_inf_us;
   if ((g_diag_lotes % 10U) == 0U)
   {
     Serial.print("lotes: ");
     Serial.print(g_diag_lotes);
-    Serial.printf(" | media %lu ms/lote | ultimo base=%lu count=%lu\n",
+    Serial.printf(" | media %lu ms/lote | media %llu us/inference | "
+                  "ultimo base=%lu count=%lu\n",
                   (unsigned long)(g_diag_ms / g_diag_lotes),
+                  (unsigned long long)(g_diag_inf_us / g_diag_amostras),
                   (unsigned long)base, (unsigned long)count);
   }
 }

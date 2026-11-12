@@ -1,13 +1,15 @@
 """O protocolo do servidor de teste (v2): sessao unica, com numero de sequencia.
 
-O firmware pede a amostra `seq`, infere e devolve a predicao da MESMA seq, que o
-servidor grava no log do ensaio - e' o banco de comparacao estimado x medido.
+O firmware pede a amostra `seq`, infere e devolve a predicao da MESMA seq e o
+tempo de inferencia medido na placa, que o servidor grava no log do ensaio - e'
+o banco de comparacao estimado x medido.
 
 O transporte e' a CDC do USB-Serial/JTAG do ESP32-S3 (COM29); o log do firmware fica
 na UART0 (COM28). A sessao comeca com um handshake de 1 byte (MAGIC/MAGIC_ACK, nas
 variantes RESET e RESUME) que deixa para tras o lixo de boot do ROM. O fluxo e' em
 LOTES: o host manda um lote de amostras (0x01 + base + count + payload) e recebe um
-lote de predicoes (0x03 + base + count + payload) - um par de transferencias por lote
+lote de predicoes e tempos (0x03 + base + count + predicoes + tempos) - um par de
+transferencias por lote
 (medido nesta bancada: o downlink deste elo tem soluços de ~2 s a cada ~30 mensagens
 pequenas, e o lote amortiza cada soluço por ~64 linhas). O lote e' idempotente:
 leitura que estoura o timeout refaz o handshake e o host reenvia o MESMO lote. O
@@ -37,7 +39,7 @@ AXES = contract.RF_FEATURES         # alias: nao e' uma segunda lista
 REQUEST_SAMPLE = 0x01   # ESP -> servidor: pede a amostra de `seq` (4 bytes u32 LE)
 SAMPLE = 0x01           # servidor -> ESP: 0x01 + seq u32 + 4 float32 (um por AXES)
 END_OF_DATA = 0x02      # servidor -> ESP: nao ha' seq >= len(df); o serve() retorna
-PREDICTION = 0x03       # ESP -> servidor: a predicao da amostra `seq` (float32 LE)
+PREDICTION = 0x03       # ESP -> servidor: predicao (float32) + tempo (u32, us)
 ACK = 0x03              # servidor -> ESP: a linha `seq` esta' no log (duplicata: idem)
 
 # --------------------------------------------------------- transporte serial
@@ -57,7 +59,8 @@ MAGIC_INTERVAL_S = 2.0
 # TCP antigo) - o host aguenta um soluço e reencontra o cliente pelo handshake.
 SERIAL_READ_TIMEOUT_S = 5.0
 
-# Amostras por lote do protocolo v3: 777 B no sentido host->ESP, 265 B na volta.
+# Amostras por lote do protocolo v3: 777 B no sentido host->ESP, 521 B na volta
+# (9 B de cabecalho + 64 predicoes float32 + 64 tempos u32).
 BATCH = 64
 
 
@@ -82,11 +85,15 @@ def sample_bytes(sample) -> bytes:
 
 def _record_line(record: dict) -> str:
     """A linha de progresso do painel, identica nos dois transportes."""
-    return "sample %(sample)s: real=%(real).4f, pred=%(pred).4f, err=%(err).4f" % record
+    return ("sample %(sample)s: real=%(real).4f, pred=%(pred).4f, err=%(err).4f, "
+            "inferencia=%(inference_us)d us" % record)
 
 
-def _log_prediction(df, seq, pred, logged, records, eval_log) -> dict | None:
+def _log_prediction(df, seq, pred, inference_us, logged, records, eval_log) -> dict | None:
     """Grava a predicao `seq` (uma vez: duplicata so' re-ACK) e devolve o registro.
+
+    `inference_us` e' o tempo medido no firmware, em microssegundos, ao redor de
+    runInference() - so' o processamento, sem a comunicacao serial.
 
     PCA == 0 e' sentinela de faltante e PCA NaN e' gap artificial: a linha fica no
     log com real/err NaN, fora do erro (quem mede o erro DENTRO dos gaps junta o
@@ -103,11 +110,13 @@ def _log_prediction(df, seq, pred, logged, records, eval_log) -> dict | None:
         pred=pred,
         real=real if real_valid else float("nan"),
         err=abs(pred - real) if real_valid else float("nan"),
+        inference_us=int(inference_us),
     )
     records.append(record)
     # Ordem do CABECALHO (o reply do painel usa a ordem dele).
     eval_log.write(
-        f"{record['sample']},{record['real']},{record['pred']},{record['err']}\n")
+        f"{record['sample']},{record['real']},{record['pred']},{record['err']},"
+        f"{record['inference_us']}\n")
     eval_log.flush()    # o CSV e' o fallback: que exista ja'
     return record
 
@@ -158,7 +167,8 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
     """O laco do servidor pela CDC do USB-Serial/JTAG (COM29), em LOTES.
 
     O log do firmware fica na UART0 (COM28). O host manda lotes de BATCH amostras
-    numa escrita so' e recebe lotes de predicoes numa leitura so': um par de
+    numa escrita so' e recebe lotes de predicoes (com o tempo de inferencia de
+    cada amostra) numa leitura so': um par de
     transferencias por lote em vez de duas por linha (o downlink deste elo tem
     soluços de ~2 s a cada ~30 mensagens pequenas; em lote, um soluço custa UM
     reenvio por ~64 linhas). O lote e' idempotente: reenviar o MESMO lote
@@ -188,7 +198,7 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
         print(f"Serial aberta em {porta} (baud virtual em USB): sessao iniciada", flush=True)
 
         with open(log_path, "w") as eval_log:
-            eval_log.write("sample,real,pred,err\n")
+            eval_log.write("sample,real,pred,err,inference_us\n")
             while base < n:
                 fim = min(base + BATCH, n)
                 count = fim - base
@@ -197,7 +207,8 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
                 lote = struct.pack("<BII", REQUEST_SAMPLE, base, count) + payload
                 try:
                     ser.write(lote)
-                    resposta = _serial_read_exact(ser, 9 + 4 * count)
+                    # 9 B de cabecalho + count predicoes float32 + count tempos u32.
+                    resposta = _serial_read_exact(ser, 9 + 8 * count)
                 except (ConnectionResetError, serial.SerialException):
                     print(f"serial: leitura perdida no lote base={base} - "
                           "refazendo o handshake (RESUME)", flush=True)
@@ -210,10 +221,11 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
                           "refazendo o handshake (RESUME)", flush=True)
                     _serial_handshake(ser)
                     continue          # reenvia o MESMO lote
-                preds = struct.unpack(f"<{count}f", resposta[9:])
+                preds = struct.unpack(f"<{count}f", resposta[9:9 + 4 * count])
+                tempos = struct.unpack(f"<{count}I", resposta[9 + 4 * count:])
                 for i, pred in enumerate(preds):
-                    record = _log_prediction(df, base + i, pred, logged,
-                                             records, eval_log)
+                    record = _log_prediction(df, base + i, pred, tempos[i],
+                                             logged, records, eval_log)
                     if record is not None and (len(records) % 100) == 1:
                         print(_record_line(record), flush=True)
                 base = fim
@@ -223,15 +235,22 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
         # Fim do dataset: lote vazio; o firmware re-arma e aguarda a proxima usina.
         ser.write(struct.pack("<BII", REQUEST_SAMPLE, 0, 0))
         print(f"fim do dataset: {n} linhas", flush=True)
-    return pd.DataFrame(records, columns=["sample", "pred", "real", "err"])
+    return pd.DataFrame(records,
+                        columns=["sample", "pred", "real", "err", "inference_us"])
 
 
 def eval_metrics(df_eval: pd.DataFrame) -> dict:
-    """R2/MAE/vies/amplitude do log do servidor — os numeros do painel de avaliacao.
+    """R2/MAE/vies/amplitude e tempo de inferencia do log do servidor.
 
-    Linhas com real NaN (gaps artificiais, sentinela de faltante) ficam fora do
-    calculo: quem mede o erro DENTRO dos gaps junta o log com o dataset original.
+    Os numeros do painel de avaliacao. Linhas com real NaN (gaps artificiais,
+    sentinela de faltante) ficam fora do calculo do erro: quem mede o erro DENTRO
+    dos gaps junta o log com o dataset original. O tempo de inferencia nao depende
+    do real, entao e' resumido sobre todas as predicoes logadas.
     """
+    if "inference_us" in df_eval.columns:
+        tempos = pd.to_numeric(df_eval["inference_us"], errors="coerce").dropna()
+    else:                       # log antigo, anterior ao bloco de tempos
+        tempos = pd.Series(dtype=float)
     df_eval = df_eval.dropna(subset=["real", "pred"])
     np_real = df_eval["real"].to_numpy()
     np_pred = df_eval["pred"].to_numpy()
@@ -251,4 +270,6 @@ def eval_metrics(df_eval: pd.DataFrame) -> dict:
         "teto": float(teto),
         "no_teto": int((df_eval["pred"] >= teto - 0.01).sum()),
         "amostras": len(df_eval),
+        "inf_us_media": float(tempos.mean()) if len(tempos) else float("nan"),
+        "inf_us_p90": float(tempos.quantile(0.90)) if len(tempos) else float("nan"),
     }

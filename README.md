@@ -303,7 +303,7 @@ primeiro lote da sessão. Depois do handshake, mensagens binárias little-endian
 | mensagem | sentido | bytes |
 |---|---|---|
 | lote de amostras | servidor → ESP32 | `\x01` + base u32 + `n` u32 + `n × 3` `float32` (≤ 777 B, **grandeza bruta**) |
-| lote de predições | ESP32 → servidor | `\x03` + base u32 + `n` u32 + `n ×` `float32` (≤ 265 B, kW) |
+| lote de predições | ESP32 → servidor | `\x03` + base u32 + `n` u32 + `n ×` `float32` (kW) + `n ×` `u32` (tempo de inferência, µs) (≤ 521 B) |
 | fim do dataset | servidor → ESP32 | `\x01` + base u32 + `n = 0` |
 
 **Por que lotes:** medido nesta bancada, o downlink (host → ESP) deste par de driver/placa
@@ -329,8 +329,11 @@ da usina — o resto do pipeline não muda.
   perde nem duplica). Os prints de falha/volta são só nas transições de estado.
 - Erro de inferência é **fatal**: para de inferir (insistir vazaria a arena do TFLite a cada
   segundo) — e imprime `ERRO FATAL na inferencia`.
-- O progresso sai a cada 10 lotes (média de ms/lote); o `heap_livre` (maior bloco contíguo)
-  continua disponível nos wrappers de impressão dos modelos.
+- O progresso sai a cada 10 lotes (média de ms/lote e de µs por inferência); o `heap_livre`
+  (maior bloco contíguo) continua disponível nos wrappers de impressão dos modelos.
+- O tempo de inferência é medido no firmware com `micros()` ao redor de `runInference()`:
+  cobre normalização, execução do modelo e pós-processamento, sem a comunicação serial. Ele
+  volta no lote de predições junto de cada amostra.
 
 ### Gravar e monitorar
 
@@ -367,7 +370,8 @@ O laço vive em `models/src/common/server.py` (`server.serve_serial`):
 O notebook roda um `serve_serial()` por inversor e grava o log em `utils/{inversor}_val.csv`
 (ex.: `utils/ifpee1_val.csv`); `paths.EVAL_LOG` (`utils/model_eval.csv`) é o default de
 `serve_serial()` quando chamado sem caminho. Cada predição confirmada vira uma linha
-`sample, real, pred, err`. `PCA == 0` é label inválido: a linha fica no log, mas fora do erro
+`sample, real, pred, err, inference_us`, em que `inference_us` é o tempo medido na placa
+para aquela amostra. `PCA == 0` é label inválido: a linha fica no log, mas fora do erro
 (hoje são 3 linhas no teste).
 
 O painel lê o `reply` da sessão ou, se a placa morrer no meio, os `ifpe*_val.csv` já gravados.
@@ -383,6 +387,7 @@ tabela de métricas por mês, usando `server.eval_metrics`:
 | `p90` | percentil 90 do erro absoluto |
 | `vies` | média de `pred - real` |
 | `teto` / `no_teto` | maior predição e quantas linhas encostam nela |
+| `inf_us_media` / `inf_us_p90` | média e percentil 90 do tempo de inferência medido na placa (µs) |
 
 > Limitação conhecida: reiniciar o `serve_serial()` no meio de um ensaio **recomeça o log
 > vazio** e o firmware continua da `seq` dele — as linhas anteriores se perdem. Para recomeçar
