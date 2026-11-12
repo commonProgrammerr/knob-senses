@@ -469,8 +469,9 @@ Para a execução embarcada, o modelo foi exportado no formato SavedModel e
 convertido para TensorFlow Lite \cite{abadi2016}. O script
 \url{utils/exportar_mlp_ei.py} automatizou o envio do modelo ao Edge Impulse
 Studio \cite{edgeimpulse2024} e o posterior download da biblioteca C++
-compilada pela plataforma, utilizando a amostra de calibração e os parâmetros
-de normalização estimados no treino. Essa biblioteca reuniu o SDK de
+compilada pela plataforma, utilizando a amostra de calibração para a
+quantização e os parâmetros de normalização estimados no treino para gerar o
+cabeçalho de normalização do firmware. Essa biblioteca reuniu o SDK de
 inferência do TensorFlow Lite for Microcontrollers \cite{tflitemicro2024},
 os parâmetros do modelo e o código gerado pelo Studio,
 sendo instalada diretamente em \url{lib/knob-senses/}. A biblioteca foi
@@ -631,7 +632,7 @@ UART0. O host conservou os valores medidos de PCA e, após receber as
 estimativas processadas, calculou os erros e as métricas de avaliação. O
 gancho de inferência (\texttt{runInference()}) constitui o ponto de aquisição:
 em campo, é nele que entram os dados dos sensores da usina, sem alteração do
-restante do pipeline. As constantes de operação (1 amostra, 3 eixos e quadro
+restante do pipeline. As constantes de operação (3 amostras, 1 eixo e quadro
 de 3 \textit{floats}) vêm dos cabeçalhos gerados para cada modelo. O período
 nominal de inferência (10~ms no RF e 1~ms no MLP) corresponde ao ritmo da
 operação em tempo real; no ensaio, porém, esse período foi dispensado, e o
@@ -640,13 +641,15 @@ processamento acompanhou a velocidade dos lotes.
 O contrato de entrada é explícito: durante o ensaio, o host transmitiu sempre
 as três grandezas meteorológicas em seus valores originais, sem enviar PCA
 medido, rótulos ou parâmetros de pós-processamento. No caminho RF, a
-normalização \textit{z-score} é realizada dentro da biblioteca; no caminho
-MLP, o SDK do Edge Impulse aplica o escalonador embutido no impulso. A
+normalização \textit{z-score} é realizada dentro da biblioteca. No caminho
+MLP, o SDK do Edge Impulse não aplica normalização; o firmware normaliza as
+três entradas pelo método \textit{min-max}, com as constantes do treino
+compiladas em um cabeçalho gerado, antes de montar o sinal de inferência. A
 inversa de Box-Cox, a subtração de $\varepsilon$, a correção de viés e a
 limitação da saída também são executadas no firmware; o host realiza apenas
 a comparação entre a estimativa recebida e o valor medido mantido localmente.
 A arena de memória do TensorFlow Lite ocupa 3\,174~bytes; o RF é código
-	extit{inline}, sem tabela em RAM, e seu custo de flash é medido no objeto
+	\textit{inline}, sem tabela em RAM, e seu custo de flash é medido no objeto
 compilado. O laço de execução registra atrasos de período
 (\textit{overruns}) e falhas de troca (\textit{dropouts}, com retentativa da
 mesma amostra), trata erros de inferência como fatais e monitora o heap livre

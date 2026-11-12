@@ -4,3 +4,7 @@
 **/*.lot
 **/*.toc
 *.pdf
+**/*.xdv
+**/*.synctex.gz
+**/*.fdb_latexmk
+**/*.fls
