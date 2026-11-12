@@ -1,7 +1,8 @@
 """Envia o modelo MLP salvo ao Edge Impulse e baixa a lib C++ compilada.
 
 Uso:
-    python utils/exportar_mlp_ei.py 1h               # upload + build + download
+    python utils/exportar_mlp_ei.py 1h               # upload + build + download int8
+    python utils/exportar_mlp_ei.py 1h --float32     # upload + build + download float32
     python utils/exportar_mlp_ei.py 1h --pular-deploy # download (deploy ja feito)
     python utils/exportar_mlp_ei.py 1h --seca        # valida os artefatos, sem rede
 
@@ -14,17 +15,18 @@ Pre-requisitos:
     - pacote requests (ja' esta no venv do projeto).
 
 Fluxo (API do Edge Impulse):
-    0. quantizacao local: o SavedModel vira int8 (modelo_quantizado.tflite)
+    0. quantizacao local (int8): o SavedModel vira int8 (modelo_quantizado.tflite)
        com o TFLiteConverter e os dados representativos; o job do Studio nao
-       quantiza o float enviado;
+       quantiza o float enviado. Com --float32, modelo.tflite vai direto;
     1. POST /v1/api/{projeto}/jobs/deploy-pretrained-model
-       (JSON com o .tflite quantizado em base64, o alvo "zip" (biblioteca
-       C++) e o engine tflite em int8; header x-api-key) - nao exige
+       (JSON com o .tflite em base64, o alvo "zip" (biblioteca C++) e o
+       engine tflite em int8 ou float32; header x-api-key) - nao exige
        impulso configurado
-    2. GET  /v1/api/{projeto}/deployment/download?type=zip&modelType=int8
+    2. GET  /v1/api/{projeto}/deployment/download?type=zip&modelType=int8|float32
     O zip baixado substitui os diretorios gerados em lib/knob-senses/src/
     (edge-impulse-sdk, model-parameters e tflite-model), mantendo o
-    library.json, o README e o CMakeLists do projeto.
+    library.json, o README e o CMakeLists do projeto. O zip int8 anterior e'
+    copiado para lib_edge_impulse_int8.zip antes do deploy float32.
 """
 import argparse
 import base64
@@ -140,10 +142,10 @@ def _quantizar(freq):
     return caminho
 
 
-def _deploy(sessao, projeto, freq, seca, pular):
+def _deploy(sessao, projeto, freq, seca, pular, float32_=False):
     """POST jobs/deploy-pretrained-model (tflite em base64, alvo zip
-    (biblioteca C++), engine tflite, quantizacao int8) e aguarda. Nao exige
-    impulso configurado no projeto."""
+    (biblioteca C++), engine tflite, quantizacao int8 ou float32) e aguarda.
+    Nao exige impulso configurado no projeto."""
     if pular:
         print("deploy pulado (--pular-deploy): usando o ultimo build do projeto")
         return None
@@ -155,17 +157,25 @@ def _deploy(sessao, projeto, freq, seca, pular):
     if seca:
         print("seca: quantizacao e deploy nao executados")
         return None
-    # Envia o modelo JA' QUANTIZADO: o job do Studio nao quantiza o float.
-    tflite = _quantizar(freq)
-    print(f"quantizado localmente: {tflite.name} "
-          f"({tflite.stat().st_size / 1024:.1f} KB; float "
-          f"{float_.stat().st_size / 1024:.1f} KB)")
+    if float32_:
+        # O modelo.tflite ja' e' o float32 do export: o job nao quantiza.
+        tflite = float_
+        tipo = "float32"
+        print(f"modelo float32: {tflite.name} "
+              f"({tflite.stat().st_size / 1024:.1f} KB)")
+    else:
+        # Envia o modelo JA' QUANTIZADO: o job do Studio nao quantiza o float.
+        tflite = _quantizar(freq)
+        tipo = "int8"
+        print(f"quantizado localmente: {tflite.name} "
+              f"({tflite.stat().st_size / 1024:.1f} KB; float "
+              f"{float_.stat().st_size / 1024:.1f} KB)")
     corpo = {
         "modelFileBase64": base64.b64encode(tflite.read_bytes()).decode("ascii"),
         "modelFileType": "tflite",
         "deploymentType": "zip",
         "engine": "tflite",
-        "deployModelType": "int8",
+        "deployModelType": tipo,
         "modelInfo": {
             "input": {"inputType": "other"},
             "model": {"modelType": "regression"},
@@ -173,11 +183,11 @@ def _deploy(sessao, projeto, freq, seca, pular):
     }
     npy = destino / "dados_representativos.npy"
     extra = ""
-    if npy.exists():
+    if not float32_ and npy.exists():
         corpo["representativeFeaturesBase64"] = base64.b64encode(
             npy.read_bytes()).decode("ascii")
         extra = f" + {npy.name}"
-    print(f"deploy: {tflite.relative_to(RAIZ)} (zip, tflite, int8){extra}")
+    print(f"deploy: {tflite.relative_to(RAIZ)} (zip, tflite, {tipo}){extra}")
     r = sessao.post(f"{API}/{projeto}/jobs/deploy-pretrained-model",
                     json=corpo, timeout=300)
     _checa(r)
@@ -188,19 +198,18 @@ def _deploy(sessao, projeto, freq, seca, pular):
     return resp.get("id")
 
 
-def _baixar(sessao, projeto, freq, seca):
+def _baixar(sessao, projeto, freq, seca, float32_=False):
     """GET deployment/download?type=zip; devolve o caminho do zip."""
-    params = {"type": "zip", "modelType": "int8", "engine": "tflite"}
-    print("download: deployment type=zip, modelType=int8, engine=tflite")
+    tipo = "float32" if float32_ else "int8"
+    params = {"type": "zip", "modelType": tipo, "engine": "tflite"}
+    print(f"download: deployment type=zip, modelType={tipo}, engine=tflite")
     if seca:
         return None
     r = sessao.get(f"{API}/{projeto}/deployment/download", params=params,
                    timeout=600)
     _checa(r)
-    nome = "lib_edge_impulse.zip"
-    cd = r.headers.get("Content-Disposition", "")
-    if "filename=" in cd:
-        nome = cd.split("filename=")[-1].strip().strip('"').strip("'")
+    nome = ("lib_edge_impulse_float32.zip" if float32_
+            else "lib_edge_impulse.zip")
     caminho = paths.EXPORT_MLP / freq / nome
     caminho.write_bytes(r.content)
     print(f"zip salvo: {caminho.relative_to(RAIZ)} ({len(r.content) / 1024:.0f} KB)")
@@ -235,6 +244,8 @@ def main(argv=None) -> int:
                         help="valida os artefatos locais e mostra o plano, sem rede")
     parser.add_argument("--pular-deploy", action="store_true",
                         help="nao dispara o deploy (usa o ultimo build zip)")
+    parser.add_argument("--float32", action="store_true",
+                        help="deploy do modelo float32 (sem quantizacao int8)")
     args = parser.parse_args(argv)
 
     tflite = paths.EXPORT_MLP / args.freq / "modelo.tflite"
@@ -264,18 +275,29 @@ def main(argv=None) -> int:
         print("defina API_KEY no .env da raiz (ou EI_API_KEY no ambiente)")
         return 1
 
+    if args.float32 and not args.seca:
+        origem_int8 = paths.EXPORT_MLP / args.freq / "lib_edge_impulse.zip"
+        copia_int8 = paths.EXPORT_MLP / args.freq / "lib_edge_impulse_int8.zip"
+        if origem_int8.exists() and not copia_int8.exists():
+            shutil.copy2(origem_int8, copia_int8)
+            print(f"int8 preservado: {copia_int8.relative_to(RAIZ)}")
+
     sessao = _sessao(api_key) if not args.seca else None
-    _deploy(sessao, projeto, args.freq, args.seca, args.pular_deploy)
-    caminho_zip = _baixar(sessao, projeto, args.freq, args.seca)
+    _deploy(sessao, projeto, args.freq, args.seca, args.pular_deploy,
+            args.float32)
+    caminho_zip = _baixar(sessao, projeto, args.freq, args.seca, args.float32)
     if caminho_zip:
         _instalar(caminho_zip)
         gerar_header(args.freq)
-        print(verificar_modelo_embutido(args.freq)
-              or "aviso: modelo_quantizado.tflite ausente; verificacao SHA-256 pulada")
+        print(verificar_modelo_embutido(
+                  args.freq,
+                  "modelo.tflite" if args.float32 else "modelo_quantizado.tflite")
+              or "aviso: modelo local ausente; verificacao SHA-256 pulada")
     if args.seca:
         print("seca: nada foi enviado nem baixado")
     else:
-        print("OK: lib do Edge Impulse baixada e instalada em lib/knob-senses/")
+        tipo = "float32" if args.float32 else "int8"
+        print(f"OK: lib {tipo} do Edge Impulse baixada e instalada em lib/knob-senses/")
     return 0
 
 

@@ -198,11 +198,11 @@ void loop()
     return;
   }
 
-  /* Payload: count amostras de kAxes floats, em grandeza bruta. */
-  float batch[BATCH_MAX][kAxes];
+  /* Payload: count amostras de kFrameSize floats, em grandeza bruta. */
+  float batch[BATCH_MAX][kFrameSize];
   for (uint32_t i = 0; i < count; i++)
   {
-    if (!read_all(USBSerial, (uint8_t *)batch[i], kAxes * sizeof(float)))
+    if (!read_all(USBSerial, (uint8_t *)batch[i], kFrameSize * sizeof(float)))
     {
       record_failure("payload do lote");
       g_session = false;

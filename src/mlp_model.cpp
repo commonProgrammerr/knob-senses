@@ -4,17 +4,33 @@
  * mlp_model.h): run_classifier(), numpy::signal_from_buffer() e o modelo em si. */
 #include <edge-impulse-sdk/classifier/ei_run_classifier.h>
 
+#include "mlp_posprocessamento.h"
+
+static_assert(KNOB_MLP_N_FEATURES == kFrameSize,
+              "o header de transformacao nao cobre o frame do impulso");
+
 bool mlp_run_inference(const float *frame, ei_impulse_result_t *result)
 {
+  float normalizado[KNOB_MLP_N_FEATURES];
+  mlp_normalizar(frame, normalizado);
+
   signal_t signal;
-  if (numpy::signal_from_buffer(frame, kFrameSize, &signal) != EIDSP_OK)
+  if (numpy::signal_from_buffer(normalizado, kFrameSize, &signal) != EIDSP_OK)
   {
     Serial.println("erro: nao foi possivel montar o signal");
     return false;
   }
 
   /* process_impulse() ja zera o result; nao precisa memset aqui. */
-  return run_classifier(&signal, result, false) == EI_IMPULSE_OK;
+  if (run_classifier(&signal, result, false) != EI_IMPULSE_OK)
+  {
+    return false;
+  }
+
+  /* A partir daqui o valor esta em kW: print e lote leem o mesmo campo. */
+  result->classification[0].value =
+      mlp_posprocessar_saida(result->classification[0].value);
+  return true;
 }
 
 /* --------------------------------------------------------------------- debug */

@@ -14,10 +14,10 @@
 extern HardwareSerial Serial;
 
 /* Tudo derivado do modelo — nunca hardcode estes números. */
-constexpr size_t kSamples = EI_CLASSIFIER_RAW_SAMPLE_COUNT;       // 5
-constexpr size_t kAxes = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;     // 9
-constexpr size_t kFrameSize = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; // 45
-constexpr uint32_t kPeriodMs = EI_CLASSIFIER_INTERVAL_MS;         // 1000
+constexpr size_t kSamples = EI_CLASSIFIER_RAW_SAMPLE_COUNT;       // 3
+constexpr size_t kAxes = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;     // 1
+constexpr size_t kFrameSize = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; // 3
+constexpr uint32_t kPeriodMs = EI_CLASSIFIER_INTERVAL_MS;         // 1
 
 static_assert(kFrameSize == kSamples * kAxes,
               "janela do impulso nao bate com RAW_SAMPLE_COUNT * RAW_SAMPLES_PER_FRAME");

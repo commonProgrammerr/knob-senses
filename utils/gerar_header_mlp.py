@@ -4,7 +4,7 @@ Uso:
     python utils/gerar_header_mlp.py 1h            # valida e escreve o header
     python utils/gerar_header_mlp.py 1h --check    # nao escreve; falha se dessincronizado
 
-O header gerado e' include/mlp_transformacao_alvo.h. Ele contem o
+O header gerado é include/mlp_transformacao_alvo.h. Ele contem o
 min-max das entradas, o shift, o lambda, o clip de Box-Cox, o offset de
 calibracao e a faixa fisica do alvo. O firmware inclui esse header em
 include/mlp_posprocessamento.h.
