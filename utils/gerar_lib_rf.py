@@ -87,6 +87,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("freq", choices=contract.GRANULARIDADES,
                         help="granularidade embarcada (usa dist/random_forest_<freq>.joblib)")
+    parser.add_argument("quantization", help="", default="float32")
     parser.add_argument("--verificar", action=argparse.BooleanOptionalAction, default=True,
                         help="roda o conferidor g++ apos gerar (default: sim)")
     parser.add_argument("--medir", action="store_true",

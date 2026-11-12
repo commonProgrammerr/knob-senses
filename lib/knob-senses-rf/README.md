@@ -18,7 +18,7 @@ const float kw = pca_prever(bruto);
 
 ## Contrato
 
-A ordem de `bruto` e' **temperatura_ambiente, ghit, jacques**.
+A ordem de `bruto` e' **temp_amb, ghit, jacques**.
 
 Essa e' exatamente a ordem que o `utils/model_teste.ipynb` transmite pela rede, entao o
 firmware entrega o que recebeu sem reordenar.
@@ -43,11 +43,11 @@ floresta extrapola** e devolve valor nao-nulo - o clip limita o estrago, nao con
 |---|---|
 | arvores | 50 |
 | folha minima | 20 |
-| nos | 34568 |
+| nos | 34578 |
 | granularidade | 1h |
-| MAE no teste | 0.0666 kW |
-| R2 no teste | 0.9716 |
-| calibracao (vies) | -0.106076 kW |
+| MAE no teste | 0.0664 kW |
+| R2 no teste | 0.9717 |
+| calibracao (vies) | -0.105469 kW |
 
 Medido no split de **teste**, que e' futuro de verdade (corte por tempo, sem embaralhar),
 entao os numeros sao pessimistas na medida certa. O offset de calibracao foi ajustado

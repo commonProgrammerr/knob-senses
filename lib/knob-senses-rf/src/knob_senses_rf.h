@@ -12,7 +12,7 @@
  *     const float kw = pca_prever(bruto);
  *
  * ORDEM DAS GRANDEZAS BRUTAS:
- *   bruto[0] = temperatura_ambiente
+ *   bruto[0] = temp_amb
  *   bruto[1] = ghit
  *   bruto[2] = jacques
  *
@@ -36,7 +36,7 @@
 /* Ordem esperada em bruto[]. As 4 primeiras sao exatamente a ordem que
  * utils/server.ipynb transmite pela rede, entao o firmware entrega o que
  * recebeu sem reordenar. */
-#define KNOB_RF_ORDEM "temperatura_ambiente, ghit, jacques"
+#define KNOB_RF_ORDEM "temp_amb, ghit, jacques"
 
 /* Faixa fisica do alvo: 0..2 kW. O inversor nao devolve potencia negativa e
  * satura perto de 2 kW; a saida ja vem ceifada. */
@@ -47,15 +47,15 @@
 
 #define KNOB_RF_N_ARVORES    50
 #define KNOB_RF_FOLHA_MIN    20
-#define KNOB_RF_N_NOS        34568
+#define KNOB_RF_N_NOS        34578
 #define KNOB_RF_FREQ         "1h"   /* granularidade do split de treino */
-#define KNOB_RF_MAE_TESTE    0.0666f   /* kW, no split de teste (futuro) */
-#define KNOB_RF_R2_TESTE     0.9716f
+#define KNOB_RF_MAE_TESTE    0.0664f   /* kW, no split de teste (futuro) */
+#define KNOB_RF_R2_TESTE     0.9717f
 
 /* Calibracao de vies: somada antes do clip. Foi ajustada na janela de
  * calibracao (2024H2), nunca no teste, para corrigir a deriva de eficiencia
  * 2024->2025. Se o modelo for retreinado, recalcule-a no notebook. */
-#define KNOB_RF_OFFSET       -0.106076f
+#define KNOB_RF_OFFSET       -0.105469f
 
 #ifdef __cplusplus
 extern "C" {
