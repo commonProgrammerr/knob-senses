@@ -6,6 +6,8 @@
 
 #include "mlp_posprocessamento.h"
 
+#include <math.h>
+
 static_assert(KNOB_MLP_N_FEATURES == kFrameSize,
               "o header de transformacao nao cobre o frame do impulso");
 
@@ -27,9 +29,37 @@ bool mlp_run_inference(const float *frame, ei_impulse_result_t *result)
     return false;
   }
 
+  const float y_bc = result->classification[0].value;
   /* A partir daqui o valor esta em kW: print e lote leem o mesmo campo. */
-  result->classification[0].value =
-      mlp_posprocessar_saida(result->classification[0].value);
+  result->classification[0].value = mlp_posprocessar_saida(y_bc);
+
+#if defined(KNOB_MLP_DEBUG)
+  static uint32_t linhas_dbg = 0;
+  if (linhas_dbg < 8)
+  {
+    /* Parametros do modelo int8 de 1 h (modelo_quantizado.tflite). */
+    constexpr float in_scale = 0.004108027555048466f;
+    constexpr int in_zero = -128;
+    constexpr float out_scale = 0.008816505782306194f;
+    constexpr int out_zero = 28;
+    auto quantizar = [](float v, float s, int z) {
+      return (int)lrintf(v / s) + z;
+    };
+    Serial.printf(
+        "dbg %lu | bruto %.4f %.4f %.4f | norm %.5f %.5f %.5f | "
+        "q %d %d %d | bc %.6f | qout %d | kw %.4f\n",
+        (unsigned long)linhas_dbg,
+        frame[0], frame[1], frame[2],
+        normalizado[0], normalizado[1], normalizado[2],
+        quantizar(normalizado[0], in_scale, in_zero),
+        quantizar(normalizado[1], in_scale, in_zero),
+        quantizar(normalizado[2], in_scale, in_zero),
+        y_bc,
+        quantizar(y_bc, out_scale, out_zero),
+        result->classification[0].value);
+    linhas_dbg++;
+  }
+#endif
   return true;
 }
 
