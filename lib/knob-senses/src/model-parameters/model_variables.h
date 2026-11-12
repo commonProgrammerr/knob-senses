@@ -42,17 +42,17 @@
 #include <stdint.h>
 #include <vector>
 #include "model_metadata.h"
-#include "tflite-model/tflite_learn_1160339_48.h"
+#include "tflite-model/tflite_learn_1160339_57.h"
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/engines.h"
 #include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_common.h"
 
 const char* ei_classifier_inferencing_categories_1160339_1[] = { "value" };
 
-EI_CLASSIFIER_DSP_AXES_INDEX_TYPE ei_dsp_config_1160339_47_axes[] = { 0 };
-const uint32_t ei_dsp_config_1160339_47_axes_size = 1;
-ei_dsp_config_raw_t ei_dsp_config_1160339_47 = {
-    47, // uint32_t blockId
+EI_CLASSIFIER_DSP_AXES_INDEX_TYPE ei_dsp_config_1160339_56_axes[] = { 0 };
+const uint32_t ei_dsp_config_1160339_56_axes_size = 1;
+ei_dsp_config_raw_t ei_dsp_config_1160339_56 = {
+    56, // uint32_t blockId
     1, // int implementationVersion
     1, // int length of axes
     1.0f // float scale-axes
@@ -60,69 +60,67 @@ ei_dsp_config_raw_t ei_dsp_config_1160339_47 = {
 
 const uint8_t ei_dsp_blocks_1160339_1_size = 1;
 ei_model_dsp_t ei_dsp_blocks_1160339_1[ei_dsp_blocks_1160339_1_size] = {
-    { // DSP block 47
-        47,
+    { // DSP block 56
+        56,
         3, // output size
         &extract_raw_features, // DSP function pointer
-        (void*)&ei_dsp_config_1160339_47, // pointer to config struct
-        ei_dsp_config_1160339_47_axes, // array of offsets into the input stream, one for each axis
-        ei_dsp_config_1160339_47_axes_size, // number of axes
+        (void*)&ei_dsp_config_1160339_56, // pointer to config struct
+        ei_dsp_config_1160339_56_axes, // array of offsets into the input stream, one for each axis
+        ei_dsp_config_1160339_56_axes_size, // number of axes
         1, // version
         nullptr, // factory function
         nullptr, // data normalization config
     }
 };
-const ei_config_tflite_graph_t ei_config_graph_1160339_48 = {
+const ei_config_tflite_graph_t ei_config_graph_1160339_57 = {
     .implementation_version = 1,
-    .model = tflite_learn_1160339_48,
-    .model_size = tflite_learn_1160339_48_len,
-    .arena_size = tflite_learn_1160339_48_arena_size
+    .model = tflite_learn_1160339_57,
+    .model_size = tflite_learn_1160339_57_len,
+    .arena_size = tflite_learn_1160339_57_arena_size
 };
 
-const uint8_t ei_output_tensors_indices_1160339_48[1] = { 0 };
-const uint8_t ei_output_tensors_size_1160339_48 = 1;
-ei_learning_block_config_tflite_graph_t ei_learning_block_config_1160339_48 = {
+const uint8_t ei_output_tensors_indices_1160339_57[1] = { 0 };
+const uint8_t ei_output_tensors_size_1160339_57 = 1;
+ei_learning_block_config_tflite_graph_t ei_learning_block_config_1160339_57 = {
     .implementation_version = 1,
-    .block_id = 48,
-    .output_tensors_indices = ei_output_tensors_indices_1160339_48,
-    .output_tensors_size = ei_output_tensors_size_1160339_48,
-    .quantized = 1,
+    .block_id = 57,
+    .output_tensors_indices = ei_output_tensors_indices_1160339_57,
+    .output_tensors_size = ei_output_tensors_size_1160339_57,
+    .quantized = 0,
     .compiled = 0,
-    .graph_config = (void*)&ei_config_graph_1160339_48,
+    .graph_config = (void*)&ei_config_graph_1160339_57,
     .dequantize_output = 0,
 };
 
 const uint8_t ei_learning_blocks_1160339_1_size = 1;
-const uint32_t ei_learning_block_1160339_48_inputs[1] = { 47 };
-const uint8_t ei_learning_block_1160339_48_inputs_size = 1;
+const uint32_t ei_learning_block_1160339_57_inputs[1] = { 56 };
+const uint8_t ei_learning_block_1160339_57_inputs_size = 1;
 const ei_learning_block_t ei_learning_blocks_1160339_1[ei_learning_blocks_1160339_1_size] = {
     {
-        48,
+        57,
         &run_nn_inference,
-        (void*)&ei_learning_block_config_1160339_48,
+        (void*)&ei_learning_block_config_1160339_57,
         EI_CLASSIFIER_IMAGE_SCALING_NONE,
-        ei_learning_block_1160339_48_inputs,
-        ei_learning_block_1160339_48_inputs_size,
+        ei_learning_block_1160339_57_inputs,
+        ei_learning_block_1160339_57_inputs_size,
     },
 };
 
-ei_fill_result_classification_i8_config_t ei_fill_result_classification_i8_config_1160339_48 = {
-    .zero_point = 28,
-    .scale = 0.008816505782306194,
+ei_fill_result_classification_f32_config_t ei_fill_result_classification_f32_config_1160339_57 = {
     .add_softmax = false
 };
 
 const size_t ei_postprocessing_blocks_1160339_1_size = 1;
 const ei_postprocessing_block_t ei_postprocessing_blocks_1160339_1[ei_postprocessing_blocks_1160339_1_size] = {
     {
-        .block_id = 48,
+        .block_id = 57,
         .type = EI_CLASSIFIER_MODE_REGRESSION,
         .init_fn = NULL,
         .deinit_fn = NULL,
-        .postprocess_fn = &process_classification_i8,
+        .postprocess_fn = &process_classification_f32,
         .display_fn = NULL,
-        .config = (void*)&ei_fill_result_classification_i8_config_1160339_48,
-        .input_block_id = 48
+        .config = (void*)&ei_fill_result_classification_f32_config_1160339_57,
+        .input_block_id = 57
     },
 };
 
@@ -136,7 +134,7 @@ const ei_impulse_t impulse_1160339_1 = {
     .project_name = "knob-senses",
     .impulse_id = 1,
     .impulse_name = "Impulse #1",
-    .deploy_version = 16,
+    .deploy_version = 19,
 
     .nn_input_frame_size = 3,
     .raw_sample_count = 3,
