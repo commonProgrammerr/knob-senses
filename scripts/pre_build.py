@@ -39,9 +39,19 @@ def _quantization() -> str:
     return env.GetProjectOption("custom_mlp_quantization", "int8")
 
 
+def _filter_esp_nn_files(env, node):
+    path = node.get_path().replace("\\", "/").lower()
+    if "esp-nn/" in path and any(arch in path for arch in ["riscv", "esp32p4", 'esp32_']):
+        return None
+    return node
+
+if ENV == 'mlp-tflite':
+    env.AddBuildMiddleware(_filter_esp_nn_files)
+
 def _pre_build():
     if ENV not in mp.MODELOS:
         return
+
     freq = _freq()
     quantization = _quantization()
     if os.environ.get("KNOB_SKIP_PREBUILD"):
