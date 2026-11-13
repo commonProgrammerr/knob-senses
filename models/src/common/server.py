@@ -89,11 +89,11 @@ def _record_line(record: dict) -> str:
             "inferencia=%(inference_us)d us" % record)
 
 
-def _log_prediction(df, seq, pred, inference_us, logged, records, eval_log) -> dict | None:
-    """Grava a predicao `seq` (uma vez: duplicata so' re-ACK) e devolve o registro.
+def _record_prediction(df, seq, pred, inference_us, logged) -> dict | None:
+    """Grava a predição `seq` (uma vez: duplicata so' re-ACK) e devolve o registro.
 
     `inference_us` e' o tempo medido no firmware, em microssegundos, ao redor de
-    runInference() - so' o processamento, sem a comunicacao serial.
+    runInference() - so' o processamento, sem a comunicação serial.
 
     PCA == 0 e' sentinela de faltante e PCA NaN e' gap artificial: a linha fica no
     log com real/err NaN, fora do erro (quem mede o erro DENTRO dos gaps junta o
@@ -105,29 +105,22 @@ def _log_prediction(df, seq, pred, inference_us, logged, records, eval_log) -> d
     row = df.iloc[seq]
     real = row[contract.TARGET]
     real_valid = real != 0.0 and not np.isnan(real)
-    record = dict(
+    return dict(
         sample=row[contract.INDEX],
         pred=pred,
         real=real if real_valid else float("nan"),
         err=abs(pred - real) if real_valid else float("nan"),
         inference_us=int(inference_us),
     )
-    records.append(record)
-    # Ordem do CABECALHO (o reply do painel usa a ordem dele).
-    eval_log.write(
-        f"{record['sample']},{record['real']},{record['pred']},{record['err']},"
-        f"{record['inference_us']}\n")
-    eval_log.flush()    # o CSV e' o fallback: que exista ja'
-    return record
 
 
 def _serial_read_exact(ser, n: int, timeout_s: float = SERIAL_READ_TIMEOUT_S) -> bytes:
     """Le exatamente n bytes da serial ou levanta.
 
-    read() devolve o que tiver: os 4 bytes de um float podem chegar em pedacos,
-    e "ler o que veio" desalinha a predicao em silencio. O timeout e' o da
-    sessao: o fio se perdeu, e quem chama re-faz o handshake (a seq nao
-    avancou; o log ja' gravado e' idempotente)."""
+    read() devolve o que tiver: os 4 bytes de um float podem chegar em pedaços,
+    e "ler o que veio" desalinha a predição em silencio. O timeout e' o da
+    sessão: o fio se perdeu, e quem chama re-faz o handshake (a seq nao
+    avançou; o log ja' gravado e' idempotente)."""
     buf = b""
     deadline = time.monotonic() + timeout_s
     while len(buf) < n:
@@ -162,7 +155,7 @@ def _serial_handshake(ser, reset: bool = False, tentativas: int = MAGIC_RETRIES,
     raise ConnectionResetError("serial: firmware nao respondeu o MAGIC")
 
 
-def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
+def serve_serial(df: pd.DataFrame, porta: str, baud: int = 921600,
                  log_path: Path = paths.EVAL_LOG) -> pd.DataFrame:
     """O laco do servidor pela CDC do USB-Serial/JTAG (COM29), em LOTES.
 
@@ -180,9 +173,6 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
     """
     import serial  # pyserial: import aqui para o caminho WiFi nao depender dele
 
-    log_path = Path(log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
     records: list[dict] = []
     logged: set[int] = set()
     n = len(df)
@@ -197,40 +187,38 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 115200,
         _serial_handshake(ser, reset=True)
         print(f"Serial aberta em {porta} (baud virtual em USB): sessao iniciada", flush=True)
 
-        with open(log_path, "w") as eval_log:
-            eval_log.write("sample,real,pred,err,inference_us\n")
-            while base < n:
-                fim = min(base + BATCH, n)
-                count = fim - base
-                payload = b"".join(
-                    sample_bytes(df.iloc[i]) for i in range(base, fim))
-                lote = struct.pack("<BII", REQUEST_SAMPLE, base, count) + payload
-                try:
-                    ser.write(lote)
-                    # 9 B de cabecalho + count predicoes float32 + count tempos u32.
-                    resposta = _serial_read_exact(ser, 9 + 8 * count)
-                except (ConnectionResetError, serial.SerialException):
-                    print(f"serial: leitura perdida no lote base={base} - "
-                          "refazendo o handshake (RESUME)", flush=True)
-                    _serial_handshake(ser)
-                    continue          # reenvia o MESMO lote (base nao avancou)
-                tipo, r_base, r_count = struct.unpack("<BII", resposta[:9])
-                if tipo != PREDICTION or r_base != base or r_count != count:
-                    print(f"serial: resposta fora do lote (tipo 0x{tipo:02x}, "
-                          f"base {r_base}/{base}, count {r_count}/{count}) - "
-                          "refazendo o handshake (RESUME)", flush=True)
-                    _serial_handshake(ser)
-                    continue          # reenvia o MESMO lote
-                preds = struct.unpack(f"<{count}f", resposta[9:9 + 4 * count])
-                tempos = struct.unpack(f"<{count}I", resposta[9 + 4 * count:])
-                for i, pred in enumerate(preds):
-                    record = _log_prediction(df, base + i, pred, tempos[i],
-                                             logged, records, eval_log)
-                    if record is not None and (len(records) % 100) == 1:
-                        print(_record_line(record), flush=True)
-                base = fim
-                print(f"lote base={base - count}..{base - 1} ok "
-                      f"({len(records)}/{n} linhas)", flush=True)
+        while base < n:
+            fim = min(base + BATCH, n)
+            count = fim - base
+            payload = b"".join(
+                sample_bytes(df.iloc[i]) for i in range(base, fim))
+            lote = struct.pack("<BII", REQUEST_SAMPLE, base, count) + payload
+            try:
+                ser.write(lote)
+                # 9 B de cabecalho + count predicoes float32 + count tempos u32.
+                resposta = _serial_read_exact(ser, 9 + 8 * count)
+            except (ConnectionResetError, serial.SerialException):
+                print(f"serial: leitura perdida no lote base={base} - "
+                        "refazendo o handshake (RESUME)", flush=True)
+                _serial_handshake(ser)
+                continue          # reenvia o MESMO lote (base nao avancou)
+            tipo, r_base, r_count = struct.unpack("<BII", resposta[:9])
+            if tipo != PREDICTION or r_base != base or r_count != count:
+                print(f"serial: resposta fora do lote (tipo 0x{tipo:02x}, "
+                        f"base {r_base}/{base}, count {r_count}/{count}) - "
+                        "refazendo o handshake (RESUME)", flush=True)
+                _serial_handshake(ser)
+                continue          # reenvia o MESMO lote
+            preds = struct.unpack(f"<{count}f", resposta[9:9 + 4 * count])
+            tempos = struct.unpack(f"<{count}I", resposta[9 + 4 * count:])
+            for i, pred in enumerate(preds):
+                record = _record_prediction(df, base + i, pred, tempos[i], logged)
+                records.append(record)
+                if record is not None and (len(records) % 100) == 1:
+                    print(_record_line(record), flush=True)
+            base = fim
+            print(f"lote base={base - count}..{base - 1} ok "
+                    f"({len(records)}/{n} linhas)", flush=True)
 
         # Fim do dataset: lote vazio; o firmware re-arma e aguarda a proxima usina.
         ser.write(struct.pack("<BII", REQUEST_SAMPLE, 0, 0))

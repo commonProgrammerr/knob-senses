@@ -139,7 +139,7 @@ void setup()
 
   /* Dados do ensaio na CDC do USB-Serial/JTAG (COM29). O baud e' virtual em USB:
    * so' precisa ser valido; a taxa real e' a do barramento. */
-  USBSerial.begin(115200);
+  USBSerial.begin(921600);
   /* Um lote cheio sao 777 bytes: a fila de RX padrao (256 B) nao comporta. */
   USBSerial.setRxBufferSize(1024);
   /* Stream::setTimeout e' em MILISSEGUNDOS (o WiFiClient e' que recebia segundos). */
