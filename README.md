@@ -348,7 +348,7 @@ debug usa o USB nativo (JTAG). Se trocar o cabo de porta, confira com `pio devic
 
 ---
 
-## 5. Servidor de teste (`utils/model_teste.ipynb`)
+## 5. Servidor de teste (`notebooks/model_teste.ipynb`)
 
 É o **banco de comparação estimado × medido**: abre a porta CDC do USB-Serial/JTAG (COM29)
 e serve as linhas de **`data/splits/test.csv`** (hoje 4 039 linhas de `ifpee1` em 2025),
@@ -367,12 +367,15 @@ O laço vive em `models/src/common/server.py` (`server.serve_serial`):
 - o `serve_serial()` encerra cada usina com um **lote vazio** (count=0); o firmware se
   re-arma e aguarda o RESET da próxima.
 
-O notebook roda um `serve_serial()` por inversor e grava o log em `utils/{inversor}_val.csv`
-(ex.: `utils/ifpee1_val.csv`); `paths.EVAL_LOG` (`utils/model_eval.csv`) é o default de
-`serve_serial()` quando chamado sem caminho. Cada predição confirmada vira uma linha
-`sample, real, pred, err, inference_us`, em que `inference_us` é o tempo medido na placa
+O notebook roda um `serve_serial()` por inversor e grava o log em
+`results/ensaio/{inversor}_val.csv` (ex.: `results/ensaio/ifpee1_val.csv`); `paths.EVAL_LOG`
+(`results/ensaio/model_eval.csv`) é o default de `serve_serial()` quando chamado sem
+caminho. Cada predição confirmada vira uma linha
+`sample, real, pred, err, inferencia_us`, em que `inferencia_us` é o tempo medido na placa
 para aquela amostra. `PCA == 0` é label inválido: a linha fica no log, mas fora do erro
-(hoje são 3 linhas no teste).
+(hoje são 3 linhas no teste). Ao final, o notebook grava
+`results/ensaio/metricas_ensaio.csv` e `.md` (total e por mês), os resumos de gaps e
+`results/ensaio/resumo_ensaio.md`, que reúne tudo. O mapa da pasta está na seção 6.
 
 O painel lê o `reply` da sessão ou, se a placa morrer no meio, os `ifpe*_val.csv` já gravados.
 Ele mostra a série diária real × predito, o dispersão predito × real colorido pelo erro e a
@@ -402,7 +405,29 @@ existe o risco clássico do TCP de dois servidores na mesma porta.
 
 ---
 
-## 6. Apêndice — caminho Edge Impulse (v9)
+## 6. Resultados (`results/`)
+
+Todos os notebooks gravam suas saídas em `results/`, para que o resultado fique legível
+fora do `.ipynb`: cada tabela vira `.csv` e `.md`, e cada figura é salva em
+`results/figuras/`. O `docs/figuras/` (de onde o `\graphicspath` do TCC lê) não é escrito
+pelos notebooks: quando a figura vai para o texto, a cópia é manual.
+Artefatos continuam onde estavam: `dist/` para modelos e `data/splits/` para os splits.
+
+| pasta | origem | conteúdo |
+|---|---|---|
+| `ensaio/` | `notebooks/model_teste.ipynb` | logs por inversor, métricas por período, validação dos gaps e `resumo_ensaio.md` |
+| `figuras/` | todos os notebooks | gráficos em PNG |
+| `dataset/` | `dataset_prep.ipynb`, `dataset_analysis.ipynb` | `splits_resumo.csv`, `correlacao.csv` |
+| `treino_rf/` | `treino_random_forest.ipynb` | métricas, varredura, configurações, importância e cruzada |
+| `treino_mlp/` | `treino_mlp.ipynb` | métricas, baseline, cruzada e histórico por granularidade |
+
+O ponto de entrada do ensaio é `results/ensaio/resumo_ensaio.md`; o índice completo da
+pasta está em `results/README.md`. Os helpers são `common.results.salvar_tabela`
+(CSV + Markdown) e `common.plots.salvar_figura` (`results/figuras/`).
+
+---
+
+## 7. Apêndice — caminho Edge Impulse (v9)
 
 Projeto `1086855`, deploy **v9**, lib em `lib/knob-senses/` (SDK + modelo embutido, sem rede
 nem Python em runtime). O `library.json` dessa lib ainda descreve a **v5** ("5x9", "int8",
@@ -484,7 +509,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 
 ---
 
-## 7. Pegadinhas (e como cada uma se manifesta)
+## 8. Pegadinhas (e como cada uma se manifesta)
 
 | Sintoma | Causa | Solução |
 |---|---|---|
@@ -503,7 +528,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 
 ---
 
-## 8. Mapa de arquivos
+## 9. Mapa de arquivos
 
 ```
 ├── models/src/common/      contrato, dados, caminhos, métricas, servidor, verificação,
@@ -521,12 +546,13 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 ├── lib/
 │   ├── knob-senses/        SDK Edge Impulse + modelo v9 (não editar)
 │   └── knob-senses-rf/     RF gerado pelo notebook (não editar src/)
-├── utils/
+├── notebooks/
 │   ├── dataset_prep.ipynb      bruto -> filtros -> 1 h -> splits (tudo num notebook)
 │   ├── dataset_analysis.ipynb  EDA + eficiência (PCA/ghit por mês — o diagnóstico)
-│   ├── treino_random_forest.ipynb  treina e GERA a lib do RF
+│   ├── treino_random_forest.ipynb  treina e gera os joblibs do RF
 │   ├── treino_mlp.ipynb            treina o MLP, salva o `.keras` e avalia no teste
 │   └── model_teste.ipynb       servidor de teste + painel + tabela de métricas
+├── utils/                  scripts de apoio (export EI, lib do RF, quantizações, verificação)
 ├── data/
 │   ├── raw/                CSVs brutos por estação-ano (5 min); o prep lê só ifpee*
 │   ├── splits/             train/calibration/test + cópias 2025 por inversor
@@ -534,6 +560,7 @@ O caminho suportado é uma chamada de `run_classifier()` por amostra.
 │   ├── modelo_rf/          harness nativo de verificação do C gerado (scratch)
 │   └── modelo_exportado/   pasta vazia legada — o destino atual do MLP é dist/
 ├── dist/                   export do MLP (SavedModel/zip/tflite/npy/json; gitignored)
+├── results/                saídas legíveis dos notebooks (CSV/Markdown/PNG); ver results/README.md
 ├── docs/referencias.md     referências dos hiperparâmetros do MLP
 ├── docs/superpowers/       specs e planos (gitignored)
 └── platformio.ini          um env por modelo; upload/monitor COM28; flags do EI

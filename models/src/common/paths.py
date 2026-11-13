@@ -33,7 +33,13 @@ LIB_RF_SRC = LIB_RF / "src"
 LIB_MLP = ROOT / "lib" / "knob-senses"          # a entrega do MLP (SDK + impulso do Edge Impulse)
 LIB_MLP_SRC = LIB_MLP / "src"
 
-EVAL_LOG = ROOT / "utils" / "model_eval.csv"    # o log do servidor de teste
+RESULTS = ROOT / "results"                      # tudo que se le como resultado (nao artefato)
+FIGURAS = RESULTS / "figuras"                   # graficos dos notebooks
+ENSAIO = RESULTS / "ensaio"                     # logs e metricas do servidor de teste
+# docs/figuras (o \graphicspath do TCC) nao e' escrito pelos notebooks: quando
+# uma figura vai para o texto, a copia de results/figuras/ e' manual.
+
+EVAL_LOG = ENSAIO / "model_eval.csv"            # o log default do servidor de teste
 
 DIST = ROOT / "dist"                # artefatos treinados (keras/joblib)
 EXPORT_MLP = DIST                   # caminho historico do MLP

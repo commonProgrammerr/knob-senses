@@ -9,9 +9,13 @@ plota importa `common.plots`.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from . import paths
 
 SUPERFICIE, TINTA = "#fcfcfb", "#0b0b0b"
 TINTA_2, MUDO = "#52514e", "#898781"
@@ -30,6 +34,20 @@ def aplicar_estilo() -> None:
         "figure.facecolor": SUPERFICIE,
         "axes.facecolor": SUPERFICIE,
     })
+
+
+def salvar_figura(fig, nome: str, *, pasta: str = "figuras",
+                  dpi: int = 200, bbox_inches: str | None = "tight") -> Path:
+    """Salva em results/<pasta>/<nome>.
+
+    O TCC inclui docs/figuras/..., mas a copia NAO e' automatica: quando a
+    figura vai para o texto, copie o arquivo de results/figuras/ para la.
+    """
+    destino = paths.RESULTS / pasta / nome
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(destino, dpi=dpi, bbox_inches=bbox_inches)
+    print(f"  figura: {destino.relative_to(paths.ROOT)}", flush=True)
+    return destino
 
 
 def enfeitar(ax, titulo, xlabel, ylabel) -> None:

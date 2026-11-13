@@ -11,4 +11,5 @@ Mapa dos modulos (importe o que precisar; este __init__ nao importa nada, para
     verify     conferidor nativo (g++/xtensa) contra o sklearn (RF)
     server     o protocolo do servidor de teste (model_teste.ipynb)
     plots      paleta, enfeitar e funcoes de grafico dos notebooks
+    results    saidas em CSV + Markdown em results/ (leitura por agentes)
 """
