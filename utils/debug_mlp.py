@@ -17,7 +17,7 @@ from scipy.special import inv_boxcox
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "models" / "src"))
 
-from common import contract, data, gaps, paths  # noqa: E402
+from common import contract, data, paths  # noqa: E402
 from mlp import transformacao  # noqa: E402
 
 
@@ -37,12 +37,11 @@ def main(argv=None) -> int:
 
     teste = data.read_csv(paths.SPLITS / "test" / f"{contract.TRAIN_INVERSOR}.csv")
     teste = teste[teste["freq"] == freq].reset_index(drop=True)
-    gapado, _, _ = gaps.gerar_gaps(teste, freq=freq)
-    X = ((gapado[list(contract.RF_FEATURES)] - minimo) /
+    X = ((teste[list(contract.RF_FEATURES)] - minimo) /
          (maximo - minimo)).to_numpy(np.float32)
 
     for i in range(min(n, len(X))):
-        bruto = gapado.iloc[i][list(contract.RF_FEATURES)].to_numpy(np.float32)
+        bruto = teste.iloc[i][list(contract.RF_FEATURES)].to_numpy(np.float32)
         norm = X[i]
         q = np.clip(np.rint(norm / iscale) + izp, -128, 127).astype(np.int8)
         it.set_tensor(inp["index"], q.reshape(inp["shape"]))

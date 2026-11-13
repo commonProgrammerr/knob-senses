@@ -156,10 +156,10 @@ def _simular(freq: str, modelo_nome: str = "modelo_quantizado.tflite") -> bool:
     teste = data.read_csv(caminho)
     teste = teste[teste["freq"] == freq].reset_index(drop=True)
     verdade = teste.copy()
-    gapado, _, rotulo = gaps.gerar_gaps(teste, freq=freq)
-    gapado["gap"] = rotulo
+    mask, _ = gaps.gerar_gaps(teste, freq=freq,
+                              gaps=("1h", "6h", "24h", "3d"))
 
-    X = gapado[list(contract.RF_FEATURES)].to_numpy(np.float32)
+    X = teste[list(contract.RF_FEATURES)].to_numpy(np.float32)
     minimo = np.array(dados["minimo"], dtype=np.float32)
     maximo = np.array(dados["maximo"], dtype=np.float32)
     X = ((X - minimo) / (maximo - minimo)).astype(np.float32)
@@ -197,15 +197,15 @@ def _simular(freq: str, modelo_nome: str = "modelo_quantizado.tflite") -> bool:
     def _mascara(real):
         return real.notna().to_numpy() & (real.to_numpy() != 0.0)
 
-    fora = _mascara(gapado["PCA"])
-    dentro = gapado["PCA"].isna().to_numpy()
+    fora = _mascara(teste["PCA"]) & ~mask
+    dentro = mask
     real_dentro = verdade.loc[dentro, "PCA"]
     ok_dentro = real_dentro.notna().to_numpy() & (real_dentro.to_numpy() != 0.0)
     completo = _mascara(verdade["PCA"])
 
     metrics.evaluate(
         f"{nome_modelo} {freq} fora dos gaps",
-        gapado.loc[fora, "PCA"].to_numpy(),
+        teste.loc[fora, "PCA"].to_numpy(),
         pred[fora], dados["pca_min_kw"], dados["pca_max_kw"])
     metrics.evaluate(
         f"{nome_modelo} {freq} dentro dos gaps",

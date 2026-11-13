@@ -104,12 +104,14 @@ def main(argv=None) -> int:
     teste = data.read_csv(caminho)
     teste = teste[teste["freq"] == freq].reset_index(drop=True)
     verdade = teste.copy()
-    gapado, _, rotulo = gaps.gerar_gaps(teste, freq=freq)
-    gapado["gap"] = rotulo
-    X_tes = ((gapado[list(contract.RF_FEATURES)] - minimo) /
+    mask, _ = gaps.gerar_gaps(teste, freq=freq,
+                              gaps=("1h", "6h", "24h", "3d"))
+    X_tes = ((teste[list(contract.RF_FEATURES)] - minimo) /
              (maximo - minimo)).to_numpy(np.float32)
-    fora = gapado["PCA"].notna().to_numpy() & (gapado["PCA"].to_numpy() != 0.0)
-    y_tes = gapado.loc[fora, "PCA"].to_numpy()
+    fora = (teste["PCA"].notna().to_numpy()
+            & (teste["PCA"].to_numpy() != 0.0)
+            & ~mask)
+    y_tes = teste.loc[fora, "PCA"].to_numpy()
 
     # Calibracao de 2024H2, usada SO para o offset.
     cal = data.load_split("calibration", freq=freq)
