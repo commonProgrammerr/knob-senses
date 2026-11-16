@@ -1,0 +1,14 @@
+| feature | importancia | freq |
+| --- | --- | --- |
+| temp_amb | 0.00171837 | 5min |
+| jacques | 0.00607128 | 5min |
+| ghit | 0.99221 | 5min |
+| jacques | 0.00158325 | 10min |
+| temp_amb | 0.00252032 | 10min |
+| ghit | 0.995896 | 10min |
+| jacques | 0.00128795 | 1h |
+| temp_amb | 0.0040207 | 1h |
+| ghit | 0.994691 | 1h |
+| jacques | 0.00286788 | 1D |
+| temp_amb | 0.0065883 | 1D |
+| ghit | 0.990544 | 1D |
