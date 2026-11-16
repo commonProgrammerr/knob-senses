@@ -5,14 +5,6 @@
 \providecommand{\abntbstabout}[1]{}
 \abntbstabout{v-1.9.7 }
 
-\bibitem[Abadi et al. 2016]{abadi2016}
-\abntrefinfo{Abadi et al.}{ABADI et al.}{2016}
-{ABADI, M.; BARHAM, P.; CHEN, J.; CHEN, Z.; DAVIS, A.; DEAN, J.; DEVIN, M.;
-  GHEMAWAT, S.; IRVING, G.; ISARD, M. et al. {TensorFlow}: A system for
-  large-scale machine learning. In:  \textbf{Proceedings of the 12th USENIX
-  Symposium on Operating Systems Design and Implementation}. [S.l.: s.n.],
-  2016. p. 265--283.}
-
 \bibitem[Albelali et al. 2025]{albelali2025}
 \abntrefinfo{Albelali et al.}{ALBELALI et al.}{2025}
 {ALBELALI, S. et al. \textbf{Hidden Leaks in Time Series Forecasting: How Data
@@ -24,19 +16,6 @@
 {BALFOUR, J. et al. Masking of photovoltaic system performance problems by
   inverter clipping and other design and operational practices.
 \textbf{Renewable and Sustainable Energy Reviews}, 2021.}
-
-\bibitem[Belitz e Stackelberg 2021]{belitz2021}
-\abntrefinfo{Belitz e Stackelberg}{BELITZ; STACKELBERG}{2021}
-{BELITZ, K.; STACKELBERG, P.~E. Evaluation of six methods for correcting bias
-  in estimates from ensemble tree machine learning regression models.
-\textbf{Environmental Modelling \& Software}, v.~139, p. 105006, 2021.}
-
-\bibitem[Bengio 2012]{bengio2012}
-\abntrefinfo{Bengio}{BENGIO}{2012}
-{BENGIO, Y. Practical recommendations for gradient-based training of deep
-  architectures. In:  \textbf{Neural Networks: Tricks of the Trade}. 2. ed.
-  [S.l.]: Springer, 2012,  (Lecture Notes in Computer Science, v.~7700). p.
-  437--478.}
 
 \bibitem[Box e Cox 1964]{boxcox1964}
 \abntrefinfo{Box e Cox}{BOX; COX}{1964}
@@ -67,6 +46,26 @@
 \abntrefinfo{Chollet et al.}{CHOLLET et al.}{2015}
 {CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
 Acesso em: 2026-11-07.}
+
+\bibitem[David et al. 2021]{david2021}
+\abntrefinfo{David et al.}{DAVID et al.}{2021}
+{DAVID, R.; DUKE, J.; JAIN, A.; REDDI, V.~J.; JEFFRIES, N.; LI, J.; KREEGER,
+  N.; NAPPIER, I.; NATRAJ, M.; WANG, T.; WARDEN, P.; RHODES, R. {TensorFlow
+  Lite Micro}: Embedded machine learning for {TinyML} systems. In:
+  \textbf{Proceedings of Machine Learning and Systems}. [s.n.], 2021. v.~3.
+  Dispon{\'\i}vel em:
+  \url{https://proceedings.mlsys.org/paper\_files/paper/2021/hash/6c44dc73014d66ba49b28d483a8f8b0d-Abstract.html}.}
+
+\bibitem[Dobos 2014]{dobos2014}
+\abntrefinfo{Dobos}{DOBOS}{2014}
+{DOBOS, A.~P. \textbf{{PVWatts} Version 5 Manual}.
+Golden, Colorado, 2014.}
+
+\bibitem[Dolara, Leva e Manzolini 2015]{dolara2015modelos}
+\abntrefinfo{Dolara, Leva e Manzolini}{DOLARA; LEVA; MANZOLINI}{2015}
+{DOLARA, A.; LEVA, S.; MANZOLINI, G. Comparison of different physical models
+  for {PV} power output prediction.
+\textbf{Solar Energy}, v.~119, p. 83--99, 2015.}
 
 \bibitem[{Espressif Systems} 2024]{espressif2024}
 \abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2024}
@@ -115,7 +114,9 @@ Acesso em: 2026-11-07.}
   VAROQUAUX}{2022}
 {GRINSZTAJN, L.; OYALLON, E.; VAROQUAUX, G. Why do tree-based models still
   outperform deep learning on typical tabular data? In:  \textbf{Advances in
-  Neural Information Processing Systems 35 (NeurIPS)}. [S.l.: s.n.], 2022.}
+  Neural Information Processing Systems 35 (NeurIPS)}. [s.n.], 2022. v.~35, p.
+  507--520. Dispon{\'\i}vel em:
+  \url{https://papers.nips.cc/paper\_files/paper/2022/hash/0378c7692da36807bdec87ab043cdadc-Abstract.html}.}
 
 \bibitem[Hodson 2022]{hodson2022}
 \abntrefinfo{Hodson}{HODSON}{2022}
@@ -127,6 +128,19 @@ Acesso em: 2026-11-07.}
 \abntrefinfo{Huber}{HUBER}{1964}
 {HUBER, P.~J. Robust estimation of a location parameter.
 \textbf{The Annals of Mathematical Statistics}, v.~35, n.~1, p. 73--101, 1964.}
+
+\bibitem[Hyndman e Koehler 2006]{hyndman2006}
+\abntrefinfo{Hyndman e Koehler}{HYNDMAN; KOEHLER}{2006}
+{HYNDMAN, R.~J.; KOEHLER, A.~B. Another look at measures of forecast accuracy.
+\textbf{International Journal of Forecasting}, v.~22, n.~4, p. 679--688, 2006.}
+
+\bibitem[Jacob et al. 2018]{jacob2018}
+\abntrefinfo{Jacob et al.}{JACOB et al.}{2018}
+{JACOB, B.; KLIGYS, S.; CHEN, B.; ZHU, M.; TANG, M.; HOWARD, A.; ADAM, H.;
+  KALENICHENKO, D. Quantization and training of neural networks for efficient
+  integer-arithmetic-only inference. In:  \textbf{Proceedings of the IEEE
+  Conference on Computer Vision and Pattern Recognition}. [S.l.: s.n.], 2018.
+  p. 2704--2713.}
 
 \bibitem[Jacques et al. 2013]{jacques2013}
 \abntrefinfo{Jacques et al.}{JACQUES et al.}{2013}
@@ -145,7 +159,19 @@ Acesso em: 2026-11-07.}
 \abntrefinfo{Kingma e Ba}{KINGMA; BA}{2015}
 {KINGMA, D.~P.; BA, J. Adam: A method for stochastic optimization. In:
   \textbf{3rd International Conference on Learning Representations (ICLR)}.
-  [S.l.: s.n.], 2015.}
+  [s.n.], 2015. Dispon{\'\i}vel em: \url{https://arxiv.org/abs/1412.6980}.}
+
+\bibitem[Koo, Yoon e Kim 2022]{koo2022calibracao}
+\abntrefinfo{Koo, Yoon e Kim}{KOO; YOON; KIM}{2022}
+{KOO, J.; YOON, S.; KIM, J. Virtual in situ calibration for operational backup
+  virtual sensors in building energy systems.
+\textbf{Energies}, v.~15, n.~4, p.~1394, 2022.}
+
+\bibitem[Krishnamoorthi 2018]{krishnamoorthi2018quantization}
+\abntrefinfo{Krishnamoorthi}{KRISHNAMOORTHI}{2018}
+{KRISHNAMOORTHI, R. Quantizing deep convolutional networks for efficient
+  inference: A whitepaper.
+\textbf{arXiv preprint arXiv:1806.08342}, 2018.}
 
 \bibitem[Lee e Son 2024]{lee2024}
 \abntrefinfo{Lee e Son}{LEE; SON}{2024}
@@ -153,22 +179,31 @@ Acesso em: 2026-11-07.}
   assessment via imputation of missing {PV} power data.
 \textbf{IEEE Access}, v.~12, p. 12843--12852, 2024.}
 
-\bibitem[Li et al. 2019]{li2019}
-\abntrefinfo{Li et al.}{LI et al.}{2019}
-{LI, G.; WANG, H.; ZHANG, S.; XIN, J.; LIU, H. Recurrent neural networks based
-  photovoltaic power forecasting approach.
-\textbf{Energies}, v.~12, n.~13, p.~2538, 2019.}
+\bibitem[Lindig et al. 2020]{lindig2020monitoramento}
+\abntrefinfo{Lindig et al.}{LINDIG et al.}{2020}
+{LINDIG, S.; LOUWEN, A.; MOSER, D.; TOPI{\v{C}}, M. Outdoor {PV} system
+  monitoring---input data quality, data imputation and filtering approaches.
+\textbf{Energies}, v.~13, n.~19, p.~5099, 2020.}
 
-\bibitem[Masters e Luschi 2018]{masters2018}
-\abntrefinfo{Masters e Luschi}{MASTERS; LUSCHI}{2018}
-{MASTERS, D.; LUSCHI, C. \textbf{Revisiting Small Batch Training for Deep
-  Neural Networks}. 2018. ArXiv preprint arXiv:1804.07612.}
+\bibitem[Livera et al. 2021]{livera2020qualidade}
+\abntrefinfo{Livera et al.}{LIVERA et al.}{2021}
+{LIVERA, A.; THERISTIS, M.; KOUMPLI, E.; THEOCHARIDES, S.; MAKRIDES, G.;
+  SUTTERLUETI, J.; STEIN, J.~S.; GEORGHIOU, G.~E. Data processing and quality
+  verification for improved photovoltaic performance and reliability analytics.
+\textbf{Progress in Photovoltaics: Research and Applications}, v.~29, n.~2, p.
+  143--158, 2021.}
 
-\bibitem[Mayer 2021]{mayer2021}
-\abntrefinfo{Mayer}{MAYER}{2021}
-{MAYER, M.~J. Effects of the meteorological data resolution and aggregation on
-  the optimal design of photovoltaic power plants.
-\textbf{Energy Conversion and Management}, v.~241, p. 114313, 2021.}
+\bibitem[Mayer e Gr{\'o}f 2021]{mayer2020modelos}
+\abntrefinfo{Mayer e Gr{\'o}f}{MAYER; GR{\'O}F}{2021}
+{MAYER, M.~J.; GR{\'O}F, G. Extensive comparison of physical models for
+  photovoltaic power forecasting.
+\textbf{Applied Energy}, v.~283, p. 116239, 2021.}
+
+\bibitem[Nagel et al. 2021]{nagel2021quantization}
+\abntrefinfo{Nagel et al.}{NAGEL et al.}{2021}
+{NAGEL, M.; FOURNARAKIS, M.; AMJAD, R.~A.; BONDARENKO, Y.; BAALEN, M. van;
+  BLANKEVOORT, T. A white paper on neural network quantization.
+\textbf{arXiv preprint arXiv:2106.08295}, 2021.}
 
 \bibitem[Neto, Filho e Lima 2024]{moraesneto2024}
 \abntrefinfo{Neto, Filho e Lima}{NETO; FILHO; LIMA}{2024}
@@ -182,12 +217,6 @@ Acesso em: 2026-11-07.}
 {NORDBY, J. \textbf{emlearn: Machine Learning inference engine for
   Microcontrollers}. 2024. \url{https://emlearn.readthedocs.io/}.
 Acesso em: 2026-11-07.}
-
-\bibitem[Novac et al. 2021]{novac2021}
-\abntrefinfo{Novac et al.}{NOVAC et al.}{2021}
-{NOVAC, P.-E.; HACENE, G. B.; PEGATOQUET, A.; MIRAMOND, B.; GRIPON, V.
-  Quantization and deployment of deep neural networks on microcontrollers.
-\textbf{Sensors}, v.~21, n.~9, p.~2984, 2021.}
 
 \bibitem[Pedregosa et al. 2011]{pedregosa2011}
 \abntrefinfo{Pedregosa et al.}{PEDREGOSA et al.}{2011}
@@ -204,21 +233,37 @@ Acesso em: 2026-11-07.}
 
 \bibitem[Prechelt 1998]{prechelt1998}
 \abntrefinfo{Prechelt}{PRECHELT}{1998}
-{PRECHELT, L. Early stopping---but when? In:  \textbf{Neural Networks: Tricks
-  of the Trade}. [S.l.]: Springer, 1998,  (Lecture Notes in Computer Science,
-  v.~1524). p. 55--69.}
+{PRECHELT, L. Early stopping---but when? In:  ORR, G.~B.; M{\"U}LLER, K.-R.
+  (Ed.). \textbf{Neural Networks: Tricks of the Trade}. Berlin: Springer, 1998,
+   (Lecture Notes in Computer Science, v.~1524). p. 55--69.}
 
-\bibitem[Probst, Boulesteix e Bischl 2018]{probst2018}
-\abntrefinfo{Probst, Boulesteix e Bischl}{PROBST; BOULESTEIX; BISCHL}{2018}
-{PROBST, P.; BOULESTEIX, A.-L.; BISCHL, B. Hyperparameters and tuning
-  strategies for random forest.
-\textbf{Wiley Interdisciplinary Reviews: Data Mining and Knowledge Discovery},
-  2018.}
+\bibitem[Roberts et al. 2017]{roberts2017}
+\abntrefinfo{Roberts et al.}{ROBERTS et al.}{2017}
+{ROBERTS, D.~R.; BAHN, V.; CIUTI, S.; BOYCE, M.~S.; ELITH, J.;
+  GUILLERA-ARROITA, G.; HAUENSTEIN, S.; LAHOZ-MONFORT, J.~J.; SCHR{\"O}DER, B.;
+  THUILLER, W.; WARTON, D.~I.; WINTLE, B.~A.; HARTIG, F.; DORMANN, C.~F.
+  Cross-validation strategies for data with temporal, spatial, hierarchical, or
+  phylogenetic structure.
+\textbf{Ecography}, v.~40, n.~8, p. 913--929, 2017.}
 
 \bibitem[Severiano et al. 2026]{severiano2026}
 \abntrefinfo{Severiano et al.}{SEVERIANO et al.}{2026}
 {SEVERIANO, B.~M. et al. A robust rule-based method for detecting and
   classifying underperformance in photovoltaic systems using inverter data.
 \textbf{Solar Energy}, 2026.}
+
+\bibitem[Soto, Klein e Beckman 2006]{desoto2006}
+\abntrefinfo{Soto, Klein e Beckman}{SOTO; KLEIN; BECKMAN}{2006}
+{SOTO, W. D.; KLEIN, S.~A.; BECKMAN, W.~A. Improvement and validation of a
+  model for photovoltaic array performance.
+\textbf{Solar Energy}, v.~80, n.~1, p. 78--88, 2006.}
+
+\bibitem[Srivastava et al. 2014]{srivastava2014}
+\abntrefinfo{Srivastava et al.}{SRIVASTAVA et al.}{2014}
+{SRIVASTAVA, N.; HINTON, G.; KRIZHEVSKY, A.; SUTSKEVER, I.; SALAKHUTDINOV, R.
+  Dropout: A simple way to prevent neural networks from overfitting.
+\textbf{Journal of Machine Learning Research}, v.~15, n.~56, p. 1929--1958,
+  2014.
+Dispon{\'\i}vel em: \url{https://jmlr.org/papers/v15/srivastava14a.html}.}
 
 \end{thebibliography}

@@ -1,12 +1,14 @@
 \chapter{Resultados}
 \label{cap:resultados}
 
-Os resultados são apresentados em quatro eixos: distribuição da potência
-ativa CA (PCA), desempenho dos modelos em diferentes granularidades,
-execução embarcada e comportamento durante lacunas artificiais de telemetria.
-A comparação \textit{offline} refere-se ao inversor E1; o ensaio embarcado
-abrange E1, E2 e E3. Para este último, são utilizados exclusivamente os
-resultados da rodada consolidada de 2025.
+O capítulo começa pela base de dados, porque as propriedades da PCA e a
+correlação entre as entradas condicionam a leitura dos resultados
+seguintes. Depois, compara RF, MLP e regressão linear nas quatro
+granularidades e examina a transferência dos modelos entre resoluções.
+O ensaio embarcado e as lacunas artificiais de telemetria fecham o
+capítulo. A avaliação \textit{offline} usa o teste de 2025 de E1; E2 e
+E3 entram apenas no ensaio, com os registros de 2025 reservados desde a
+preparação dos dados.
 
 \section{Caracterização da base e distribuição da PCA}
 \label{sec:resultados-distribuicao}
@@ -14,103 +16,203 @@ resultados da rodada consolidada de 2025.
 \subsection{Panorama dos registros disponíveis}
 \label{sec:resultados-panorama-base}
 
-A base original reuniu 410\,451 registros diurnos dos inversores E1, E2
-e E3, distribuídos em nove arquivos. Após a limpeza, permaneceram
-401\,087 registros. A resolução de origem foi de 5~min e o histórico de
-E1 abrangeu 2021 a 2025. Esses registros forneceram as distribuições de PCA
-examinadas a seguir; as etapas de filtragem e partição são detalhadas na
-metodologia.
+A base reuniu 410\,451 registros diurnos dos inversores E1, E2 e E3 em
+nove arquivos CSV. A resolução original é de 5~min; o histórico de E1
+cobre 2021 a 2025, e o de E2 e E3, 2024 e 2025. Setenta e seis registros
+não tinham valor de PCA e foram descartados na preparação. Os 410\,375
+restantes passaram pelos filtros de qualidade descritos na metodologia,
+o que deixou 401\,087 observações. Desse total, 1\,057 mantêm PCA nula
+com irradiância entre 5 e 50~W/m$^2$, faixa em que o zero foi mantido
+como observação válida e não como falha.
+
+A partição temporal reservou E1 para treinamento, validação e
+calibração, e o ano de 2025 para teste. O teste de E1 tem 44\,911
+observações em 5~min, 22\,637 em 10~min, 4\,042 em 1~h e 354 em 1~d. A
+redução acompanha a agregação: a amostra diária é cerca de 127 vezes
+menor que a de 5~min, o que alarga a incerteza dos indicadores e limita
+comparações diretas entre resoluções. O treinamento encolhe na mesma
+proporção, de 156\,440 para 1\,250 observações, e esse é um dos motivos
+para o comportamento do erro mudar com a granularidade.
 
 \subsection{Distribuição da PCA e efeito da agregação temporal}
 \label{sec:resultados-assimetria-pca}
 
-A \cref{fig:resultados-pca-granularidades} apresenta os histogramas da PCA em
-seis resoluções, incluindo 30~min e 6~h como escalas exploratórias. Nas
-resoluções mais finas, a distribuição concentra mais registros em faixas de
-potência reduzida, com uma cauda em direção a valores maiores. Com o
-agrupamento temporal, as flutuações rápidas são suavizadas e as frequências
-relativas das faixas de potência se modificam.
+A \cref{fig:resultados-pca-granularidades} apresenta os histogramas da
+PCA em seis resoluções, incluindo 30~min e 6~h como escalas
+exploratórias. Nas resoluções mais finas, a distribuição concentra mais
+registros em faixas de potência reduzida e mantém uma cauda em direção
+a valores maiores. O agrupamento temporal suaviza as flutuações
+rápidas e altera as frequências relativas das faixas: picos curtos
+deixam de aparecer como observações isoladas e passam a compor médias
+mais próximas do centro da distribuição.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.96\textwidth]{figuras/pca_distribuicao_granularidades.png}
     \caption{Distribuição da PCA por granularidade}
     \label{fig:resultados-pca-granularidades}
-    \source{Elaborado pelo autor.}
+    \source{Elaborado pelo autor a partir dos registros filtrados.}
 \end{figure}
 
-A predominância de potências menores implica menor representação das
-faixas elevadas durante o ajuste, o que pode contribuir para erros mais
-heterogêneos ao longo da faixa de operação. A agregação também modifica a
-variância do alvo; por isso, a comparação entre resoluções não pode se
-limitar ao MAE. Uma distribuição mais simétrica, isoladamente, não comprova
-melhor aprendizagem.
+A forma da distribuição muda de maneira mensurável. O parâmetro
+$\lambda$ da transformação Box--Cox, ajustado apenas no treino, passou
+de 0,566 em 5~min para 0,614 em 10~min, 0,651 em 1~h e 1,413 em 1~d. A
+transformação foi aplicada ao alvo do MLP, não às entradas, e o aumento
+de $\lambda$ é consistente com a mudança de forma que a agregação
+produz.
+
+A concentração em potências menores reduz a representação das faixas
+elevadas durante o ajuste, o que pode gerar erros mais heterogêneos ao
+longo da faixa de operação. A agregação também diminui a variância do
+alvo; por isso, a comparação entre resoluções não pode se limitar ao
+MAE. Um erro absoluto da mesma ordem passa a representar uma fração
+maior da variância total quando a variância diminui, e uma distribuição
+mais simétrica não comprova, sozinha, melhor aprendizagem.
+
+\subsection{Correlação entre as variáveis}
+\label{sec:resultados-correlacao}
+
+A \cref{fig:resultados-matriz-correlacao} mostra a matriz de correlação
+linear obtida sobre os registros filtrados. As três entradas do modelo
+têm correlação positiva com a PCA: 0,875 para \texttt{ghit}, 0,856 para
+\texttt{jacques} e 0,611 para \texttt{temp\_amb}. \texttt{ghit} e
+\texttt{jacques} são quase colineares entre si (0,963), e ambas
+acompanham a temperatura ambiente (0,649 e 0,825, respectivamente).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.58\textwidth]{figuras/matriz_correlacao_variaveis.png}
+    \caption{Matriz de correlação entre as variáveis da base}
+    \label{fig:resultados-matriz-correlacao}
+    \source{Elaborado pelo autor a partir dos registros filtrados.}
+\end{figure}
+
+A colinearidade ajuda a interpretar a importância das variáveis
+discutida adiante. Quando duas entradas carregam informação semelhante,
+a floresta pode concentrar os cortes em uma delas sem que a outra seja
+descartável; a divisão de crédito depende de quais variáveis produzem
+separações mais úteis em cada nó. Nenhuma correlação com a PCA passa de
+0,88, o que deixa espaço para erro em um modelo linear e é coerente com
+a diferença de desempenho entre a regressão e os modelos não lineares
+observada no teste de 2025.
 
 \section{Treinamento e comparação dos modelos}
 \label{sec:resultados-modelos}
 
-\subsection{Convergência do MLP e complexidade das florestas}
+\subsection{Configurações selecionadas e convergência}
 \label{sec:resultados-convergencia}
 
-A \cref{tab:resultados-custos-treinamento} reúne a complexidade das
-florestas selecionadas e os resultados de convergência do MLP. O treinamento
-do RF durou de 0,1 a 0,6~s, enquanto o do MLP variou de 16,2 a 264,5~s
-no ambiente utilizado. Esses valores dizem respeito ao ajuste dos modelos,
-não à inferência embarcada.
+A seleção do RF avaliou 14 configurações por granularidade, combinando
+número de árvores, mínimo de amostras por folha e limite de
+profundidade. O critério foi o $R^2$ na janela 2024H2, depois da
+correção de viés de cada candidata; entre as duas primeiras, venceu a
+de menor tempo de inferência por amostra. A
+\cref{tab:resultados-config-rf} traz as configurações resultantes.
 
 \begin{table}[H]
     \centering
     \small
-    \caption{Treinamento do RF e do MLP por granularidade}
-    \label{tab:resultados-custos-treinamento}
+    \caption{Configurações selecionadas do Random Forest por granularidade}
+    \label{tab:resultados-config-rf}
     \resizebox{\textwidth}{!}{%
-    \begin{tabular}{lrrrrrr}
+    \begin{tabular}{lrrlrr}
         \toprule
-        & \multicolumn{3}{c}{Random Forest} & \multicolumn{3}{c}{MLP} \\
-        \cmidrule(lr){2-4} \cmidrule(lr){5-7}
-        Granularidade & Árvores & Nós & Treino (s) & Épocas & MAE de validação$^{*}$ & Treino (s) \\
+        Granularidade & Árvores & Folha mínima & Profundidade máxima & Nós & Treino (s) \\
         \midrule
-        5 min  & 8  & 3\,012  & 0,5 & 155 & 0,19859 & 264,5 \\
-        10 min & 15 & 7\,585  & 0,6 & 128 & 0,15798 & 95,5 \\
-        1 h    & 50 & 34\,578 & 0,3 & 87  & 0,09699 & 39,5 \\
-        1 d    & 50 & 11\,140 & 0,1 & 123 & 0,05558 & 16,2 \\
+        5 min  & 8  & 400 & sem limite & 3\,012  & 0,30 \\
+        10 min & 15 & 150 & sem limite & 7\,585  & 0,27 \\
+        1 h    & 50 & 5   & 8          & 22\,908 & 0,12 \\
+        1 d    & 50 & 5   & sem limite & 12\,654 & 0,05 \\
         \bottomrule
     \end{tabular}}
     \source{Elaborado pelo autor a partir dos registros de treinamento.}
-
-    {\footnotesize $^{*}$MAE de validação no domínio Box--Cox, sem unidade física.}
 \end{table}
 
-A floresta de 1~h apresentou o maior número de nós (34\,578), apesar
-de ter a mesma quantidade de árvores da configuração diária. No MLP, o
-maior tempo de treinamento ocorreu em 5~min, com 264,5~s; todas as redes
-encerraram o ajuste antes do limite de épocas. Os MAEs de validação foram
-obtidos no domínio transformado por Box--Cox e não representam erros em kW,
-o que impede compará-los diretamente entre granularidades.
+As florestas variaram de 8 a 50 árvores e de 5 a 400 amostras por
+folha. O modelo de 1~h foi o único com teto de profundidade (8), o que
+limitou a floresta a 22\,908 nós; em 1~d, a mesma combinação de 50
+árvores e 5 amostras por folha, sem teto, gerou 12\,654 nós. A floresta
+de 5~min foi a menor, com 3\,012 nós, porque configurações maiores não
+melhoraram o $R^2$ de calibração de forma relevante. O custo de ajuste
+não passou de 0,3~s em todas as resoluções.
 
-Na \cref{fig:resultados-mlp-curvas-treinamento}, referente ao MLP de
-1~h, a perda e os erros de treinamento diminuem progressivamente, mas as
-curvas de validação voltam a subir após um mínimo inicial. O afastamento
-subsequente indica que mais épocas não corresponderam a melhor desempenho
-na janela de validação; a generalização foi examinada separadamente no
-teste de 2025.
+O MLP seguiu outra trajetória. A
+\cref{tab:resultados-convergencia-mlp} reúne o número de épocas, o
+melhor MAE de validação e o MAE da última época. Todas as redes
+pararam antes do limite, e a parada antecipada restaurou os pesos do
+melhor ponto.
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{Convergência do MLP por granularidade}
+    \label{tab:resultados-convergencia-mlp}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lrrrr}
+        \toprule
+        Granularidade & Épocas & Melhor MAE de validação$^{*}$ & MAE na última época$^{*}$ & Treino (s) \\
+        \midrule
+        5 min  & 155 & 0,19859 & 0,20115 & 147,1 \\
+        10 min & 128 & 0,15798 & 0,16358 & 65,5 \\
+        1 h    & 87  & 0,09699 & 0,11817 & 25,3 \\
+        1 d    & 123 & 0,05558 & 0,09663 & 12,0 \\
+        \bottomrule
+    \end{tabular}}
+    \source{Elaborado pelo autor a partir do histórico de treinamento.}
+
+    {\footnotesize $^{*}$MAE no domínio Box--Cox, sem unidade física; os valores não são comparáveis entre granularidades.}
+\end{table}
+
+Os tempos de ajuste do MLP ficaram entre 12,0 e 147,1~s no ambiente
+utilizado, bem acima do RF, que não passou de 0,3~s. A diferença não
+é surpresa: o RF resolve cada árvore de forma independente e paralela,
+enquanto o MLP percorre o conjunto várias vezes por época. Os tempos se
+referem apenas ao ajuste; não incluem a conversão para TFLite, a
+geração da biblioteca C nem a compilação do firmware.
+
+O caso de 1~h ilustra o que a parada antecipada evitou. O MAE de
+validação chegou ao mínimo na sétima época (0,09699), subiu para
+0,11817 no fim, e o MAE de treinamento continuou caindo. A
+\cref{fig:resultados-mlp-curvas-treinamento} mostra o afastamento entre
+as curvas. Em 1~d, o recuo é maior: o melhor valor ocorre na terceira
+época (0,05558) e o MAE final é 74\% mais alto. Nesse ponto, mais
+épocas significariam um modelo mais ajustado ao treino e pior na
+própria janela de validação.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.98\textwidth]{figuras/mlp_treino_1h.png}
     \caption{Curvas de treinamento e validação do MLP de 1~h}
     \label{fig:resultados-mlp-curvas-treinamento}
-    \source{Elaborado pelo autor a partir dos registros de treinamento.}
+    \source{Elaborado pelo autor a partir do histórico de treinamento.}
 \end{figure}
+
+A importância das variáveis no RF foi medida pela redução de impureza, e
+o resultado ficou concentrado em \texttt{ghit}: 99,2\% em 5~min, 99,7\%
+em 10~min, 99,5\% em 1~h e 99,1\% em 1~d. \texttt{temp\_amb} ficou
+entre 0,17\% e 0,66\%, e \texttt{jacques}, entre 0,11\% e 0,61\%. O resultado é
+consistente com a correlação de 0,963 entre \texttt{ghit} e
+\texttt{jacques}: com duas entradas quase colineares, a floresta
+encontra na irradiância a variável que resolve a maior parte das
+separações e deixa para a temperatura do módulo um papel marginal.
+
+A leitura tem limite. A importância por impureza não mede o efeito de
+remover uma variável, e a colinearidade faz o crédito se concentrar em
+uma das duas. \texttt{jacques} pode ser relevante em outra amostra ou
+em outro modelo mesmo com importância baixa aqui. O MLP não oferece uma
+medida equivalente, e a comparação entre as arquiteturas não deve ser
+feita por esse indicador.
 
 \subsection{Precisão dos modelos em cada granularidade}
 \label{sec:resultados-comparacao-modelos}
 
-A \cref{tab:resultados-comparacao-offline} apresenta as métricas do teste
-de 2025 em E1. Em todas as granularidades, o MLP apresentou menor MAE e
-RMSE e maior $R^2$ que o RF e a regressão linear. A comparação deve ser
-interpretada com a ressalva de que RF e MLP receberam correção aditiva de
-viés, diferentemente da regressão linear.
+A \cref{tab:resultados-comparacao-offline} reúne as métricas do teste de
+2025 de E1 para os três modelos. O MLP teve o menor MAE e o menor RMSE
+nas quatro granularidades, e também o maior $R^2$. A regressão linear
+ficou em terceiro lugar em todas as resoluções. RF e MLP receberam
+correção aditiva de viés; a regressão não. A ressalva vale para a
+leitura do viés; entre RF e MLP, o procedimento de calibração foi o
+mesmo, ainda que as correções tenham magnitudes diferentes.
 
 \begin{table}[H]
     \centering
@@ -124,43 +226,46 @@ viés, diferentemente da regressão linear.
         \midrule
         5 min  & Regressão linear & 0,1999 & 0,2775 & 0,7426 & $+0,1059$ \\
                & Random Forest   & 0,1637 & 0,2414 & 0,8052 & $+0,0130$ \\
-               & MLP             & \textbf{0,1596} & \textbf{0,2398} & \textbf{0,8078} & $+0,0122$ \\
+               & MLP             & 0,1596 & 0,2398 & 0,8078 & $+0,0122$ \\
         \midrule
         10 min & Regressão linear & 0,1561 & 0,2071 & 0,8457 & $+0,1130$ \\
                & Random Forest   & 0,1142 & 0,1582 & 0,9100 & $+0,0062$ \\
-               & MLP             & \textbf{0,1104} & \textbf{0,1552} & \textbf{0,9134} & $+0,0057$ \\
+               & MLP             & 0,1104 & 0,1552 & 0,9134 & $+0,0057$ \\
         \midrule
         1 h    & Regressão linear & 0,1168 & 0,1531 & 0,9048 & $+0,1140$ \\
-               & Random Forest   & 0,0664 & 0,0835 & 0,9717 & $+0,0024$ \\
-               & MLP             & \textbf{0,0543} & \textbf{0,0688} & \textbf{0,9807} & $+0,0028$ \\
+               & Random Forest   & 0,0664 & 0,0835 & 0,9717 & $+0,0022$ \\
+               & MLP             & 0,0543 & 0,0688 & 0,9807 & $+0,0028$ \\
         \midrule
         1 d    & Regressão linear & 0,1199 & 0,1325 & 0,5338 & $+0,1199$ \\
-               & Random Forest   & 0,0396 & 0,0535 & 0,9240 & $+0,0130$ \\
-               & MLP             & \textbf{0,0366} & \textbf{0,0471} & \textbf{0,9411} & $+0,0079$ \\
+               & Random Forest   & 0,0397 & 0,0535 & 0,9239 & $+0,0129$ \\
+               & MLP             & 0,0366 & 0,0471 & 0,9411 & $+0,0079$ \\
         \bottomrule
     \end{tabular}}
     \source{Elaborado pelo autor a partir dos resultados da avaliação \textit{offline}.}
 \end{table}
 
-Em 5 e 10~min, as diferenças de MAE entre MLP e RF foram de apenas
-0,0041 e 0,0038~kW. Em 1~h, a diferença alcançou 0,0121~kW: o MLP
-registrou MAE de 0,0543~kW e $R^2=0,9807$, frente a 0,0664~kW e
-$R^2=0,9717$ do RF. O MAE do MLP foi cerca de 18\% menor que o do RF
-e 54\% menor que o da regressão linear nessa resolução. A vantagem foi,
-portanto, mais expressiva na avaliação horária.
+Em 5 e 10~min, a diferença de MAE entre MLP e RF é pequena: 0,0041 e
+0,0038~kW. Em 1~h, ela sobe para 0,0121~kW. O MLP chega a 0,0543~kW e
+$R^2=0,9807$, contra 0,0664~kW e $R^2=0,9717$ do RF. Nessa resolução, o
+MAE do MLP é cerca de 18\% menor que o do RF e 54\% menor que o da
+regressão linear. A vantagem da rede neural não é uniforme; ela se
+concentra na escala horária, que é a adotada no ensaio embarcado.
 
-Em 1~d, o MLP obteve o menor MAE (0,0366~kW), porém seu $R^2$
-(0,9411) foi inferior ao de 1~h. Nessa escala, a regressão linear
-apresentou $R^2=0,5338$, enquanto RF e MLP superaram 0,92. O resultado
-diário reflete uma tarefa com alvo agregado e variabilidade diferente;
-o MAE mais baixo não demonstra, por si só, maior precisão em condições
-intradiárias.
+Em 1~d, o MLP tem o menor MAE (0,0366~kW), mas o $R^2$ cai para 0,9411,
+abaixo do 0,9807 de 1~h. O RF também perde (0,9239), e a regressão
+linear desaba para 0,5338. A queda do $R^2$ não significa pior ajuste
+absoluto. O alvo diário tem variância menor, porque a média do dia
+suaviza as flutuações intradiárias; com menos variância para explicar,
+um erro absoluto da mesma ordem passa a representar uma fração maior
+da variância total. O MAE diário mais baixo, isolado, não demonstra
+maior precisão em condições intradiárias.
 
-A \cref{fig:resultados-mlp-avaliacao-granularidades} evidencia maior
-espalhamento em 5 e 10~min, inclusive com subestimação de parte dos valores
-mais elevados. Em 1~h, a densidade se aproxima mais da reta de igualdade.
-O gráfico diário exibe faixa efetiva de potência mais restrita, o que exige
-cautela ao comparar sua dispersão visual com os demais painéis.
+A \cref{fig:resultados-mlp-avaliacao-granularidades} mostra a dispersão
+do MLP. Em 5 e 10~min, a nuvem é mais larga e parte dos valores altos
+fica abaixo da reta de igualdade, o que indica subestimação dos picos.
+Em 1~h, a concentração se aproxima da reta. Em 1~d, a faixa efetiva de
+potência é mais estreita, e a comparação visual com os demais painéis
+exige cautela.
 
 \begin{figure}[H]
     \centering
@@ -170,43 +275,130 @@ cautela ao comparar sua dispersão visual com os demais painéis.
     \source{Elaborado pelo autor a partir da avaliação \textit{offline}.}
 \end{figure}
 
-\subsection{Calibração de viés e limites da comparação}
+A \cref{fig:resultados-rf-avaliacao-granularidades} repete a análise
+para o RF. O padrão é o mesmo, com dispersão um pouco maior e MAE
+superior em todas as resoluções. A semelhança visual entre as figuras
+não elimina a diferença numérica, que é pequena em 5 e 10~min e mais
+clara em 1~h.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figuras/rf_avaliacao_granularidades.png}
+    \caption{PCA medida e estimada pelo RF por granularidade}
+    \label{fig:resultados-rf-avaliacao-granularidades}
+    \source{Elaborado pelo autor a partir da avaliação \textit{offline}.}
+\end{figure}
+
+\subsection{Calibração de viés}
 \label{sec:resultados-calibracao-comparacao}
 
-A \cref{tab:resultados-correcoes} relaciona as correções de viés do
-MLP calculadas em 2024H2 aos vieses residuais dos modelos em 2025.
-Os coeficientes negativos do MLP correspondem à correção de uma tendência
-anterior de superestimação na janela de calibração.
+A correção aditiva foi calculada em 2024H2, com as predições em kW, e
+aplicada ao teste de 2025. A \cref{tab:resultados-correcoes} confronta
+as correções com os vieses residuais. As correções do RF são maiores em
+módulo que as do MLP: de $-0,0800$ a $-0,1056$~kW contra de $-0,0387$ a
+$-0,0758$~kW. O sinal negativo indica que os dois modelos
+superestimavam a PCA na janela de calibração, e a correção desloca as
+estimativas para baixo.
 
 \begin{table}[H]
     \centering
     \small
-    \caption{Correção de viés do MLP e viés residual dos modelos}
+    \caption{Correções de viés e vieses residuais no teste}
     \label{tab:resultados-correcoes}
     \resizebox{\textwidth}{!}{%
-    \begin{tabular}{lrrrr}
+    \begin{tabular}{lrrrrr}
         \toprule
-        & \multicolumn{1}{c}{Calibração (2024H2)} & \multicolumn{3}{c}{Viés no teste (2025), em kW} \\
-        \cmidrule(lr){2-2} \cmidrule(lr){3-5}
-        Granularidade & Correção MLP (kW) & Regressão linear & RF & MLP \\
+        & \multicolumn{2}{c}{Correção em 2024H2 (kW)} & \multicolumn{3}{c}{Viés no teste de 2025 (kW)} \\
+        \cmidrule(lr){2-3} \cmidrule(lr){4-6}
+        Granularidade & RF & MLP & Regressão linear & RF & MLP \\
         \midrule
-        5 min  & $-0,0387$ & $+0,1059$ & $+0,0130$ & $+0,0122$ \\
-        10 min & $-0,0758$ & $+0,1130$ & $+0,0062$ & $+0,0057$ \\
-        1 h    & $-0,0594$ & $+0,1140$ & $+0,0024$ & $+0,0028$ \\
-        1 d    & $-0,0514$ & $+0,1199$ & $+0,0130$ & $+0,0079$ \\
+        5 min  & $-0,0800$ & $-0,0387$ & $+0,1059$ & $+0,0130$ & $+0,0122$ \\
+        10 min & $-0,0964$ & $-0,0758$ & $+0,1130$ & $+0,0062$ & $+0,0057$ \\
+        1 h    & $-0,1056$ & $-0,0594$ & $+0,1140$ & $+0,0022$ & $+0,0028$ \\
+        1 d    & $-0,0949$ & $-0,0514$ & $+0,1199$ & $+0,0129$ & $+0,0079$ \\
         \bottomrule
     \end{tabular}}
     \source{Elaborado pelo autor a partir dos parâmetros de calibração e dos resultados de teste.}
 \end{table}
 
-Em 2025, o viés residual foi de $+0,0028$ a $+0,0122$~kW para o
-MLP e de $+0,0024$ a $+0,0130$~kW para o RF; na regressão linear,
-sem correção aditiva, variou de $+0,1059$ a $+0,1199$~kW. Não é
-possível quantificar o efeito isolado da calibração sobre MAE e RMSE no
-teste de 2025, pois não foram fornecidas as métricas sem correção para
-essas mesmas amostras. Entre as configurações avaliadas, o MLP de 1~h
-reuniu baixo erro, $R^2$ elevado e resolução adequada ao acompanhamento
-intradiário, sendo a configuração levada ao ensaio embarcado.
+Depois da correção, o viés residual no teste ficou entre $+0,0022$ e
+$+0,0130$~kW para RF e MLP. A regressão linear, sem correção, manteve
+viés entre $+0,1059$ e $+0,1199$~kW. A diferença de uma ordem de
+grandeza mostra que a calibração removeu a maior parte do deslocamento
+sistemático, mas não todo: o viés residual positivo persiste nas quatro
+granularidades.
+
+A correção é uma constante por modelo e granularidade. Ela desloca a
+distribuição das estimativas e não corrige viés condicional, ou seja, a
+possibilidade de o modelo subestimar uma faixa de potência e
+superestimar outra. Os resíduos por faixa não foram analisados neste
+trabalho. Também não é possível quantificar o efeito isolado da
+calibração sobre MAE e RMSE no teste, porque as métricas sem correção
+não foram registradas para as mesmas amostras. A comparação entre
+modelos usa, portanto, as métricas finais.
+
+A escolha do MLP de 1~h para o ensaio combinou o menor erro na
+resolução horária, o $R^2$ elevado e a adequação da 1~h ao
+acompanhamento intradiário. O RF ficou próximo, mas não superou o MLP
+em nenhuma das quatro granularidades.
+
+\subsection{Transferência entre granularidades}
+\label{sec:resultados-cruzada}
+
+A avaliação cruzada aplicou cada modelo treinado ao conjunto de teste
+das quatro resoluções, mantendo os parâmetros de normalização do
+treino. A \cref{tab:resultados-cruzada} traz o $R^2$ de cada par. A
+diagonal, em que treino e avaliação coincidem, é o máximo de todas as
+linhas para os dois modelos. Isso confirma que a resolução de operação
+ideal é a mesma do treino, mas não impede o uso em outra escala.
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{$R^2$ da avaliação cruzada entre granularidades}
+    \label{tab:resultados-cruzada}
+    \resizebox{10,6cm}{!}{%
+    \begin{tabular}{llrrrr}
+        \toprule
+        Modelo & Treino & 5 min & 10 min & 1 h & 1 d \\
+        \midrule
+        MLP & 5 min  & 0,808 & 0,913 & 0,972 & 0,767 \\
+            & 10 min & 0,795 & 0,913 & 0,979 & 0,854 \\
+            & 1 h    & 0,784 & 0,910 & 0,981 & 0,887 \\
+            & 1 d    & 0,696 & 0,789 & 0,868 & 0,941 \\
+        \midrule
+        RF  & 5 min  & 0,805 & 0,908 & 0,965 & 0,698 \\
+            & 10 min & 0,794 & 0,910 & 0,973 & 0,805 \\
+            & 1 h    & 0,777 & 0,903 & 0,972 & 0,858 \\
+            & 1 d    & 0,640 & 0,728 & 0,827 & 0,924 \\
+        \bottomrule
+    \end{tabular}}
+    \source{Elaborado pelo autor a partir da avaliação cruzada entre granularidades.}
+\end{table}
+
+O MLP supera o RF nas 16 combinações. As diferenças são pequenas na
+diagonal (de 0,003 a 0,017) e maiores nas transferências mais distantes,
+como 1~d treinado e 5~min avaliado (0,696 contra 0,640). Treinar em 1~h
+e avaliar em 5~min reduz o $R^2$ para 0,784 no MLP e 0,777 no RF, uma
+perda moderada em relação ao desempenho nativo. O mesmo modelo de 1~h
+avaliado em 10~min mantém 0,910 e 0,903. A transferência para 1~d é
+pior: 0,887 e 0,858.
+
+O caminho inverso, de 1~d para 5~min, é o mais custoso: 0,696 e 0,640.
+A assimetria tem explicação. Um modelo treinado em resolução fina vê a
+variabilidade intradiária e pode ser agregado sem perder a tendência;
+um modelo treinado em 1~d nunca viu os picos e vales que a avaliação em
+5~min exige reconstruir. Treinar em 5 ou 10~min e avaliar em 1~h
+preserva $R^2$ entre 0,965 e 0,979, o que mostra que a perda por
+transferência não é proibitiva quando o modelo é mais fino que a escala
+de avaliação.
+
+Como o $R^2$ depende da variância do alvo, e a variância muda com a
+agregação, as colunas não devem ser lidas como uma escala única de
+dificuldade. A comparação válida é entre modelos na mesma coluna, e a
+diagonal mostra o teto de cada resolução. A escolha de 1~h para o
+ensaio não dependeu apenas desse teste; ela combinou o erro nativo, o
+custo de treino e a adequação ao acompanhamento intradiário.
 
 \section{Acompanhamento da potência e execução embarcada}
 \label{sec:resultados-desempenho-embarcado}
@@ -214,19 +406,20 @@ intradiário, sendo a configuração levada ao ensaio embarcado.
 \subsection{Desempenho no conjunto de 2025}
 \label{sec:resultados-embarcado-acompanhamento}
 
-O ensaio embarcado do MLP de 1~h processou 12\,126 registros (4\,042
-por inversor), dos quais 12\,117 foram considerados válidos para o
-cálculo de erro. Para o conjunto agregado, foram obtidos MAE de 0,0585~kW,
-RMSE de 0,0765~kW, $R^2=0,9756$ e viés de $+0,0145$~kW. Essas métricas
-correspondem à execução no ESP32-S3 com reprodução de dados históricos,
-não à aquisição direta na planta.
+O ensaio levou ao ESP32-S3 o MLP de 1~h quantizado em \texttt{int8}.
+Foram transmitidos 12\,126 registros de 2025, 4\,042 por inversor. Nove
+registros tinham PCA igual a zero, valor usado como sentinela de
+medição ausente, e ficaram fora das métricas de erro; restaram 12\,117
+observações válidas. Para o conjunto agregado, o MAE foi de 0,0585~kW,
+o RMSE de 0,0765~kW, o $R^2$ de 0,9756 e o viés de $+0,0145$~kW.
+Essas métricas correspondem à inferência no microcontrolador com
+reprodução de dados históricos, não à aquisição direta na planta.
 
-A série temporal do inversor E1, apresentada na
-\cref{fig:resultados-serie-embarcada}, mostra que as médias móveis de sete
-dias da potência estimada acompanharam as oscilações observadas na
-referência ao longo de 2025. A figura preserva a indicação dos intervalos
-de dados historicamente ausentes e dos blocos artificiais, evitando que
-segmentos sem observação sejam interpretados como geração contínua.
+A \cref{fig:resultados-serie-embarcada} mostra a série de E1 ao longo
+de 2025. As médias móveis de sete dias da estimativa acompanham as
+oscilações da referência, e a figura marca os intervalos de dados
+historicamente ausentes e os blocos artificiais. A marcação evita que
+um trecho sem observação seja lido como geração contínua.
 
 \begin{figure}[H]
     \centering
@@ -236,11 +429,13 @@ segmentos sem observação sejam interpretados como geração contínua.
     \source{Elaborado pelo autor a partir do ensaio embarcado.}
 \end{figure}
 
-A \cref{fig:resultados-hexbin-geral} complementa a série temporal pela
+A \cref{fig:resultados-hexbin-geral} complementa a série pela
 distribuição das 12\,117 observações válidas dos três inversores. A
-concentração predominante próxima à reta de igualdade é coerente com o
-$R^2$ agregado, embora permaneça dispersão e exista um viés global
-ligeiramente positivo.
+concentração próxima à reta de igualdade é coerente com o $R^2$
+agregado, mas há dispersão e o viés global é positivo. O painel não
+mostra a ordem temporal; ele resume o conjunto inteiro e esconde
+episódios localizados de erro, que aparecem nas análises por inversor e
+por bloco.
 
 \begin{figure}[H]
     \centering
@@ -249,16 +444,6 @@ ligeiramente positivo.
     \label{fig:resultados-hexbin-geral}
     \source{Elaborado pelo autor a partir do ensaio embarcado.}
 \end{figure}
-
-As métricas por inversor são apresentadas na
-\cref{tab:resultados-metricas-embarcadas}. O menor MAE foi observado em E1
-(0,0549~kW) e o maior em E2 (0,0629~kW). E2 também apresentou o maior
-viés positivo ($+0,0291$~kW), enquanto E3 registrou MAE de 0,0577~kW.
-O desempenho permaneceu com $R^2$ superior a 0,96 nos três conjuntos.
-Como as amostras pertencem a inversores e condições distintas, essas
-variações não constituem identificação causal de uma diferença estrutural
-entre os equipamentos. Elas indicam que o resultado global não substitui a
-avaliação individual de cada origem de dados.
 
 \begin{table}[H]
     \centering
@@ -270,35 +455,49 @@ avaliação individual de cada origem de dados.
         \toprule
         Inversor & $n$ & MAE (kW) & RMSE (kW) & $R^2$ & Viés (kW) & MAPE (\%) & P90 (kW) \\
         \midrule
-        E1 & 4\,039 & 0,0549 & 0,0699 & 0,9801 & $+0,0048$ & 11,9605 & 0,1115 \\
-        E2 & 4\,039 & 0,0629 & 0,0844 & 0,9692 & $+0,0291$ & 12,8785 & 0,1405 \\
-        E3 & 4\,039 & 0,0577 & 0,0746 & 0,9772 & $+0,0096$ & 12,0410 & 0,1203 \\
+        E1 & 4\,039 & 0,0549 & 0,0699 & 0,9801 & $+0,0048$ & 11,96 & 0,1115 \\
+        E2 & 4\,039 & 0,0629 & 0,0844 & 0,9692 & $+0,0291$ & 12,88 & 0,1405 \\
+        E3 & 4\,039 & 0,0577 & 0,0746 & 0,9772 & $+0,0096$ & 12,04 & 0,1203 \\
         \midrule
-        \textbf{Total} & \textbf{12\,117} & \textbf{0,0585} & \textbf{0,0765} & \textbf{0,9756} & $\mathbf{+0,0145}$ & \textbf{12,2934} & \textbf{0,1246} \\
+        Total & 12\,117 & 0,0585 & 0,0765 & 0,9756 & $+0,0145$ & 12,29 & 0,1246 \\
         \bottomrule
     \end{tabular}}
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-\subsection{Efeito da quantização pós-treinamento e tempo de inferência}
+O menor MAE ocorreu em E1 (0,0549~kW) e o maior em E2 (0,0629~kW). E2
+também concentrou o maior viés positivo ($+0,0291$~kW). E3 ficou entre
+os dois, com 0,0577~kW e viés de $+0,0096$~kW. O $R^2$ permaneceu
+acima de 0,96 nos três conjuntos. As diferenças não podem ser
+atribuídas apenas ao equipamento: as amostras de 2025 estão em períodos
+e condições meteorológicas distintas, e E1 foi o único inversor usado
+no treino. A avaliação individual é necessária, mas não identifica uma
+causa estrutural.
+
+\subsection{Quantização pós-treinamento e tempo de inferência}
 \label{sec:resultados-tempos-embarcados}
 
-A quantização pós-treinamento (PTQ), realizada após o ajuste do MLP de 1~h,
-reduziu o arquivo do modelo de 44,86~KB na variante \texttt{float32} para
-19,27~KB na variante de quantização inteira \texttt{int8}. Na comparação
-\textit{offline}, o MAE passou de 0,0550~kW para 0,0555~kW: redução de
-aproximadamente 57\% no tamanho do modelo, acompanhada de acréscimo de
-0,0005~kW no MAE. Assim, para as amostras avaliadas, a menor precisão
-numérica preservou desempenho preditivo próximo ao do modelo original.
-A PTQ não envolveu novo treinamento; esses valores não constituem uma
-comparação entre arquiteturas distintas. O tamanho do arquivo também não
-representa a memória total exigida pelo firmware.
+A quantização pós-treinamento reduziu o arquivo do modelo de 44,86~KB
+na variante \texttt{float32} para 19,27~KB na variante \texttt{int8},
+uma redução de aproximadamente 57\%. A PTQ não envolveu novo
+treinamento: as duas variantes têm a mesma arquitetura, e a diferença
+está na precisão numérica dos pesos e ativações. Na comparação entre os
+dois arquivos, o MAE no teste passou de 0,0550~kW para 0,0555~kW. O
+acréscimo de 0,0005~kW é pequeno diante do erro do modelo e indica que
+a menor precisão numérica não alterou o comportamento preditivo de
+forma relevante para esta aplicação. O tamanho do arquivo não
+representa a memória total do firmware: o runtime TFLite Micro, os
+núcleos esp-nn e a arena de 8\,192~bytes acrescentam consumo que não
+está contabilizado nesse número.
 
-O tempo medido para \texttt{runInference()} apresentou média bruta de
-991,9~$\mu$s e média de 980,3~$\mu$s após a exclusão das 18 primeiras
-inferências (seis por inversor). O P90 foi de 978~$\mu$s. A diferença
-entre média e percentil indica poucas observações de maior duração; os
-tempos não incluem comunicação serial nem aquisição por sensores.
+O tempo de \texttt{runInference()} foi medido em 12\,126 amostras. A
+média bruta foi de 991,9~$\mu$s, e a média após descartar as 18
+primeiras inferências (seis por inversor) caiu para 980,3~$\mu$s. O P90
+ficou em 978~$\mu$s. A diferença entre a média bruta e a média sem
+aquecimento vem de poucas observações iniciais, que chegam a 1,5 a
+11,8~ms; o P90 mostra que 90\% das inferências ficaram abaixo de
+978~$\mu$s. Os tempos não incluem a comunicação serial nem a aquisição
+pelos sensores.
 
 \begin{table}[H]
     \centering
@@ -309,15 +508,16 @@ tempos não incluem comunicação serial nem aquisição por sensores.
         \toprule
         Escopo & $n$ & Média bruta ($\mu$s) & Média sem aquecimento ($\mu$s) & P90 ($\mu$s) \\
         \midrule
-        E1 & 4\,042 & 991,9 & 980,3 & 978 \\
-        E2 & 4\,042 & 991,9 & 980,3 & 978 \\
-        E3 & 4\,042 & 991,9 & 980,3 & 978 \\
-        \midrule
-        \textbf{Total} & \textbf{12\,126} & \textbf{991,9} & \textbf{980,3} & \textbf{978} \\
+        Total & 12\,126 & 991,9 & 980,3 & 978 \\
         \bottomrule
     \end{tabular}
     \source{Elaborado pelo autor a partir das medições de \texttt{inference\_us}.}
 \end{table}
+
+As médias por inversor diferiram em menos de 0,03~$\mu$s e não foram
+tabuladas separadamente. A consistência entre E1, E2 e E3 indica que o
+custo de inferência depende do modelo e do firmware, não do conjunto
+de entradas processado.
 
 \section{Desempenho nas lacunas artificiais de telemetria}
 \label{sec:resultados-analise-gaps}
@@ -325,17 +525,16 @@ tempos não incluem comunicação serial nem aquisição por sensores.
 \subsection{Erro durante a ausência simulada de PCA}
 \label{sec:resultados-gaps-comparacao}
 
-A avaliação compreendeu 551 observações em \textit{gaps} artificiais,
-correspondentes a 4,5\% dos registros transmitidos dos três inversores.
-A comparação a seguir considera exclusivamente as amostras com referência
-de PCA disponível.
-
-Na \cref{tab:resultados-gaps-comparacao}, o MAE dentro dos \textit{gaps}
-foi de 0,0555~kW, ante 0,0586~kW fora deles, enquanto os respectivos
-$R^2$ foram 0,9766 e 0,9756. Não houve aumento agregado do erro no
-subconjunto de lacunas artificiais. Esse contraste, contudo, não mede o
-efeito causal da ausência de PCA, pois os intervalos têm características
-distintas e as três entradas continuaram disponíveis.
+As lacunas artificiais totalizaram 551 observações, 4,5\% dos 12\,126
+registros transmitidos. Em cada bloco, a PCA era retirada da avaliação
+do estimador, mas mantida como referência; as três entradas
+meteorológicas continuavam disponíveis e foram enviadas normalmente ao
+firmware. Como a PCA não integra o vetor de entrada, a lacuna não reduz
+a informação disponível ao modelo. O ensaio reproduz a condição de
+operação do soft-sensor, em que a telemetria de potência falta e as
+variáveis ambientais permanecem. A comparação dentro e fora dos blocos
+mede se o erro nesses períodos difere do erro usual, não o efeito de
+remover uma entrada.
 
 \begin{table}[H]
     \centering
@@ -353,10 +552,14 @@ distintas e as três entradas continuaram disponíveis.
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-Na \cref{fig:resultados-hexbin-gaps}, a maioria das observações
-artificialmente ocultadas também permanece próxima da reta de igualdade.
-A dispersão visível e o viés positivo de $+0,0110$~kW indicam, porém,
-que a ausência da medição não impede erros relevantes em casos individuais.
+Dentro dos gaps, o MAE foi de 0,0555~kW, ligeiramente abaixo do valor
+fora deles (0,0586~kW). O $R^2$ foi praticamente o mesmo (0,9766 contra
+0,9756), e o viés caiu de $+0,0147$ para $+0,0110$~kW. Não houve
+aumento agregado do erro nas lacunas. O resultado não prova que a
+ausência de PCA seja indiferente: os blocos têm condições próprias e
+não foram sorteados para representar a distribuição completa do ano. A
+proximidade dos valores mostra que, nos períodos escolhidos, a
+estimativa manteve o patamar de erro do restante do teste.
 
 \begin{figure}[H]
     \centering
@@ -366,13 +569,11 @@ que a ausência da medição não impede erros relevantes em casos individuais.
     \source{Elaborado pelo autor a partir do ensaio embarcado.}
 \end{figure}
 
-O desempenho agregado dos blocos por inversor está na
-\cref{tab:resultados-gaps-inversores}. E1 apresentou MAE de 0,0448~kW,
-E2 de 0,0631~kW e E3 de 0,0584~kW. A diferença entre eles deve ser
-considerada na avaliação de transferência do modelo, treinado com E1,
-mas não basta para concluir que a mudança de inversor seja a causa dos
-erros observados: condições meteorológicas, época dos blocos e distribuição
-de potência também variaram.
+A \cref{fig:resultados-hexbin-gaps} mostra a dispersão restrita aos
+blocos. A maioria das observações segue a reta de igualdade, mas há
+dispersão visível e viés positivo de $+0,0110$~kW. A ausência da
+medição de potência não impede erros individuais relevantes; ela apenas
+não elevou a média do conjunto.
 
 \begin{table}[H]
     \centering
@@ -391,17 +592,25 @@ de potência também variaram.
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-\subsection{Duração dos gaps e diferenças entre inversores}
+Por inversor, E1 teve o menor MAE (0,0448~kW) e viés negativo
+($-0,0159$~kW); E2 teve o maior (0,0631~kW) e viés positivo
+($+0,0282$~kW); E3 ficou em 0,0584~kW, com viés de $+0,0204$~kW. O
+treino foi feito apenas com E1, e a diferença entre os inversores é um
+indicativo do custo de transferência. Ela não basta para atribuir o
+erro à troca de equipamento, porque os blocos de cada inversor caem em
+épocas diferentes e têm distribuições de potência distintas.
+
+\subsection{Duração dos blocos e diferenças entre inversores}
 \label{sec:resultados-gaps-duracao}
 
-A \cref{tab:resultados-gaps-duracao} estratifica o desempenho pelos
-intervalos de 6~h, 24~h, 3~dias e 10~dias. O menor MAE agregado foi
-registrado em 3~dias (0,0480~kW), e o maior em 6~h (0,0919~kW).
-O resultado de 10~dias (0,0524~kW) não foi superior ao dos blocos de
-6~h. Portanto, neste conjunto de amostras, \emph{não se observou aumento
-monotônico do erro com a duração do gap}. Os intervalos, entretanto, têm
-quantidades de observações e condições operacionais distintas; não se
-pode interpretar a comparação como o efeito isolado da duração.
+A \cref{tab:resultados-gaps-duracao} estratifica os 551 registros por
+duração. O menor MAE agregado é o de 3~dias (0,0480~kW) e o maior é o
+de 6~h (0,0919~kW). O bloco de 10~dias, com 340 observações, fica em
+0,0524~kW, abaixo do de 6~h e próximo do de 3~dias. Não há aumento
+monotônico do erro com a duração. O resultado contraria a intuição de
+que lacunas mais longas seriam necessariamente mais difíceis, mas não
+autoriza a conclusão oposta: a composição dos grupos muda, e o número
+de observações por duração varia de 36 a 340.
 
 \begin{table}[H]
     \centering
@@ -417,18 +626,20 @@ pode interpretar a comparação como o efeito isolado da duração.
         3 dias  & 105 & 0,0480 & 0,0613 & 0,9821 & $+0,0182$ \\
         10 dias & 340 & 0,0524 & 0,0654 & 0,9794 & $+0,0017$ \\
         \midrule
-        \textbf{Total} & \textbf{551} & \textbf{0,0555} & \textbf{0,0720} & \textbf{0,9766} & $\mathbf{+0,0110}$ \\
+        Total & 551 & 0,0555 & 0,0720 & 0,9766 & $+0,0110$ \\
         \bottomrule
     \end{tabular}
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-A \cref{tab:resultados-gaps-mae-inversores} explicita a heterogeneidade
-entre os equipamentos. Em falhas de 6~h, o MAE foi de 0,0427~kW em E1,
-0,1888~kW em E2 e 0,0440~kW em E3. Para 24~h, os valores foram
-0,0493, 0,0835 e 0,0568~kW, respectivamente. Assim, o erro agregado
-mais elevado dos blocos curtos está associado especialmente aos casos de
-E2; isso não demonstra que lacunas curtas sejam intrinsecamente mais difíceis.
+A \cref{tab:resultados-gaps-mae-inversores} separa o MAE por inversor.
+Em 6~h, E1 e E3 ficam em 0,0427 e 0,0440~kW, enquanto E2 chega a
+0,1888~kW. O valor alto de E2 responde por cerca de dois terços do MAE
+agregado da duração. Em 24~h, o padrão se repete em menor escala:
+0,0493, 0,0835 e 0,0568~kW. Em 3~dias, os três inversores voltam a
+ficar próximos, e em 10~dias E3 passa a ser o pior (0,0653~kW), com E2
+em 0,0447~kW. A duração nominal, isolada, não explica a ordem; o
+contexto dos blocos e o inversor pesam mais.
 
 \begin{table}[H]
     \centering
@@ -448,14 +659,15 @@ E2; isso não demonstra que lacunas curtas sejam intrinsecamente mais difíceis.
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-Para ilustrar a resposta nas lacunas de menor duração, foram selecionados
-os blocos de E2 nas \cref{fig:resultados-gaps-6h,fig:resultados-gaps-24h}.
-Nos dois episódios de 6~h, ambos em dezembro, os MAEs foram de
-0,1709 e 0,2067~kW, com superestimação em todas as amostras.
-Como cada episódio possui apenas seis observações, os $R^2$ individuais
-não foram interpretados. Já nos blocos de 24~h, o MAE foi de 0,0393~kW
-em junho e 0,1241~kW em dezembro, evidenciando maior influência do
-contexto das amostras do que uma duração nominal isolada.
+Os blocos de E2 ilustram o efeito do contexto. Dois episódios de 6~h,
+ambos em dezembro, tiveram MAE de 0,1709 e 0,2067~kW, com
+superestimação em todas as amostras. Os blocos de 24~h do mesmo
+inversor, um em junho e outro em dezembro, tiveram 0,0393 e
+0,1241~kW. A diferença entre dois blocos de mesma duração e mesmo
+inversor é maior que a diferença entre durações agregadas, o que
+reforça a leitura de que a época e as condições do bloco pesam mais
+que o tempo nominal da lacuna. Nos blocos de 6~h, com seis observações
+cada, o $R^2$ individual não é interpretável e não foi usado.
 
 \begin{figure}[H]
     \centering
@@ -473,14 +685,13 @@ contexto das amostras do que uma duração nominal isolada.
     \source{Elaborado pelo autor a partir de \texttt{board\_test.csv}.}
 \end{figure}
 
-Para os períodos prolongados, as figuras apresentam E3. No bloco de
-3~dias (\cref{fig:resultados-gaps-3d}), o MAE foi de 0,0398~kW em
-33 observações; em 10~dias (\cref{fig:resultados-gaps-10d}), o MAE foi
-de 0,0653~kW em 120 observações. Em ambos, as curvas estimadas
-reproduziram a estrutura geral dos ciclos diurnos, com diferenças locais
-de amplitude. A seleção de E2 nas figuras dos blocos curtos e E3 nos
-longos é apenas ilustrativa: E1 permanece incluído em todas as tabelas
-e na interpretação estatística.
+Para as durações longas, a \cref{fig:resultados-gaps-3d} e a
+\cref{fig:resultados-gaps-10d} mostram E3. No bloco de 3~dias, o MAE
+foi de 0,0398~kW em 33 observações; no de 10~dias, 0,0653~kW em 120.
+Em ambos, as curvas estimadas reproduzem a estrutura dos ciclos
+diurnos, com diferenças locais de amplitude. A escolha de E2 para os
+blocos curtos e de E3 para os longos é ilustrativa; E1 continua nas
+tabelas e na interpretação.
 
 \begin{figure}[H]
     \centering
@@ -498,12 +709,15 @@ e na interpretação estatística.
     \source{Elaborado pelo autor a partir de \texttt{board\_test.csv}.}
 \end{figure}
 
-A maior ausência real do histórico de teste durou 280~h, de 22 de agosto
-a 3 de setembro de 2025. Sem referências de potência durante esse período,
-não foi possível calcular erro de estimação para essa interrupção real.
+A maior ausência real do período de teste durou 280~h, de 22 de agosto
+a 3 de setembro de 2025. Sem referência de potência nesse intervalo,
+não foi possível calcular o erro da estimativa. O episódio dimensiona
+a lacuna que motiva o trabalho, mas não serve como amostra de
+avaliação.
 
-Em conjunto, os resultados indicam que a estimação embarcada permaneceu
-próxima da PCA medida nos blocos artificiais avaliados. Essa evidência se
-limita ao cenário em que as três entradas meteorológicas continuam
-acessíveis, sem validar falhas simultâneas desses sensores em campo.
-
+Em conjunto, os resultados mostram que a estimativa embarcada manteve
+erro próximo ao do restante do teste nos blocos artificiais. A
+evidência vale para o cenário em que as três entradas meteorológicas
+continuam disponíveis. Falhas simultâneas desses sensores, ou a
+ausência de uma das entradas, não foram testadas e podem degradar o
+desempenho de forma diferente.
