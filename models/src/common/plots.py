@@ -43,7 +43,7 @@ def salvar_figura(fig, nome: str, *, pasta: str = "figuras",
     O TCC inclui docs/figuras/..., mas a copia NAO e' automatica: quando a
     figura vai para o texto, copie o arquivo de results/figuras/ para la.
     """
-    destino = paths.RESULTS / pasta / nome
+    destino = paths.FIGURAS / nome
     destino.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(destino, dpi=dpi, bbox_inches=bbox_inches)
     print(f"  figura: {destino.relative_to(paths.ROOT)}", flush=True)
