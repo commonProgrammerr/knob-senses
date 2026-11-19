@@ -49,15 +49,28 @@ falha real.
 
 \section{Trabalhos futuros}
 
-O passo seguinte é validar o firmware em campo, com sensores reais e
-falhas reais de telemetria. A validação em campo deve ser acompanhada 
-da integração ao sistema de aquisição, para que a estimativa seja produzida e
-registrada no momento da falha, junto com a série medida.
+A continuidade mais direta do trabalho é a implantação em campo. O ensaio
+atual reproduziu dados históricos e manteve a aquisição fora do
+microcontrolador: o computador enviava as variáveis meteorológicas e
+recebia as estimativas. Em campo, essas variáveis devem chegar ao
+dispositivo pelo sistema de aquisição da planta, e a estimativa precisa ser
+produzida e registrada no momento em que a telemetria de potência falhar,
+junto com a série medida. Assim, a informação fica disponível quando a
+medição direta falta, sem depender de um cálculo posterior.
 
-Na comparação entre modelos, cabe testar QAT, poda e outras arquiteturas,
-como as redes neurais informadas pela física (PINNs), além de outras
-combinações de entradas. O objetivo é verificar se o erro nas resoluções
-mais finas, em que o MAE do MLP é maior, pode diminuir.
+Na modelagem, o próximo passo é investigar as redes neurais informadas
+pela física (PINNs). O MLP atual aprende a relação entre as variáveis
+meteorológicas e a potência apenas a partir dos dados, e o erro cresce nas
+resoluções mais finas e nos extremos de irradiância, em que os picos são
+subestimados. Uma PINN pode incorporar ao ajuste o comportamento físico da
+conversão fotovoltaica, como o efeito térmico sobre a potência e a
+saturação do inversor, para que a estimativa respeite essas relações mesmo
+em faixas com poucas observações. O objetivo é verificar se essa restrição
+reduz o erro nas resoluções finas, melhora a extrapolação para condições
+pouco representadas no treino e diminui a diferença de desempenho entre os
+inversores. A comparação deve manter as mesmas entradas, a mesma partição
+temporal e o mesmo protocolo de avaliação, para que o efeito da física
+possa ser isolado.
 
 
 \section{Considerações finais}
