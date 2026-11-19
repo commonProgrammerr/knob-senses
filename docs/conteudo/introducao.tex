@@ -5,85 +5,66 @@
 %
 \chapter{Introdução}
 \label{cap:introducao}
+
+A geração fotovoltaica consolidou-se como uma das principais fontes
+renováveis da matriz elétrica brasileira, com capacidade instalada em crescimento
+expressivo.
+Usinas fotovoltaicas \textit{on-grid} depende de medições contínuas para
+acompanhar a produção, detectar falhas e gerenciamento. 
+Em uma usina monitorada, cada inversor reporta a potência ativa entregue à rede, e essa
+série alimenta os indicadores de desempenho.
+Tradicionalmente, essa medição é feita por sensores físicos, como
+transformadores de corrente, sensores Hall ou shunts. 
+Embora consolidados, apresentam limitações de custo, instalação, 
+necessidade de calibração, vulnerabilidade a interferências eletromagnéticas,
+saturação e envelhecimento.
+
+Em casos de falha na telemetria, o registro desaparece, e a lacuna compromete a
+contabilidade da geração, o cálculo de indicadores e a identificação de anomalias. 
+Nesse cenário, os \textit{soft-sensors}, ou sensores virtuais, surgem como
+alternativa complementar ou substituta. 
+Um \textit{soft-sensor}, é denominado como um modelo matemático ou algoritmo
+computacional que estima em tempo real uma variável de interesse a partir de leituras
+de sensores auxiliares. 
+Se implementados em \textit{hardware} embarcado, permitem processamento local, em tempo real, 
+com baixo custo e integração direta ao sistema de monitoramento. 
+Ao contar com uma base de dados representativa, o uso de \textit{Machine Learning}
+torna viável estimar a potência fotovoltaica a partir de variáveis meteorológicas.
+Nesse contexto, o \textit{TinyML} (\textit{Tiny Machine Learning}) destaca-se por levar
+esses modelos a dispositivos embarcados, permitindo inferência local com baixo consumo
+de recursos computacionais. Essa capacidade é particularmente relevante em usinas
+remotas, onde a infraestrutura é limitada e o acesso a sistemas locais de alto custo
+pode ser inviável.
+
+Portanto,
+a proposta deste trabalho é implementar e validar a utilização de um \textit{soft-sensor}
+embarcado com \textit{TinyML} para estimar a potência CA do inversor a partir de variáveis
+meteorológicas medidas de  forma independente, agregando redundância durante a falhas. 
+
 %
-% A geração fotovoltaica conectada à rede depende de medições contínuas para
-% acompanhar a produção, detectar falhas e gerir a usina. Em uma usina
-% monitorada, cada inversor reporta a potência ativa entregue à rede, e essa
-% série alimenta os indicadores de desempenho. Quando a telemetria falha, o
-% registro desaparece, e a lacuna compromete a contabilidade da geração, o
-% cálculo de indicadores e a identificação de anomalias.
-%
-% O problema aparece nos dados da Rede Solarimétrica de Pernambuco
-% (RedeSolarPE), mantida pelo Instituto Federal de Pernambuco (IFPE),
-% \textit{campus} Pesqueira, que consolida registros operacionais de usinas
-% fotovoltaicas conectadas à rede no estado
-% \cite{pedrosafilho2022,pedrosafilho2025}. Nos três inversores de 2~kW
-% analisados neste trabalho, E1, E2 e E3, a fração de períodos diurnos sem
-% registro fica em torno de 13,5\%, e a maior lacuna contínua chega a 12~h.
-%
-% A proposta deste trabalho é estimar a potência CA do inversor a partir de
-% variáveis meteorológicas medidas de forma independente, que continuam
-% disponíveis durante a falha. O modelo funciona como um soft-sensor: recebe
-% a irradiância transposta para o plano dos módulos, a temperatura ambiente e
-% a temperatura do módulo, e devolve a potência estimada no mesmo instante. A
-% formulação é a de estimação contemporânea, sem variáveis defasadas
-% \cite{moraesneto2024}: a lacuna é preenchida no momento em que ocorre.
-%
-% O modelo embarcado decorre do cenário de aplicação: a estimativa precisa
-% acontecer no local, junto ao inversor, sem depender de um servidor remoto
-% e sem interromper a operação quando a rede de comunicação também falha. O
-% ESP32-S3 \cite{espressif2024} é o alvo, e o firmware é compilado e gravado
-% com o PlatformIO \cite{platformio2024}.
-%
-% Dois modelos são comparados: o Random Forest (RF), que representa a família
-% de árvores e é simples de embarcar como código C \cite{breiman2001}, e o
-% perceptron de múltiplas camadas (MLP), que representa as redes neurais e
-% pode ser quantizado para inteiros de 8 bits \cite{tflitemicro2024}. A
-% comparação é feita sobre o mesmo conjunto, o mesmo \textit{split} e as
-% mesmas métricas, em quatro granularidades: 5~min, 10~min, 1~h e 1~d. A
-% literatura mostra que árvores e redes neurais têm comportamentos distintos
-% em dados tabulares \cite{grinsztajn2022}, e o trabalho verifica qual das
-% duas famílias se ajusta melhor ao problema e ao alvo embarcado.
-%
-% \section{Objetivos}
-%
-% O objetivo geral é desenvolver e avaliar um soft-sensor embarcado capaz de
-% estimar a potência CA de inversores fotovoltaicos a partir de variáveis
-% meteorológicas, cobrindo falhas de telemetria.
-%
-% Os objetivos específicos são:
-%
-% \begin{alineas}
-%   \item preparar o conjunto de dados em quatro granularidades temporais, com
-%   separação temporal entre treino, calibração e teste;
-%   \item treinar e comparar o Random Forest e o MLP nas quatro
-%   granularidades, com seleção de configuração na janela de calibração;
-%   \item gerar as bibliotecas embarcadas dos dois modelos e verificar a
-%   equivalência entre a implementação em C e o modelo de origem;
-%   \item avaliar os modelos no computador e no ESP32-S3, com e sem
-%   \textit{gaps} artificiais de telemetria;
-%   \item analisar a transferência dos modelos entre granularidades e
-%   comparar o erro dentro dos \textit{gaps} com baselines de imputação.
-% \end{alineas}
-%
-% \section{Contribuições}
-%
-% O trabalho entrega um pipeline completo, do dado bruto ao ensaio na placa,
-% com quatro contribuições principais. A primeira é a comparação controlada
-% entre um modelo baseado em árvores e uma rede neural, nas mesmas condições
-% de dados e avaliação. A segunda é a análise cruzada de granularidades, que
-% mostra se um modelo treinado em uma resolução pode ser aplicado a outra. A
-% terceira é o ensaio na placa com \textit{gaps} artificiais, que mede o
-% desempenho no cenário que justifica o soft-sensor e compara o resultado com
-% a interpolação linear e a persistência. A quarta é a automação da geração
-% dos artefatos, que reduz o risco de embarcar uma biblioteca desatualizada.
-%
-% \section{Organização do Trabalho}
-%
-% O capítulo 2 apresenta a fundamentação teórica: as variáveis ambientais da
-% geração fotovoltaica, o conceito de soft-sensor, os dois modelos, as
-% métricas de avaliação e as tecnologias de implantação embarcada. O capítulo
-% 3 descreve a metodologia: a base de dados, a análise exploratória, a
-% preparação, o treino, a avaliação e o ensaio. O capítulo 4 apresenta os
-% resultados offline, a análise cruzada e o ensaio na placa. O capítulo 5
-% conclui o trabalho, com as limitações e os desdobramentos possíveis.
+\section{Objetivos}
+
+O objetivo geral é desenvolver e avaliar um soft-sensor embarcado capaz de
+estimar a potência CA contemporânea de inversores fotovoltaicos a partir de 
+variáveis meteorológicas, cobrindo falhas de telemetria.
+
+\noindent Os objetivos específicos são:
+
+\begin{alineas}
+  \item analisar, validar e tratar o conjunto de dados afim de gerar um dataset treinável a partir do mesmo;
+  \item propor, treinar e validar modelos de ML com arquitetura especifica para estimação contemporânea da
+  potência de corrente alternada (PCA);
+  \item otimizar, compilar e embarcar o modelo de melhor desempenho;
+  \item implementar \textit{soft-sensor} embarcado utilizando o modelo escolhido;
+  \item comparar o desempenho do \textit{soft-sensor} no computador e em dispositivo embarcado;
+  \item gerar lacunas artificiais e validar o desempenho do \textit{soft-sensor} em simulação de falha na telemetria.
+\end{alineas}
+
+\section{Organização do Trabalho}
+
+Esse trabalho foi organizado em 5 capítulos: 
+O capítulo 2 apresenta a fundamentação teórica sobre geração fotovoltaica,
+soft-sensors, os modelos de ML e métricas utilizadas e implementação com TinnyML.
+O capítulo 3 descreve a metodologia utilizadas no projeto.
+O capítulo 4 apresenta os resultados offline, a análise cruzada e o ensaio na placa.
+O capítulo 5 conclui o trabalho, com as limitações e os desdobramentos possíveis.
