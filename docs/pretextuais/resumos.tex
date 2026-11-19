@@ -11,7 +11,6 @@ reconstruir a série a partir dela mesma, estimam a variável ausente com base
 em outras medições disponíveis no mesmo intervalo. O \textit{TinyML} permite
 executar esses modelos em dispositivos embarcados de baixo custo, o que
 torna possível produzir a estimativa no próprio local da planta.
-
 Este trabalho desenvolveu e avaliou um \textit{soft-sensor} embarcado para
 estimar a potência ativa em corrente alternada (PCA) de inversores
 fotovoltaicos a partir da irradiância no plano dos módulos, da temperatura
@@ -25,9 +24,8 @@ de melhor desempenho foi quantizado para inteiros de 8~bits e executado em
 um ESP32-S3 com TensorFlow Lite Micro. Para reproduzir a falha de
 telemetria, foram inseridas lacunas artificiais na potência medida, mantendo
 as variáveis meteorológicas disponíveis ao estimador.
-
-Os resultados indicam que o perceptron apresentou o melhor desempenho nas
-quatro resoluções, sobretudo na escala horária, e que os modelos treinados
+Os resultados indicam que o perceptron de múltiplas camadas apresentou o
+melhor desempenho nas quatro resoluções, sobretudo na escala horária, e que os modelos treinados
 em resoluções mais finas se transferiram melhor para escalas mais grosseiras.
 No dispositivo embarcado, a qualidade da estimativa se manteve próxima à
 obtida no computador, com tempo de inferência compatível com a cadência
@@ -54,7 +52,6 @@ instead of reconstructing the series from itself, they estimate the missing
 variable from other measurements available in the same interval. TinyML
 enables these models to run on low-cost embedded devices, making it possible
 to produce the estimate at the plant itself.
-
 This work developed and evaluated an embedded soft sensor that estimates the
 AC active power of photovoltaic inverters from plane-of-array irradiance,
 ambient temperature and estimated module temperature. The data came from the
@@ -67,9 +64,8 @@ model was quantized to 8-bit integers and run on an ESP32-S3 with TensorFlow
 Lite Micro. To reproduce telemetry failure, artificial gaps were inserted
 into the measured power while the meteorological variables remained
 available to the estimator.
-
-The results indicate that the perceptron performed best at all four
-resolutions, especially at the hourly scale, and that models trained at
+The results indicate that the multilayer perceptron performed best at all
+four resolutions, especially at the hourly scale, and that models trained at
 finer resolutions transferred better to coarser scales. On the embedded
 device, estimation quality remained close to that obtained on the computer,
 with an inference time compatible with the hourly cadence. In the artificial

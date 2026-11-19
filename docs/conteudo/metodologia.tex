@@ -108,7 +108,7 @@ solar $\leq 80^\circ$.
 
 O alvo é a PCA medida pelos inversores, em kW. As entradas selecionadas
 foram irradiância transposta (\texttt{ghit}, W/m$^2$), temperatura ambiente
-(\texttt{tem\_amb}) e temperatura do módulo estimada
+(\texttt{temp\_amb}) e temperatura do módulo estimada
 (\texttt{jacques}).
 
 \subsection{Análise Exploratória}
@@ -134,7 +134,7 @@ Foram excluídos os registros com PCA nula e irradiância superior a
 50~W/m$^2$, irradiância inferior a 5~W/m$^2$,
 temperatura ambiente acima de $50^\circ$C e potência em saturação
 ($\mathrm{PCA}\geq2$~kW). As regras de apagão e saturação seguiram os
-critérios adotados em \cite{severiano2026,balfour2021}. Os zeros de PCA
+critérios adotados em \cite{balfour2021,severiano2026}. Os zeros de PCA
 remanescentes, com $5\leq\texttt{ghit}\leq50$~W/m$^2$, foram mantidos como
 observações válidas;
 (iii)
@@ -145,7 +145,7 @@ apenas as observações diurnas existentes, e não um período contínuo de
 (iv)
 O conjunto de E1 foi separado, sem embaralhamento, em treinamento
 (2021 a 30/06/2024), validação e calibração (2024H2) e teste (2025)
-\cite{cerqueira2019,albelali2025}. A janela 2024H2 foi utilizada na
+\cite{albelali2025,cerqueira2019}. A janela 2024H2 foi utilizada na
 seleção de configurações, no acompanhamento do MLP e no cálculo da correção
 de viés. As séries de E2 e E3 de 2025 foram reservadas para avaliação
 adicional entre inversores, sem participação no treinamento ou na calibração.
@@ -274,7 +274,7 @@ distinta da correção de viés $c_{\mathrm{cal}}$ calculada em 2024H2.
 O script \url{utils/generate_model_data_mlp.py} converteu o arquivo
 \texttt{.tflite} em dados C++ inseridos em
 \url{lib/knob-mlp-tflite/src/model_data.cc}. Na execução, o interpretador
-do TensorFlow Lite Micro \cite{tflitemicro2024,esptflitemicro2026}
+do TensorFlow Lite Micro \cite{esptflitemicro2026,tflitemicro2024}
 utiliza os operadores necessários à arquitetura e os núcleos otimizados
 da biblioteca \texttt{esp-nn} \cite{espnn2026}. O pós-processamento em
 unidades físicas permaneceu no firmware, fora do núcleo quantizado da rede.
@@ -290,7 +290,8 @@ rótulo válido (\textit{NaN}) e leituras rejeitadas pelos filtros de
 qualidade não participaram da avaliação.
 
 Complementarmente, foi realizada uma avaliação cruzada entre granularidades,
-em que cada modelo foi treinado aos conjuntos de teste das demais resoluções.
+em que os modelos não lineares foram aplicados aos conjuntos de teste das
+demais resoluções.
 Os parâmetros de normalização permaneceram os do conjunto de treino de cada
 modelo; as linhas da matriz corresponderam à granularidade de treinamento
 e as colunas à granularidade de avaliação. Essa análise foi mantida como

@@ -1,8 +1,12 @@
 This is BibTeX, Version 0.99e
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
+Reallocating 'name_of_file' (item size: 1) to 31 items.
+A level-1 auxiliary file: pretextuais/agradecimentos.aux
 Reallocating 'name_of_file' (item size: 1) to 24 items.
 A level-1 auxiliary file: pretextuais/resumos.aux
+Reallocating 'name_of_file' (item size: 1) to 32 items.
+A level-1 auxiliary file: pretextuais/simbolos-siglas.aux
 Reallocating 'name_of_file' (item size: 1) to 24 items.
 A level-1 auxiliary file: conteudo/introducao.aux
 Reallocating 'name_of_file' (item size: 1) to 27 items.
@@ -37,44 +41,44 @@ Reallocating 'global_strs' (item size: 1) to 4000000 items.
 | Em caso de dúvidas ou problemas com este estilo procure |
 | http://www.abntex.net.br/                               |
 +---------------------------------------------------------+
-You've used 45 entries,
+You've used 57 entries,
             6714 wiz_defined-function locations,
-            1436 strings with 17302 characters,
-and the built_in function-call counts, 43506 in all, are:
-= -- 3691
-> -- 1540
-< -- 356
-+ -- 928
-- -- 451
-* -- 3145
-:= -- 5581
-add.period$ -- 157
-call.type$ -- 45
-change.case$ -- 520
-chr.to.int$ -- 108
-cite$ -- 41
-duplicate$ -- 2845
-empty$ -- 2676
-format.name$ -- 2277
-if$ -- 9917
+            1518 strings with 19763 characters,
+and the built_in function-call counts, 56449 in all, are:
+= -- 4659
+> -- 2075
+< -- 410
++ -- 1131
+- -- 603
+* -- 4136
+:= -- 7152
+add.period$ -- 195
+call.type$ -- 57
+change.case$ -- 687
+chr.to.int$ -- 168
+cite$ -- 53
+duplicate$ -- 3591
+empty$ -- 3466
+format.name$ -- 3039
+if$ -- 13015
 int.to.chr$ -- 4
 int.to.str$ -- 1
-missing$ -- 820
-newline$ -- 205
-num.names$ -- 206
-pop$ -- 1056
+missing$ -- 1055
+newline$ -- 264
+num.names$ -- 266
+pop$ -- 1360
 preamble$ -- 1
-purify$ -- 178
+purify$ -- 233
 quote$ -- 0
-skip$ -- 2849
+skip$ -- 3537
 stack$ -- 1
-substring$ -- 1674
-swap$ -- 1208
-text.length$ -- 56
+substring$ -- 2273
+swap$ -- 1642
+text.length$ -- 94
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 5
+type$ -- 6
 warning$ -- 0
-while$ -- 308
+while$ -- 412
 width$ -- 0
-write$ -- 656
+write$ -- 863

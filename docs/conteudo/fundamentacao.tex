@@ -63,8 +63,9 @@ ela é um dos argumentos do modelo que a estima.
 A potência CA depende ainda do rendimento de conversão e do limite de
 saída do inversor. Em inversores conectados à rede, a potência CA cresce
 com a potência CC até o limite nominal; acima desse ponto, o
-equipamento satura a saída e parte da energia disponível é perdida. O
-fenômeno, conhecido como saturação ou \textit{clipping}, introduz uma
+equipamento satura a saída e parte da energia disponível é perdida
+\cite{good2016}. O fenômeno, conhecido como saturação ou
+\textit{clipping}, introduz uma
 não linearidade adicional na relação entre irradiância e PCA e explica
 por que observações na vizinhança do limite nominal requerem tratamento
 próprio na preparação dos dados. Além do limite de potência, o
@@ -122,7 +123,9 @@ aprendida durante o treinamento e reutilizada em novas observações
 fornece uma estimativa quando a medição direta está ausente ou é
 insuficiente. Sua confiabilidade depende da precisão do modelo, da
 qualidade das entradas e da estabilidade da relação aprendida ao longo
-do tempo.
+do tempo. No contexto fotovoltaico, sensores virtuais já foram
+empregados no monitoramento em tempo real de sistemas de potência
+apoiados por Internet das Coisas \cite{boubakr2022monitoramento}.
 
 Interrupções de comunicação, aquisição ou armazenamento geram lacunas
 nas séries de monitoramento. A literatura destaca a importância de
@@ -174,7 +177,8 @@ treinamento no passado e teste no futuro.
 
 A granularidade define o intervalo representado por cada registro. A
 agregação por média suaviza oscilações rápidas da potência, mas também
-modifica a distribuição do alvo e a quantidade de amostras. Em resoluções
+modifica a distribuição do alvo e a quantidade de amostras
+\cite{mayer2021}. Em resoluções
 mais grossas, a variância do alvo diminui e a autocorrelação aumenta;
 como consequência, as métricas de erro não são diretamente comparáveis
 entre resoluções, e um MAE menor em 1~d não significa que o modelo seja
@@ -313,7 +317,8 @@ correlação entre as árvores e tornam a média mais estável do que uma
 interações não lineares, enquanto a agregação controla a variância.
 
 O número de árvores, o mínimo de amostras por folha e a profundidade
-máxima controlam o compromisso entre ajuste e complexidade. Florestas
+máxima controlam o compromisso entre ajuste e complexidade
+\cite{probst2018}. Florestas
 maiores tendem a estabilizar a predição, mas aumentam o tempo de
 treinamento e o tamanho da implementação embarcada; folhas menores
 permitem ajustes mais finos e também favorecem o sobreajuste. Embora
@@ -347,17 +352,17 @@ parâmetros aprendidos e $\phi$ é a ativação. A função ReLU é dada por
 $\phi(a)=\max(0,a)$ e utiliza operações simples, compatíveis com a
 execução quantizada. Em comparação com ativações saturantes, a ReLU
 mantém o gradiente não nulo para entradas positivas, o que facilita o
-treinamento de redes com várias camadas. A camada de saída é linear em
+treinamento de redes com várias camadas \cite{glorot2011}. A camada de saída é linear em
 problemas de regressão, de modo que a rede produz uma estimativa
 contínua em vez de uma probabilidade.
 
 A profundidade e a largura das camadas ocultas determinam a capacidade
 do modelo. Com unidades suficientes, a rede pode aproximar funções
-contínuas, mas a escolha da arquitetura envolve um compromisso entre
+contínuas \cite{hornik1989}, mas a escolha da arquitetura envolve um compromisso entre
 capacidade, tempo de treinamento e custo de inferência. Para limitar o
 sobreajuste, podem ser empregados \textit{dropout}, que desativa
 unidades durante o treinamento, e parada antecipada com base no erro de
-validação \cite{srivastava2014,prechelt1998}. A parada antecipada
+validação \cite{prechelt1998,srivastava2014}. A parada antecipada
 restaura os parâmetros do melhor ponto observado, e não os da última
 época.
 
@@ -488,7 +493,7 @@ comportamento.
 
 Mudanças sazonais, operacionais ou entre inversores podem alterar a
 relação aprendida, exigindo avaliação em períodos e equipamentos
-distintos \cite{roberts2017}. Por isso, a janela de calibração deve ser
+distintos \cite{zhang2023drift}. Por isso, a janela de calibração deve ser
 independente do teste e representativa das condições em que o estimador
 será usado. No presente trabalho, a calibração utiliza o segundo
 semestre de 2024 e o teste, o ano de 2025, sem participação das
@@ -514,7 +519,7 @@ converte um modelo previamente treinado em ponto flutuante para uma
 representação de precisão reduzida, sem novo treinamento. Diferentemente,
 a \textit{Quantization-Aware Training} (QAT) incorpora os efeitos da
 quantização ao processo de treinamento ou ajuste fino
-\cite{nagel2021quantization,krishnamoorthi2018quantization}. A PTQ é
+\cite{krishnamoorthi2018quantization,nagel2021quantization}. A PTQ é
 mais simples de aplicar, porque parte do modelo já validado, mas pode
 introduzir perdas maiores quando a quantização é agressiva ou quando a
 distribuição das ativações é assimétrica.
@@ -533,8 +538,7 @@ zero. A calibração da PTQ utiliza amostras representativas para estimar
 os parâmetros de quantização das ativações; não se confunde com a
 normalização estatística das entradas nem com a correção de viés das
 predições. A redução do tamanho do modelo pode introduzir diferenças
-numéricas e exige comparar precisão, memória e tempo de inferência
-\cite{nagel2021quantization}. Neste trabalho, a PTQ é aplicada ao MLP já
+numéricas e exige comparar precisão, memória e tempo de inferência. Neste trabalho, a PTQ é aplicada ao MLP já
 treinado, e a variante inteira é comparada com a versão em ponto
 flutuante no mesmo conjunto de teste. A comparação permite separar a
 perda atribuída à precisão numérica da diferença entre arquiteturas,

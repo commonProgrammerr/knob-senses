@@ -5,7 +5,8 @@
 \label{cap:conclusao}
 
 A proposta deste trabalho foi estimar a potência ativa em corrente alternada
-(PCA) a partir de três variáveis meteorológicas medidas de forma independente,
+(PCA) a partir de três variáveis meteorológicas obtidas de forma independente
+da telemetria do inversor,
 com um soft-sensor embarcado, e avaliar o resultado em um computador
 convencional e em dispositivo embarcado.
 
@@ -21,7 +22,7 @@ que a duração nominal.
 
 Na avaliação \textit{offline}, o MLP apresentou o melhor desempenho entre
 os modelos testados nas quatro granularidades. Sua vantagem sobre o RF foi
-mais consistente em 1~h e menor em 5 e 10~min; a regressão linear ficou
+mais consistente em 1~h e menor em 5~min, 10~min e 1~d; a regressão linear ficou
 claramente abaixo dos modelos não lineares. Esse resultado indica que a
 rede neural é mais adequada para representar a relação entre as variáveis
 meteorológicas e a potência, sem tornar uma única resolução
@@ -59,7 +60,7 @@ junto com a série medida. Assim, a informação fica disponível quando a
 medição direta falta, sem depender de um cálculo posterior.
 
 Na modelagem, o próximo passo é investigar as redes neurais informadas
-pela física (PINNs). O MLP atual aprende a relação entre as variáveis
+pela física (PINNs) \cite{raissi2019}. O MLP atual aprende a relação entre as variáveis
 meteorológicas e a potência apenas a partir dos dados, e o erro cresce nas
 resoluções mais finas e nos extremos de irradiância, em que os picos são
 subestimados. Uma PINN pode incorporar ao ajuste o comportamento físico da

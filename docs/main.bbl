@@ -13,9 +13,16 @@
 
 \bibitem[Balfour et al. 2021]{balfour2021}
 \abntrefinfo{Balfour et al.}{BALFOUR et al.}{2021}
-{BALFOUR, J. et al. Masking of photovoltaic system performance problems by
-  inverter clipping and other design and operational practices.
-\textbf{Renewable and Sustainable Energy Reviews}, 2021.}
+{BALFOUR, J.; HILL, R.; WALKER, A.; ROBINSON, G.; GUNDA, T.; DESAI, J. Masking
+  of photovoltaic system performance problems by inverter clipping and other
+  design and operational practices.
+\textbf{Renewable and Sustainable Energy Reviews}, v.~145, p. 111067, 2021.}
+
+\bibitem[Boubakr et al. 2022]{boubakr2022monitoramento}
+\abntrefinfo{Boubakr et al.}{BOUBAKR et al.}{2022}
+{BOUBAKR, G.; GU, F.; FARHAN, L.; BALL, A. Enhancing virtual real-time
+  monitoring of photovoltaic power systems based on the internet of things.
+\textbf{Electronics}, v.~11, n.~15, p.~2469, 2022.}
 
 \bibitem[Box e Cox 1964]{boxcox1964}
 \abntrefinfo{Box e Cox}{BOX; COX}{1964}
@@ -28,12 +35,12 @@
 {BREIMAN, L. Random forests.
 \textbf{Machine Learning}, v.~45, n.~1, p. 5--32, 2001.}
 
-\bibitem[Cerqueira, Torgo e Mozeti{\v{c}} 2019]{cerqueira2019}
+\bibitem[Cerqueira, Torgo e Mozeti{\v{c}} 2020]{cerqueira2019}
 \abntrefinfo{Cerqueira, Torgo e Mozeti{\v{c}}}{CERQUEIRA; TORGO;
-  MOZETI{\v{C}}}{2019}
+  MOZETI{\v{C}}}{2020}
 {CERQUEIRA, V.; TORGO, L.; MOZETI{\v{C}}, I. Evaluating time series forecasting
   models: an empirical study on performance estimation methods.
-\textbf{Machine Learning}, 2019.}
+\textbf{Machine Learning}, v.~109, n.~11, p. 1997--2028, 2020.}
 
 \bibitem[Chicco, Warrens e Jurman 2021]{chicco2021}
 \abntrefinfo{Chicco, Warrens e Jurman}{CHICCO; WARRENS; JURMAN}{2021}
@@ -47,6 +54,13 @@
 {CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
 Acesso em: 2026-11-07.}
 
+\bibitem[Costa et al. 2023]{costa2023}
+\abntrefinfo{Costa et al.}{COSTA et al.}{2023}
+{COSTA, V. B.~F.; SCIANNI, L.; MIRANDA, R.~C.; BONATTO, B. Assessment of the
+  status and trends of photovoltaic distributed generation in {Brazil}: An
+  in-depth approach based on big data processing.
+\textbf{Solar Energy}, v.~249, p. 694--711, 2023.}
+
 \bibitem[David et al. 2021]{david2021}
 \abntrefinfo{David et al.}{DAVID et al.}{2021}
 {DAVID, R.; DUKE, J.; JAIN, A.; REDDI, V.~J.; JEFFRIES, N.; LI, J.; KREEGER,
@@ -55,6 +69,12 @@ Acesso em: 2026-11-07.}
   \textbf{Proceedings of Machine Learning and Systems}. [s.n.], 2021. v.~3.
   Dispon{\'\i}vel em:
   \url{https://proceedings.mlsys.org/paper\_files/paper/2021/hash/6c44dc73014d66ba49b28d483a8f8b0d-Abstract.html}.}
+
+\bibitem[{DE SOTO}, Klein e Beckman 2006]{desoto2006}
+\abntrefinfo{{DE SOTO}, Klein e Beckman}{{DE SOTO}; KLEIN; BECKMAN}{2006}
+{{DE SOTO}, W.; KLEIN, S.~A.; BECKMAN, W.~A. Improvement and validation of a
+  model for photovoltaic array performance.
+\textbf{Solar Energy}, v.~80, n.~1, p. 78--88, 2006.}
 
 \bibitem[Dobos 2014]{dobos2014}
 \abntrefinfo{Dobos}{DOBOS}{2014}
@@ -87,21 +107,23 @@ Acesso em: 2026-11-12.}
   \url{https://github.com/espressif/esp-tflite-micro}.
 Acesso em: 2026-11-12.}
 
-\bibitem[Filho 2022]{pedrosafilho2022}
-\abntrefinfo{Filho}{FILHO}{2022}
-{FILHO, M. H. d.~O. P. Rede solarim{\'e}trica de pernambuco. In:  CBENS.
-  \textbf{Anais do IX Congresso Brasileiro de Energia Solar}.
-  Florian{\'o}polis, 2022.}
-
-\bibitem[Filho 2025]{pedrosafilho2025}
-\abntrefinfo{Filho}{FILHO}{2025}
-{\underline{\ \ \ \ \ \ \ \ }. Pernambuco solarimetric network. In:  ISES.
-  \textbf{Proceedings of the Solar World Congress}. Fortaleza, 2025.}
-
 \bibitem[Gil 2002]{gil2002}
 \abntrefinfo{Gil}{GIL}{2002}
 {GIL, A.~C. \textbf{Como elaborar projetos de pesquisa}. 4. ed. S{\~a}o Paulo:
   Atlas, 2002.}
+
+\bibitem[Glorot, Bordes e Bengio 2011]{glorot2011}
+\abntrefinfo{Glorot, Bordes e Bengio}{GLOROT; BORDES; BENGIO}{2011}
+{GLOROT, X.; BORDES, A.; BENGIO, Y. Deep sparse rectifier neural networks. In:
+  \textbf{Proceedings of the 14th International Conference on Artificial
+  Intelligence and Statistics}. Fort Lauderdale: PMLR, 2011.  (Proceedings of
+  Machine Learning Research, v.~15), p. 315--323.}
+
+\bibitem[Good e Johnson 2016]{good2016}
+\abntrefinfo{Good e Johnson}{GOOD; JOHNSON}{2016}
+{GOOD, J.; JOHNSON, J.~X. Impact of inverter loading ratio on solar
+  photovoltaic system performance.
+\textbf{Applied Energy}, v.~177, p. 475--486, 2016.}
 
 \bibitem[Google 2024]{tflitemicro2024}
 \abntrefinfo{Google}{GOOGLE}{2024}
@@ -118,11 +140,24 @@ Acesso em: 2026-11-07.}
   507--520. Dispon{\'\i}vel em:
   \url{https://papers.nips.cc/paper\_files/paper/2022/hash/0378c7692da36807bdec87ab043cdadc-Abstract.html}.}
 
+\bibitem[Gupta e Singh 2021]{gupta2021}
+\abntrefinfo{Gupta e Singh}{GUPTA; SINGH}{2021}
+{GUPTA, P.; SINGH, R. {PV} power forecasting based on data-driven models: a
+  review.
+\textbf{International Journal of Sustainable Engineering}, v.~14, n.~6, p.
+  1733--1755, 2021.}
+
 \bibitem[Hodson 2022]{hodson2022}
 \abntrefinfo{Hodson}{HODSON}{2022}
 {HODSON, T.~O. Root-mean-square error ({RMSE}) or mean absolute error ({MAE}):
   when to use them or not.
 \textbf{Geoscientific Model Development}, v.~15, p. 5481--5487, 2022.}
+
+\bibitem[Hornik, Stinchcombe e White 1989]{hornik1989}
+\abntrefinfo{Hornik, Stinchcombe e White}{HORNIK; STINCHCOMBE; WHITE}{1989}
+{HORNIK, K.; STINCHCOMBE, M.; WHITE, H. Multilayer feedforward networks are
+  universal approximators.
+\textbf{Neural Networks}, v.~2, n.~5, p. 359--366, 1989.}
 
 \bibitem[Huber 1964]{huber1964}
 \abntrefinfo{Huber}{HUBER}{1964}
@@ -193,24 +228,32 @@ Acesso em: 2026-11-07.}
 \textbf{Progress in Photovoltaics: Research and Applications}, v.~29, n.~2, p.
   143--158, 2021.}
 
+\bibitem[Mayer 2021]{mayer2021}
+\abntrefinfo{Mayer}{MAYER}{2021}
+{MAYER, M.~J. Effects of the meteorological data resolution and aggregation on
+  the optimal design of photovoltaic power plants.
+\textbf{Energy Conversion and Management}, v.~241, p. 114313, 2021.}
+
 \bibitem[Mayer e Gr{\'o}f 2021]{mayer2020modelos}
 \abntrefinfo{Mayer e Gr{\'o}f}{MAYER; GR{\'O}F}{2021}
 {MAYER, M.~J.; GR{\'O}F, G. Extensive comparison of physical models for
   photovoltaic power forecasting.
 \textbf{Applied Energy}, v.~283, p. 116239, 2021.}
 
+\bibitem[{MORAES NETO}, {PEDROSA FILHO} e Lima 2026]{moraesneto2024}
+\abntrefinfo{{MORAES NETO}, {PEDROSA FILHO} e Lima}{{MORAES NETO}; {PEDROSA
+  FILHO}; LIMA}{2026}
+{{MORAES NETO}, J.~O.; {PEDROSA FILHO}, M. H.~O.; LIMA, R.~A. Comparative
+  analysis of machine learning and {LSTM} models for contemporaneous {ACP}
+  estimation in grid-connected {PV} systems deployed on {ESP32-S3} using edge
+  impulse.
+\textbf{IEEE Access}, v.~14, p. 170804--170815, 2026.}
+
 \bibitem[Nagel et al. 2021]{nagel2021quantization}
 \abntrefinfo{Nagel et al.}{NAGEL et al.}{2021}
-{NAGEL, M.; FOURNARAKIS, M.; AMJAD, R.~A.; BONDARENKO, Y.; BAALEN, M. van;
+{NAGEL, M.; FOURNARAKIS, M.; AMJAD, R.~A.; BONDARENKO, Y.; {VAN BAALEN}, M.;
   BLANKEVOORT, T. A white paper on neural network quantization.
 \textbf{arXiv preprint arXiv:2106.08295}, 2021.}
-
-\bibitem[Neto, Filho e Lima 2024]{moraesneto2024}
-\abntrefinfo{Neto, Filho e Lima}{NETO; FILHO; LIMA}{2024}
-{NETO, J.~O. M.; FILHO, M. H. d.~O. P.; LIMA, R. A.~d. Comparative analysis of
-  machine learning and {LSTM} models for contemporaneous {ACP} estimation in
-  grid-connected {PV} systems deployed on {ESP32-S3} using edge impulse.
-\textbf{IEEE Access}, 2024.}
 
 \bibitem[Nordby 2024]{emlearn2024}
 \abntrefinfo{Nordby}{NORDBY}{2024}
@@ -225,6 +268,17 @@ Acesso em: 2026-11-07.}
   Scikit-learn: Machine learning in {Python}.
 \textbf{Journal of Machine Learning Research}, v.~12, p. 2825--2830, 2011.}
 
+\bibitem[{PEDROSA FILHO} 2022]{pedrosafilho2022}
+\abntrefinfo{{PEDROSA FILHO}}{{PEDROSA FILHO}}{2022}
+{{PEDROSA FILHO}, M. H.~O. Rede solarim{\'e}trica de pernambuco. In:  CBENS.
+  \textbf{Anais do IX Congresso Brasileiro de Energia Solar}.
+  Florian{\'o}polis, 2022.}
+
+\bibitem[{PEDROSA FILHO} 2025]{pedrosafilho2025}
+\abntrefinfo{{PEDROSA FILHO}}{{PEDROSA FILHO}}{2025}
+{\underline{\ \ \ \ \ \ \ \ }. Pernambuco solarimetric network. In:  ISES.
+  \textbf{Proceedings of the Solar World Congress}. Fortaleza, 2025.}
+
 \bibitem[{PlatformIO Labs} 2024]{platformio2024}
 \abntrefinfo{{PlatformIO Labs}}{{PlatformIO Labs}}{2024}
 {{PlatformIO Labs}. \textbf{PlatformIO Documentation}. 2024.
@@ -236,6 +290,26 @@ Acesso em: 2026-11-07.}
 {PRECHELT, L. Early stopping---but when? In:  ORR, G.~B.; M{\"U}LLER, K.-R.
   (Ed.). \textbf{Neural Networks: Tricks of the Trade}. Berlin: Springer, 1998,
    (Lecture Notes in Computer Science, v.~1524). p. 55--69.}
+
+\bibitem[Probst, Wright e Boulesteix 2019]{probst2018}
+\abntrefinfo{Probst, Wright e Boulesteix}{PROBST; WRIGHT; BOULESTEIX}{2019}
+{PROBST, P.; WRIGHT, M.~N.; BOULESTEIX, A.-L. Hyperparameters and tuning
+  strategies for random forest.
+\textbf{WIREs Data Mining and Knowledge Discovery}, v.~9, n.~3, p. e1301,
+  2019.}
+
+\bibitem[Raissi, Perdikaris e Karniadakis 2019]{raissi2019}
+\abntrefinfo{Raissi, Perdikaris e Karniadakis}{RAISSI; PERDIKARIS;
+  KARNIADAKIS}{2019}
+{RAISSI, M.; PERDIKARIS, P.; KARNIADAKIS, G.~E. Physics-informed neural
+  networks: A deep learning framework for solving forward and inverse problems
+  involving nonlinear partial differential equations.
+\textbf{Journal of Computational Physics}, v.~378, p. 686--707, 2019.}
+
+\bibitem[Ripka 2010]{ripka2010}
+\abntrefinfo{Ripka}{RIPKA}{2010}
+{RIPKA, P. Electric current sensors: a review.
+\textbf{Measurement Science and Technology}, v.~21, n.~11, p. 112001, 2010.}
 
 \bibitem[Roberts et al. 2017]{roberts2017}
 \abntrefinfo{Roberts et al.}{ROBERTS et al.}{2017}
@@ -250,13 +324,7 @@ Acesso em: 2026-11-07.}
 \abntrefinfo{Severiano et al.}{SEVERIANO et al.}{2026}
 {SEVERIANO, B.~M. et al. A robust rule-based method for detecting and
   classifying underperformance in photovoltaic systems using inverter data.
-\textbf{Solar Energy}, 2026.}
-
-\bibitem[Soto, Klein e Beckman 2006]{desoto2006}
-\abntrefinfo{Soto, Klein e Beckman}{SOTO; KLEIN; BECKMAN}{2006}
-{SOTO, W. D.; KLEIN, S.~A.; BECKMAN, W.~A. Improvement and validation of a
-  model for photovoltaic array performance.
-\textbf{Solar Energy}, v.~80, n.~1, p. 78--88, 2006.}
+\textbf{Solar Energy}, v.~308, p. 114382, 2026.}
 
 \bibitem[Srivastava et al. 2014]{srivastava2014}
 \abntrefinfo{Srivastava et al.}{SRIVASTAVA et al.}{2014}
@@ -265,5 +333,17 @@ Acesso em: 2026-11-07.}
 \textbf{Journal of Machine Learning Research}, v.~15, n.~56, p. 1929--1958,
   2014.
 Dispon{\'\i}vel em: \url{https://jmlr.org/papers/v15/srivastava14a.html}.}
+
+\bibitem[Strobl et al. 2007]{strobl2007}
+\abntrefinfo{Strobl et al.}{STROBL et al.}{2007}
+{STROBL, C.; BOULESTEIX, A.-L.; ZEILEIS, A.; HOTHORN, T. Bias in random forest
+  variable importance measures: Illustrations, sources and a solution.
+\textbf{BMC Bioinformatics}, v.~8, p.~25, 2007.}
+
+\bibitem[Zhang et al. 2023]{zhang2023drift}
+\abntrefinfo{Zhang et al.}{ZHANG et al.}{2023}
+{ZHANG, L.; ZHU, J.; ZHANG, D.; LIU, Y. An incremental photovoltaic power
+  prediction method considering concept drift and privacy protection.
+\textbf{Applied Energy}, v.~351, p. 121919, 2023.}
 
 \end{thebibliography}

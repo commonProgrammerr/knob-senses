@@ -8,38 +8,42 @@
 
 A geração fotovoltaica consolidou-se como uma das principais fontes
 renováveis da matriz elétrica brasileira, com capacidade instalada em crescimento
-expressivo.
-Usinas fotovoltaicas \textit{on-grid} depende de medições contínuas para
-acompanhar a produção, detectar falhas e gerenciamento. 
+expressivo \cite{costa2023}.
+Usinas fotovoltaicas \textit{on-grid} dependem de medições contínuas para
+acompanhar a produção, detectar falhas e gerenciamento.
 Em uma usina monitorada, cada inversor reporta a potência ativa entregue à rede, e essa
 série alimenta os indicadores de desempenho.
 Tradicionalmente, essa medição é feita por sensores físicos, como
 transformadores de corrente, sensores Hall ou shunts. 
 Embora consolidados, apresentam limitações de custo, instalação, 
 necessidade de calibração, vulnerabilidade a interferências eletromagnéticas,
-saturação e envelhecimento.
+saturação e envelhecimento \cite{ripka2010}.
 
 Em casos de falha na telemetria, o registro desaparece, e a lacuna compromete a
 contabilidade da geração, o cálculo de indicadores e a identificação de anomalias. 
 Nesse cenário, os \textit{soft-sensors}, ou sensores virtuais, surgem como
-alternativa complementar ou substituta. 
-Um \textit{soft-sensor}, é denominado como um modelo matemático ou algoritmo
+alternativa complementar ao medidor físico.
+Um \textit{soft-sensor} é definido como um modelo matemático ou algoritmo
 computacional que estima em tempo real uma variável de interesse a partir de leituras
 de sensores auxiliares. 
 Se implementados em \textit{hardware} embarcado, permitem processamento local, em tempo real, 
 com baixo custo e integração direta ao sistema de monitoramento. 
 Ao contar com uma base de dados representativa, o uso de \textit{Machine Learning}
-torna viável estimar a potência fotovoltaica a partir de variáveis meteorológicas.
+torna viável estimar a potência fotovoltaica a partir de variáveis meteorológicas
+\cite{gupta2021}.
 Nesse contexto, o \textit{TinyML} (\textit{Tiny Machine Learning}) destaca-se por levar
 esses modelos a dispositivos embarcados, permitindo inferência local com baixo consumo
 de recursos computacionais. Essa capacidade é particularmente relevante em usinas
 remotas, onde a infraestrutura é limitada e o acesso a sistemas locais de alto custo
-pode ser inviável.
+pode ser inviável. Em implementações embarcadas, modelos de aprendizado
+de máquina já foram usados para estimar a potência CA contemporânea de
+inversores em um ESP32-S3 \cite{moraesneto2024}.
 
 Portanto,
 a proposta deste trabalho é implementar e validar a utilização de um \textit{soft-sensor}
 embarcado com \textit{TinyML} para estimar a potência CA do inversor a partir de variáveis
-meteorológicas medidas de  forma independente, agregando redundância durante a falhas. 
+meteorológicas obtidas de forma independente da telemetria do inversor,
+agregando redundância durante as falhas.
 
 %
 \section{Objetivos}
@@ -53,7 +57,7 @@ variáveis meteorológicas, cobrindo falhas de telemetria.
 \begin{alineas}
   \item analisar, validar e tratar o conjunto de dados afim de gerar um dataset treinável a partir do mesmo;
   \item propor, treinar e validar modelos de ML com arquitetura especifica para estimação contemporânea da
-  potência de corrente alternada (PCA);
+  potência ativa em corrente alternada (PCA);
   \item otimizar, compilar e embarcar o modelo de melhor desempenho;
   \item implementar \textit{soft-sensor} embarcado utilizando o modelo escolhido;
   \item comparar o desempenho do \textit{soft-sensor} no computador e em dispositivo embarcado;
@@ -64,7 +68,7 @@ variáveis meteorológicas, cobrindo falhas de telemetria.
 
 Esse trabalho foi organizado em 5 capítulos: 
 O capítulo 2 apresenta a fundamentação teórica sobre geração fotovoltaica,
-soft-sensors, os modelos de ML e métricas utilizadas e implementação com TinnyML.
-O capítulo 3 descreve a metodologia utilizadas no projeto.
+soft-sensors, os modelos de ML e métricas utilizadas e implementação com TinyML.
+O capítulo 3 descreve a metodologia utilizada no projeto.
 O capítulo 4 apresenta os resultados offline, a análise cruzada e o ensaio na placa.
 O capítulo 5 conclui o trabalho, com as limitações e os desdobramentos possíveis.
