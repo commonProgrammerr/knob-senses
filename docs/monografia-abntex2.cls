@@ -90,15 +90,15 @@
     \begin{SingleSpace} \Huge\textbf\imprimirtitulo \end{SingleSpace}
 	\vfill
 	
-	{\Large\textsc\imprimirtipotrabalho}
+	{\Large\textbf\imprimirtipotrabalho}
 	
     % {\SingleSpacing \large \imprimirinstituicao}
 
     \vfill
 
-    {\large\textsc\imprimirautor} \\
+    {\large\imprimirautor} \\
     \vspace{1mm}
-    {\large\textsc{Orientador: \imprimirorientador}} \\
+    {\large{Orientador: \imprimirorientador}} \\
     
 
     \vfill
@@ -131,14 +131,14 @@
     \center
 
 
-    {\SingleSpacing \Large \imprimirinstituicao}
+    {\SingleSpacing \Large \textbf \imprimirinstituicao}
 
 {
 \vfill
 \huge\imprimirautor
 \vfill
 
-\begin{SingleSpace} \Huge\textbf\imprimirtitulo \end{SingleSpace}
+\begin{SingleSpace} \Huge\imprimirtitulo \end{SingleSpace}
 
 \vfill
 
