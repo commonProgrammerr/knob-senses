@@ -1,14 +1,28 @@
 \chapter{Resultados obtidos}
 \label{cap:resultados}
 
-O capítulo começa pela base de dados, porque as propriedades da PCA e a
-correlação entre as entradas condicionam a leitura dos resultados
-seguintes. Depois, compara RF, MLP e regressão linear nas quatro
-granularidades e examina a transferência dos modelos entre resoluções.
-O ensaio embarcado e as lacunas artificiais de telemetria fecham o
-capítulo. A avaliação \textit{offline} usa o teste de 2025 de E1; E2 e
-E3 entram apenas no ensaio, com os registros de 2025 reservados desde a
-preparação dos dados.
+Os resultados indicam que a potência ativa em corrente alternada (PCA)
+apresenta distribuição assimétrica e forte dependência da irradiância,
+enquanto a temperatura ambiente e a temperatura estimada do módulo
+acrescentam informação correlacionada. Essas propriedades, que incluem o
+perfil horário e a variação mensal da razão PCA/ghit, são detalhadas na
+\cref{sec:resultados-distribuicao}. Nesse cenário, os modelos não lineares
+superam a regressão linear, e o MLP oferece o melhor equilíbrio entre erro
+e generalização, sobretudo na escala horária, como mostram a
+\cref{sec:resultados-modelos} e a \cref{tab:resultados-comparacao-offline}.
+A transferência entre resoluções, analisada na \cref{sec:resultados-cruzada},
+mostra que o aprendizado em escalas mais finas preserva melhor o desempenho
+quando aplicado a escalas mais grosseiras, enquanto o caminho inverso é
+mais custoso. O ensaio embarcado, apresentado na
+\cref{sec:resultados-desempenho-embarcado}, indica que a quantização e a
+execução no ESP32-S3 mantêm a qualidade da estimativa. As lacunas
+artificiais, discutidas na \cref{sec:resultados-analise-gaps}, sugerem que
+o erro nos períodos de falha acompanha o erro usual, com influência do
+contexto de cada bloco e das diferenças entre inversores. A avaliação
+\textit{offline} dos modelos usa o teste de 2025 de E1. E2 e E3 não
+participam do treinamento nem dessa avaliação; eles aparecem na
+caracterização da base e no ensaio embarcado, com os registros de 2025
+reservados desde a preparação dos dados.
 
 \section{Caracterização da base e distribuição da PCA}
 \label{sec:resultados-distribuicao}
@@ -42,7 +56,7 @@ registros filtrados de E1, E2 e E3. O perfil é semelhante entre os
 inversores: a potência média cresce a partir das 5~h, atinge o máximo
 entre 11~h e 12~h, com cerca de 1,3~kW, e decai até o fim da tarde. E1
 fica ligeiramente acima de E2 e E3 nas horas centrais, mas a diferença
-entre estações é pequena diante da amplitude diurna. A forma do perfil
+entre inversores é pequena diante da amplitude diurna. A forma do perfil
 é compatível com a seleção de observações diurnas e com a dependência
 da geração em relação à irradiância.
 
@@ -56,20 +70,22 @@ da geração em relação à irradiância.
 
 A \cref{fig:resultados-produtividade} apresenta a razão
 $\mathrm{PCA}/\texttt{ghit}$ média por mês, multiplicada por 1000, para
-as três estações. A razão não é constante ao longo do ano: os valores
-mensais variam aproximadamente entre 1,4 e 2,4, com máximos no início
-de 2024 e mínimos no fim de 2024 e em 2025. E1 cobre todo o período de
-2021 a 2025, enquanto E2 e E3 começam em 2024, o que limita a comparação
-entre estações aos dois últimos anos. A variação sazonal e as
-diferenças entre anos mostram que a relação entre irradiância e
-potência não se resume a um fator constante, o que reforça o uso de
-modelos com componentes não lineares e a inclusão da temperatura entre
-as entradas.
+os três inversores. A razão $\mathrm{PCA}/\texttt{ghit}$ é comumente
+utilizada como indicador de produtividade da planta \cite{marion2005} e
+não é constante ao longo do ano, pois a conversão fotovoltaica depende
+também da temperatura e das condições de operação. Os valores mensais
+variam aproximadamente entre 1,4 e 2,4. A variação sazonal e as
+diferenças entre anos mostram que a relação entre irradiância e potência
+não se resume a um fator constante, o que reforça o uso de modelos com
+componentes não lineares e a inclusão da temperatura entre as entradas.
+Além disso, a queda da produtividade observada a partir da segunda
+metade de 2024 foi uma das razões para a decisão de aplicar a calibração
+de viés aos modelos não lineares antes do teste de 2025.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.96\textwidth]{figuras/produtividade.png}
-    \caption{Razão $\mathrm{PCA}/\texttt{ghit}$ média mensal por estação}
+    \caption{Razão $\mathrm{PCA}/\texttt{ghit}$ média mensal por inversor}
     \label{fig:resultados-produtividade}
     \source{Elaborado pelo autor a partir dos registros filtrados.}
 \end{figure}
@@ -580,21 +596,21 @@ remover uma entrada.
 \begin{table}[H]
     \centering
     \small
-    \caption{Desempenho dentro e fora dos \textit{gaps}}
+    \caption{Desempenho dentro e fora das lacunas}
     \label{tab:resultados-gaps-comparacao}
     \begin{tabular}{lrrrrr}
         \toprule
         Conjunto & $n$ & MAE (kW) & RMSE (kW) & $R^2$ & Viés (kW) \\
         \midrule
-        Fora dos \textit{gaps} & 11\,566 & 0,0586 & 0,0767 & 0,9756 & $+0,0147$ \\
-        Dentro dos \textit{gaps} & 551 & 0,0555 & 0,0720 & 0,9766 & $+0,0110$ \\
+        Fora das lacunas & 11\,566 & 0,0586 & 0,0767 & 0,9756 & $+0,0147$ \\
+        Dentro das lacunas & 551 & 0,0555 & 0,0720 & 0,9766 & $+0,0110$ \\
         \bottomrule
     \end{tabular}
     \source{Elaborado pelo autor a partir dos dados do ensaio embarcado.}
 \end{table}
 
-Dentro dos gaps, o MAE foi de 0,0555~kW, ligeiramente abaixo do valor
-fora deles (0,0586~kW). O $R^2$ foi praticamente o mesmo (0,9766 contra
+Dentro das lacunas, o MAE foi de 0,0555~kW, ligeiramente abaixo do valor
+fora delas (0,0586~kW). O $R^2$ foi praticamente o mesmo (0,9766 contra
 0,9756), e o viés caiu de $+0,0147$ para $+0,0110$~kW. Não houve
 aumento agregado do erro nas lacunas. O resultado não prova que a
 ausência de PCA seja indiferente: os blocos têm condições próprias e
@@ -605,7 +621,7 @@ estimativa manteve o patamar de erro do restante do teste.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.83\textwidth]{figuras/analise_hexbin_gaps.png}
-    \caption{Dispersão das predições nos \textit{gaps}}
+    \caption{Dispersão das predições nas lacunas}
     \label{fig:resultados-hexbin-gaps}
     \source{Elaborado pelo autor a partir do ensaio embarcado.}
 \end{figure}
@@ -619,7 +635,7 @@ não elevou a média do conjunto.
 \begin{table}[H]
     \centering
     \small
-    \caption{Métricas nos \textit{gaps} por inversor}
+    \caption{Métricas nas lacunas por inversor}
     \label{tab:resultados-gaps-inversores}
     \begin{tabular}{lrrrrr}
         \toprule
@@ -656,7 +672,7 @@ de observações por duração varia de 36 a 340.
 \begin{table}[H]
     \centering
     \small
-    \caption{Métricas nos \textit{gaps} por duração}
+    \caption{Métricas nas lacunas por duração}
     \label{tab:resultados-gaps-duracao}
     \begin{tabular}{lrrrrr}
         \toprule
@@ -685,7 +701,7 @@ contexto dos blocos e o inversor pesam mais.
 \begin{table}[H]
     \centering
     \small
-    \caption{MAE nos \textit{gaps} por duração e inversor}
+    \caption{MAE nas lacunas por duração e inversor}
     \label{tab:resultados-gaps-mae-inversores}
     \begin{tabular}{lrrr}
         \toprule
@@ -716,7 +732,7 @@ interpretável e não foi usado.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.98\textwidth]{figuras/analise_blocos_6h_ifpee3.png}
-    \caption{PCA medida e estimada em \textit{gaps} de 6~h (E3)}
+    \caption{PCA medida e estimada em lacunas de 6~h (E3)}
     \label{fig:resultados-gaps-6h}
     \source{Elaborado pelo autor a partir dos resultados.}
 \end{figure}
@@ -724,7 +740,7 @@ interpretável e não foi usado.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.98\textwidth]{figuras/analise_blocos_24h_ifpee3.png}
-    \caption{PCA medida e estimada em \textit{gaps} de 24~h (E3)}
+    \caption{PCA medida e estimada em lacunas de 24~h (E3)}
     \label{fig:resultados-gaps-24h}
     \source{Elaborado pelo autor a partir dos resultados.}
 \end{figure}
@@ -740,7 +756,7 @@ tabelas e na interpretação.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.98\textwidth]{figuras/analise_blocos_3d_ifpee2.png}
-    \caption{PCA medida e estimada em \textit{gap} de 3~dias (E2)}
+    \caption{PCA medida e estimada em lacuna de 3~dias (E2)}
     \label{fig:resultados-gaps-3d}
     \source{Elaborado pelo autor a partir dos resultados.}
 \end{figure}
@@ -748,7 +764,7 @@ tabelas e na interpretação.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.98\textwidth]{figuras/analise_blocos_10d_ifpee2.png}
-    \caption{PCA medida e estimada em \textit{gap} de 10~dias (E2)}
+    \caption{PCA medida e estimada em lacuna de 10~dias (E2)}
     \label{fig:resultados-gaps-10d}
     \source{Elaborado pelo autor a partir dos resultados.}
 \end{figure}

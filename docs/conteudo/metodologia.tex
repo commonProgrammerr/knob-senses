@@ -1,7 +1,7 @@
 \chapter{Metodologia}
 \label{cap:metodologia}
 
-\section{Caracterização da Pesquisa}
+\section{Caracterização do Trabalho}
 
 O estudo foi conduzido como pesquisa aplicada, quantitativa e experimental
 \cite{gil2002}, com treinamento de modelos de regressão em registros históricos
@@ -38,7 +38,7 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
     Keras & 3.15 & Treino do MLP \\
     emlearn & 0.23 & Biblioteca C do Random Forest \\
     esp-tflite-micro & 1.4.3 & Runtime do TFLite Micro pela Espressif \\
-    esp-nn & 1.5.0 & Núcleos quantizados para familia ESP32 \\
+    esp-nn & 1.5.0 & Núcleos quantizados para família ESP32 \\
     PlatformIO & 3.3.4 & Build e upload do firmware \\
     \bottomrule
   \end{tabular}
@@ -67,7 +67,7 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
     \node[caixa] (tflite) at (2.6, -7.4) {Conversão\\TFLite};
     \node[caixa larga] (firmware) at (0, -9.3) {Firmware ESP32-S3};
     \node[caixa larga] (protocolo) at (0, -11.2) {Protocolo CDC};
-    \node[caixa larga] (ensaio) at (0, -13.1) {Ensaio com \textit{gaps}};
+    \node[caixa larga] (ensaio) at (0, -13.1) {Ensaio com lacunas};
     \node[avaliacao] (coleta_res) at (7.5, -13.1) {Calcular \\MAE · RMSE · R$^2$ · viés};
     \draw[seta] (dados) -- (prep);
     \draw[seta] (prep) -- (split);
@@ -116,9 +116,7 @@ foram irradiância transposta (\texttt{ghit}, W/m$^2$), temperatura ambiente
 Antes do treinamento, foram inspecionadas a cobertura temporal, as lacunas
 contínuas, o perfil horário da PCA e a variação mensal da razão
 $\mathrm{PCA}/\texttt{ghit}$. A relação entre variáveis foi examinada por
-matriz de correlação; a dependência temporal, pelas funções de autocorrelação
-parcial (PACF) e de autocorrelação inversa (IACF) da série horária.
-A distribuição da potência foi observada nas resoluções de 5~min, 10~min,
+matriz de correlação. A distribuição da potência foi observada nas resoluções de 5~min, 10~min,
 30~min, 1~h, 6~h e 1~d. Os valores obtidos dessas análises são discutidos
 no capítulo de Resultados.
 
@@ -159,9 +157,9 @@ ao mesmo intervalo.
 
 \section{Treinamento dos Modelos}
 
-Para fins de comparação foram treinados 3 regressors diferentes, sendo estes 
-a regressão linear múltipla, como \textit{baseline}, o Random Forest (RF)
-e o perceptron de múltiplas camadas (MLP). Os 3 modelos foram ajustados
+Para fins de comparação foram treinados três regressores: a regressão
+linear múltipla, como \textit{baseline}, o Random Forest (RF) e o
+perceptron de múltiplas camadas (MLP). Os três modelos foram ajustados
 separadamente para cada granularidade,
 com o mesmo conjunto de entradas e a mesma partição temporal. Os procedimentos
 estocásticos utilizaram a semente 42. Os parâmetros dos modelos não lineares
@@ -205,19 +203,15 @@ normalização \textit{z-score}, inferência, correção de viés e limitação 
 saída a $[0,2]$~kW. A padronização seguiu o \textit{z-score} definido na
 \cref{eq:zscore}, com $\mu$ e $\sigma$ estimados exclusivamente no
 conjunto de treino.
-O modelo C foi comparado com o modelo do scikit-learn em entradas idênticas,
-e seu objeto foi compilado com a \textit{toolchain} Xtensa para mensurar o
-uso de memória de programa e de dados.
-
 \subsection{MLP}
 
 O MLP foi treinado no Keras \cite{chollet2015}, com três camadas ocultas de
 128, 64 e 32 neurônios, ativação ReLU, \textit{dropout} de 0,1 e saída
 linear, com viés inicializado pela média do alvo transformado. Essa escolha
 de arquitetura foi deliberada a fim de aumentar a compatibilidade com técnicas
-de optimização como \textit{PTQ} a \textit{pruning}. Entretanto somente a quantização
-foi executada uma vez que a relação entre custo computacional e acurácia demonstram-se
-suficientes.
+de otimização como \textit{PTQ} e \textit{pruning}. Entretanto, somente a
+quantização foi executada, uma vez que a relação entre custo computacional e
+acurácia demonstrou-se suficiente.
 
 As três entradas foram normalizadas pelo método \textit{min-max} 
 (\cref{eq:minmax}), com limites definidos exclusivamente no treino e
@@ -231,7 +225,7 @@ modelo no domínio transformado foi restringida ao domínio válido da inversa
 
 A função de perda escolhida foi Huber \cite{huber1964}, com limiar
 $\delta=0{,}25\,\mathrm{IQR}$ do alvo transformado, e a otimização foi
-realizada pelo algorítimo Adam \cite{kingma2015}. A parada antecipada 
+realizada pelo algoritmo Adam \cite{kingma2015}. A parada antecipada 
 monitorou o MAE de validação e restaurou os
 melhores pesos, com paciência correspondente ao dobro dos valores de
 referência da \cref{tab:hiperparametros}; a redução por platô dividiu a
@@ -264,7 +258,7 @@ de $\varepsilon$, a correção aditiva $c_{\mathrm{cal}}$ e a limitação físic
 final a $[0,2]$~kW. Os parâmetros de cada granularidade foram armazenados
 em \url{dist/{freq}/transformacao_alvo.json} e incorporados ao firmware.
 
-Após o treinamento em \texttt{float32}, o modelo foi exportado convertido
+Após o treinamento em \texttt{float32}, o modelo foi exportado e convertido
 para TensorFlow Lite por quantização pós-treinamento (PTQ), 
 na modalidade inteira de 8 bits (\texttt{int8}). A conversão foi realizada sem
 retreinamento. Uma amostra representativa do treino foi utilizada para
@@ -309,9 +303,9 @@ configuração da compilação e regenera os arquivos por meio de
 \url{utils/generate_model_data_mlp.py} quando necessário.
 
 O firmware não adquiriu dados diretamente dos sensores durante o ensaio.
-No ensaio o computador transmite as três entradas meteorológicas, em suas
-unidades originais; o firmware realiza a normalização, inferência e
-pós-processamento e devolveu a estimativa em kW e o tempo de inferência
+No ensaio, o computador transmite as três entradas meteorológicas, em suas
+unidades originais; o firmware realiza a normalização, a inferência e o
+pós-processamento e devolve a estimativa em kW e o tempo de inferência
 por amostra. A referência de PCA permaneceu exclusivamente no computador,
 responsável pelo cálculo dos erros. O tempo de inferência foi medido no
 firmware em torno da função de inferência, separadamente do tempo de
@@ -361,7 +355,7 @@ processamento.
 \section{Ensaio na Placa}
 
 O modelo escolhido para o ensaio foi o MLP quantizado com granularidade de 1~h
-devido as resultados obtidos discutidos posteriormente nos \cref{cap:resultados}.
+devido aos resultados obtidos, discutidos posteriormente no \cref{cap:resultados}.
 O ensaio consolidado foi executado no microcontrolador ESP32-S3 e alimentado 
 por registros históricos de 2025 dos inversores E1, E2 e E3. 
 O servidor de teste, implementado no notebook \url{notebooks/model_teste.ipynb}, 
@@ -371,7 +365,7 @@ a estimativa recebida, o identificador da amostra e o tempo de inferência.
 Esse procedimento testou a inferência em hardware real mediante reprodução
 de dados, sem aquisição meteorológica direta na planta.
 
-Para simular falhar na leitura, foram inseridas lacunas artificiais na disponibilidade
+Para simular falhas na leitura, foram inseridas lacunas artificiais na disponibilidade
 da PCA com durações de 6~h, 24~h, 3 dias e 10 dias, distribuídas em seis 
 blocos por inversor ao longo de 2025.
 O sorteio evitou sobreposição com lacunas reais de duração superior a 16~h;

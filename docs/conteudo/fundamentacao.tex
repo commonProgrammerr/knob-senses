@@ -1,10 +1,11 @@
 \chapter{Fundamentação Teórica}
 \label{cap:fundamentacao-teorica}
 
-A estimação da potência ativa em corrente alternada (PCA) de inversores
-fotovoltaicos a partir de variáveis meteorológicas combina conceitos de
-conversão fotovoltaica, aprendizado supervisionado e inferência em
-microcontroladores. Este capítulo organiza esses fundamentos na ordem em
+A elaboração de um \textit{soft-sensor} embarcado para estimação contemporânea
+da potência ativa em corrente alternada (PCA) de inversores fotovoltaicos a partir de
+variáveis meteorológicas combina conceitos de conversão fotovoltaica,
+aprendizado supervisionado e inferência em microcontroladores. 
+Este capítulo organiza esses fundamentos na ordem em
 que aparecem no restante do trabalho: primeiro, os fatores físicos que
 condicionam a geração e a definição de uma estimativa contemporânea;
 depois, o conceito de sensor virtual, a organização temporal dos dados e
@@ -60,8 +61,8 @@ treinamento sejam representativas das condições de operação. A
 temperatura ambiente, portanto, não substitui a temperatura do módulo:
 ela é um dos argumentos do modelo que a estima.
 
-A potência CA depende ainda do rendimento de conversão e do limite de
-saída do inversor. Em inversores conectados à rede, a potência CA cresce
+A PCA depende ainda do rendimento de conversão e do limite de
+saída do inversor. Em inversores conectados à rede, a PCA cresce
 com a potência CC até o limite nominal; acima desse ponto, o
 equipamento satura a saída e parte da energia disponível é perdida
 \cite{good2016}. O fenômeno, conhecido como saturação ou
@@ -69,8 +70,8 @@ equipamento satura a saída e parte da energia disponível é perdida
 não linearidade adicional na relação entre irradiância e PCA e explica
 por que observações na vizinhança do limite nominal requerem tratamento
 próprio na preparação dos dados. Além do limite de potência, o
-rendimento varia com a carga e com a tensão de entrada, o que reforça a
-diferença entre a potência CC estimada pela equação e a potência CA
+rendimento varia com a carga e com a tensão de entrada \cite{chmielowiec2022}, o que reforça a
+diferença entre a potência CC estimada pela equação e a PCA
 medida.
 
 Em conjunto, esses fatores mostram que a relação entre as condições
@@ -112,7 +113,7 @@ da continuidade dessas variáveis, a avaliação do estimador precisa
 considerar não apenas o erro médio, mas também os regimes em que as
 entradas permanecem disponíveis.
 
-\section{Sensores virtuais e lacunas de te\-le\-me\-tri\-a}
+\section{Sensores virtuais e lacunas}
 \label{sec:ft-softsensor}
 
 Um sensor virtual, ou \textit{soft-sensor}, estima uma variável de
@@ -150,10 +151,8 @@ partir de variáveis auxiliares medidas no mesmo instante. Essa diferença
 variável ausente e as variáveis meteorológicas continuam disponíveis.
 
 A imputação de dados faltantes é estudada também no contexto da previsão
-fotovoltaica \cite{lee2024}. Entretanto, lacunas artificiais inseridas em
-registros históricos não reproduzem necessariamente todas as condições de
-uma falha real, sobretudo quando se pressupõe a integridade dos sensores
-meteorológicos. A avaliação com lacunas artificiais mede a resposta do
+fotovoltaica \cite{lee2024}. 
+A avaliação com lacunas artificiais mede a resposta do
 estimador em períodos escolhidos, mas não substitui a validação em campo,
 com falhas simultâneas, atrasos de comunicação e deriva dos sensores.
 Essa distinção limita o alcance dos resultados e é retomada no capítulo
@@ -177,9 +176,8 @@ treinamento no passado e teste no futuro.
 
 A granularidade define o intervalo representado por cada registro. A
 agregação por média suaviza oscilações rápidas da potência, mas também
-modifica a distribuição do alvo e a quantidade de amostras
-\cite{mayer2021}. Em resoluções
-mais grossas, a variância do alvo diminui e a autocorrelação aumenta;
+modifica a distribuição do alvo e a quantidade de amostras \cite{mayer2021}.
+Em resoluções mais grossas, a variância do alvo diminui e a autocorrelação aumenta;
 como consequência, as métricas de erro não são diretamente comparáveis
 entre resoluções, e um MAE menor em 1~d não significa que o modelo seja
 mais preciso em 5~min. Além disso, a média das medições diurnas não
@@ -274,7 +272,7 @@ comparação entre os modelos, portanto, ocorre na unidade física, mas o
 MLP aprende em um domínio transformado e pode apresentar diferenças de
 comportamento nas faixas de potência mais altas.
 
-\section{Modelos de regressão para estimação de potência}
+\section{Modelos de regressão}
 \label{sec:ft-modelos}
 
 \subsection{Regressão linear múltipla}
@@ -462,8 +460,9 @@ média, ele descreve a cauda da distribuição de erros e é menos sensível a
 um único valor extremo do que a média. A interpretação conjunta dessas métricas e de
 gráficos de valores medidos versus estimados é mais informativa que a
 análise de um único indicador \cite{chicco2021,hodson2022}. Nos
-resultados, a comparação entre granularidades combina MAE, RMSE, $R^2$,
-viés e P90, porque cada um responde a uma pergunta diferente.
+resultados, a comparação entre granularidades combina MAE, RMSE, $R^2$ e
+viés, enquanto o P90 complementa a análise do ensaio embarcado, porque
+cada métrica responde a uma pergunta diferente.
 
 \subsection{Calibração de viés e mudanças de distribuição}
 \label{subsec:ft-calibracao}

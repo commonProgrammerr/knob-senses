@@ -49,17 +49,16 @@
   in regression analysis evaluation.
 \textbf{PeerJ Computer Science}, v.~7, p.~e623, 2021.}
 
+\bibitem[Chmielowiec et al. 2022]{chmielowiec2022}
+\abntrefinfo{Chmielowiec et al.}{CHMIELOWIEC et al.}{2022}
+{CHMIELOWIEC, K.; TOPOLSKI, {\L}.; PISZCZEK, A.; RODZIEWICZ, T.; HANZELKA, Z.
+  Study on energy efficiency and harmonic emission of photovoltaic inverters.
+\textbf{Energies}, v.~15, n.~8, p.~2857, 2022.}
+
 \bibitem[Chollet et al. 2015]{chollet2015}
 \abntrefinfo{Chollet et al.}{CHOLLET et al.}{2015}
 {CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
 Acesso em: 2026-11-07.}
-
-\bibitem[Costa et al. 2023]{costa2023}
-\abntrefinfo{Costa et al.}{COSTA et al.}{2023}
-{COSTA, V. B.~F.; SCIANNI, L.; MIRANDA, R.~C.; BONATTO, B. Assessment of the
-  status and trends of photovoltaic distributed generation in {Brazil}: An
-  in-depth approach based on big data processing.
-\textbf{Solar Energy}, v.~249, p. 694--711, 2023.}
 
 \bibitem[David et al. 2021]{david2021}
 \abntrefinfo{David et al.}{DAVID et al.}{2021}
@@ -86,6 +85,15 @@ Golden, Colorado, 2014.}
 {DOLARA, A.; LEVA, S.; MANZOLINI, G. Comparison of different physical models
   for {PV} power output prediction.
 \textbf{Solar Energy}, v.~119, p. 83--99, 2015.}
+
+\bibitem[{EMPRESA DE PESQUISA ENERG{\'E}TICA} 2026]{epe2026}
+\abntrefinfo{{EMPRESA DE PESQUISA ENERG{\'E}TICA}}{{EMPRESA DE PESQUISA
+  ENERG{\'E}TICA}}{2026}
+{{EMPRESA DE PESQUISA ENERG{\'E}TICA}. \textbf{Balan{\c c}o Energ{\'e}tico
+  Nacional 2026: relat{\'o}rio s{\'i}ntese}. Rio de Janeiro: EPE, 2026.
+  \url{https://www.epe.gov.br/pt/publicacoes-dados-abertos/publicacoes/balanco-energetico-nacional-2026}.
+Ano-base 2025.
+Acesso em: 2026-10-10.}
 
 \bibitem[{Espressif Systems} 2024]{espressif2024}
 \abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2024}
@@ -227,6 +235,14 @@ Acesso em: 2026-11-07.}
   verification for improved photovoltaic performance and reliability analytics.
 \textbf{Progress in Photovoltaics: Research and Applications}, v.~29, n.~2, p.
   143--158, 2021.}
+
+\bibitem[Marion et al. 2005]{marion2005}
+\abntrefinfo{Marion et al.}{MARION et al.}{2005}
+{MARION, B.; ADELSTEIN, J.; BOYLE, K.; HAYDEN, H.; HAMMOND, B.; FLETCHER, T.;
+  CANADA, B.; NARANG, D.; KIMBER, A.; MITCHELL, L.; RICH, G.; TOWNSEND, T.
+  Performance parameters for grid-connected {PV} systems. In:
+  \textbf{Conference Record of the Thirty-first IEEE Photovoltaic Specialists
+  Conference}. [S.l.]: IEEE, 2005. p. 1601--1606.}
 
 \bibitem[Mayer 2021]{mayer2021}
 \abntrefinfo{Mayer}{MAYER}{2021}

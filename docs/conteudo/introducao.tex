@@ -8,9 +8,9 @@
 
 A geração fotovoltaica consolidou-se como uma das principais fontes
 renováveis da matriz elétrica brasileira, com capacidade instalada em crescimento
-expressivo \cite{costa2023}.
+expressivo \cite{epe2026}.
 Usinas fotovoltaicas \textit{on-grid} dependem de medições contínuas para
-acompanhar a produção, detectar falhas e gerenciamento.
+acompanhar a produção, detectar falhas e apoiar o gerenciamento.
 Em uma usina monitorada, cada inversor reporta a potência ativa entregue à rede, e essa
 série alimenta os indicadores de desempenho.
 Tradicionalmente, essa medição é feita por sensores físicos, como
@@ -36,12 +36,12 @@ esses modelos a dispositivos embarcados, permitindo inferência local com baixo 
 de recursos computacionais. Essa capacidade é particularmente relevante em usinas
 remotas, onde a infraestrutura é limitada e o acesso a sistemas locais de alto custo
 pode ser inviável. Em implementações embarcadas, modelos de aprendizado
-de máquina já foram usados para estimar a potência CA contemporânea de
+de máquina já foram usados para estimar a potência ativa em corrente alternada (PCA) contemporânea de
 inversores em um ESP32-S3 \cite{moraesneto2024}.
 
 Portanto,
 a proposta deste trabalho é implementar e validar a utilização de um \textit{soft-sensor}
-embarcado com \textit{TinyML} para estimar a potência CA do inversor a partir de variáveis
+embarcado com \textit{TinyML} para estimar a PCA do inversor a partir de variáveis
 meteorológicas obtidas de forma independente da telemetria do inversor,
 agregando redundância durante as falhas.
 
@@ -49,15 +49,15 @@ agregando redundância durante as falhas.
 \section{Objetivos}
 
 O objetivo geral é desenvolver e avaliar um soft-sensor embarcado capaz de
-estimar a potência CA contemporânea de inversores fotovoltaicos a partir de 
+estimar a PCA contemporânea de inversores fotovoltaicos a partir de 
 variáveis meteorológicas, cobrindo falhas de telemetria.
 
 \noindent Os objetivos específicos são:
 
 \begin{alineas}
-  \item analisar, validar e tratar o conjunto de dados afim de gerar um dataset treinável a partir do mesmo;
-  \item propor, treinar e validar modelos de ML com arquitetura especifica para estimação contemporânea da
-  potência ativa em corrente alternada (PCA);
+  \item analisar, validar e tratar o conjunto de dados a fim de gerar um conjunto treinável a partir dele;
+  \item propor, treinar e validar modelos de ML com arquitetura específica para estimação contemporânea da
+  PCA;
   \item otimizar, compilar e embarcar o modelo de melhor desempenho;
   \item implementar \textit{soft-sensor} embarcado utilizando o modelo escolhido;
   \item comparar o desempenho do \textit{soft-sensor} no computador e em dispositivo embarcado;

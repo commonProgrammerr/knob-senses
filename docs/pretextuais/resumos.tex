@@ -8,19 +8,19 @@ rede, mas, quando a telemetria falha, o registro se perde e a lacuna
 compromete a contabilização da geração. Sensores virtuais
 (\textit{soft-sensors}) oferecem uma alternativa complementar: em vez de
 reconstruir a série a partir dela mesma, estimam a variável ausente com base
-em outras medições disponíveis no mesmo intervalo. O \textit{TinyML} permite
+em outras medições disponíveis no mesmo intervalo.
+O \textit{TinyML} permite
 executar esses modelos em dispositivos embarcados de baixo custo, o que
 torna possível produzir a estimativa no próprio local da planta.
 Este trabalho desenvolveu e avaliou um \textit{soft-sensor} embarcado para
 estimar a potência ativa em corrente alternada (PCA) de inversores
 fotovoltaicos a partir da irradiância no plano dos módulos, da temperatura
 ambiente e da temperatura do módulo estimada. Os dados foram obtidos na Rede
-Solarimétrica de Pernambuco, mantida pelo Instituto Federal de Pernambuco, e
-abrangeram três inversores de 2~kW. A base foi organizada em quatro
-resoluções temporais, de 5~min a 1~d, com separação cronológica entre os
-conjuntos de treino, calibração e teste. A avaliação comparou regressão
-linear, \textit{Random Forest} e perceptron de múltiplas camadas. O modelo
-de melhor desempenho foi quantizado para inteiros de 8~bits e executado em
+Solarimétrica de Pernambuco e abrangeram três inversores de 2~kW.
+A base foi organizada em quatro resoluções temporais: 5~min, 10~min, 1~h e 1~d, 
+com separação cronológica entre os conjuntos de treino, calibração e teste.
+A avaliação comparou regressão linear, \textit{Random Forest} e perceptron de múltiplas camadas. 
+O modelo de melhor desempenho foi quantizado para inteiros de 8~bits e executado em
 um ESP32-S3 com TensorFlow Lite Micro. Para reproduzir a falha de
 telemetria, foram inseridas lacunas artificiais na potência medida, mantendo
 as variáveis meteorológicas disponíveis ao estimador.
@@ -37,7 +37,7 @@ potência, cobrindo ausências de telemetria com erro de magnitude conhecida,
 embora a validação em campo permaneça pendente.
 
 \noindent\textbf{Palavras-chave:} aprendizado de máquina; sistemas
-fotovoltaicos; soft-sensor; TinyML; dados faltantes.
+fotovoltaicos; sensores virtuais; \textit{TinyML}.
 \end{resumo}
 
 % resumo em inglês
@@ -46,36 +46,36 @@ fotovoltaicos; soft-sensor; TinyML; dados faltantes.
 Photovoltaic generation relies on continuous power measurements to monitor
 production, calculate performance indicators and detect failures. In a
 monitored plant, each inverter reports the active power delivered to the
-grid, but when telemetry fails the record is lost and the gap compromises
-generation accounting. Soft sensors offer a complementary alternative:
-instead of reconstructing the series from itself, they estimate the missing
-variable from other measurements available in the same interval. TinyML
-enables these models to run on low-cost embedded devices, making it possible
-to produce the estimate at the plant itself.
-This work developed and evaluated an embedded soft sensor that estimates the
+grid, but when telemetry fails, the record is lost and the resulting gap
+compromises generation accounting. Soft sensors provide a complementary
+alternative: instead of reconstructing the series from itself, they estimate
+the missing variable from other measurements available in the same interval.
+TinyML makes it possible to run these models on low-cost embedded devices,
+allowing the estimate to be produced directly at the plant.
+This work developed and evaluated an embedded soft sensor to estimate the
 AC active power of photovoltaic inverters from plane-of-array irradiance,
 ambient temperature and estimated module temperature. The data came from the
-Pernambuco Solarimetric Network, maintained by the Federal Institute of
-Pernambuco, and covered three 2~kW inverters. The dataset was organized into
-four temporal resolutions, from 5~min to 1~day, with a chronological split
-between training, calibration and test sets. The evaluation compared linear
-regression, random forest and a multilayer perceptron. The best-performing
-model was quantized to 8-bit integers and run on an ESP32-S3 with TensorFlow
-Lite Micro. To reproduce telemetry failure, artificial gaps were inserted
-into the measured power while the meteorological variables remained
-available to the estimator.
-The results indicate that the multilayer perceptron performed best at all
-four resolutions, especially at the hourly scale, and that models trained at
-finer resolutions transferred better to coarser scales. On the embedded
-device, estimation quality remained close to that obtained on the computer,
-with an inference time compatible with the hourly cadence. In the artificial
-gaps, the error stayed close to that observed in the rest of the test, and
-the context of each period and the differences between inverters had more
-influence than the gap duration. The results show that the soft sensor is
-viable as a complement to the power meter, covering telemetry absences with
-an error of known magnitude, although field validation remains pending.
+Pernambuco Solarimetric Network and covered three 2~kW inverters. The dataset
+was organized into four temporal resolutions: 5~min, 10~min, 1~h and 1~day.
+The training, calibration and test sets were separated chronologically. The
+evaluation compared linear regression, Random Forest and a Multilayer
+Perceptron. The best-performing model was quantized to 8-bit integers and
+executed on an ESP32-S3 using TensorFlow Lite Micro. To reproduce telemetry
+failures, artificial gaps were inserted into the measured power while the
+meteorological variables remained available to the estimator.
+The results indicate that the Multilayer Perceptron achieved the best
+performance at all four resolutions, especially at the hourly scale, and that
+models trained at finer resolutions transferred better to coarser resolutions.
+On the embedded device, estimation quality remained close to that obtained
+on the computer, with an inference time compatible with hourly operation.
+In the artificial gaps, the error remained close to that observed for the
+rest of the test set, and the context of each period and differences between
+inverters had more influence than the duration of the failure. The results
+show that the soft sensor is viable as a complement to the power meter,
+covering telemetry gaps with an error of known magnitude, although field
+validation remains pending.
 
 \noindent\textbf{Keywords:} machine learning; photovoltaic systems; soft
-sensor; TinyML; missing data.
+sensor; TinyML.
 \end{otherlanguage*}
 \end{resumo}
