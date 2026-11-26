@@ -3,7 +3,7 @@
 % Template: preencha seus dados em pretextuais/capa.tex
 % ============================================================================
 \documentclass[
-    section=TITLE,      % títulos de seções em maiúsculas
+    chapter=TITLE,      % títulos de capítulos em maiúsculas
     12pt,
     oneside,
     a4paper,
@@ -38,6 +38,7 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{amsmath,amssymb}
+\usepackage{icomma}          % vírgula decimal em matemática (ABNT)
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{caption}
@@ -115,6 +116,14 @@
 % --- Espaçamentos ---
 \setlength{\parindent}{1.25cm}
 \setlength{\parskip}{0pt}
+% Espaço em torno de figuras e tabelas (layout, sem alterar o texto)
+\setlength{\textfloatsep}{12pt plus 2pt minus 2pt}
+\setlength{\floatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.85}
 
 % ============================================================================
 \begin{document}
@@ -131,7 +140,10 @@
 % Ficha catalográfica (verso da folha de rosto).
 % Ao inserir, manter o \addtocounter: capa e ficha NÃO contam na numeração (regra ECOMP).
 %\includepdf{pretextuais/ficha_catalografica.pdf}\addtocounter{page}{-1}
-%\includepdf{pretextuais/folha_aprovacao.pdf}        % Avaliação Final assinada pela banca
+% Avaliação Final fornecida pela presidência da banca para a versão de depósito.
+\IfFileExists{pretextuais/folha_aprovacao.pdf}{%
+    \includepdf[pages=-]{pretextuais/folha_aprovacao.pdf}%
+}{\typeout{Versao para defesa: Avaliacao Final assinada ainda nao anexada.}}
 %\includepdf{pretextuais/termo_autorizacao.pdf}      % autorização de divulgação assinada
 
 % Agradecimentos
@@ -151,6 +163,9 @@
 
 % Lista de abreviaturas e siglas
 \include{pretextuais/simbolos-siglas}
+
+% Lista de símbolos
+\include{pretextuais/simbolos}
 
 % Sumário
 \pdfbookmark[0]{\contentsname}{toc}
@@ -173,5 +188,10 @@
 % ----------------------------------------------------------
 \postextual
 \bibliography{referencias}
+
+% Apêndices
+\begin{apendices}
+\include{conteudo/apendice}
+\end{apendices}
 
 \end{document}

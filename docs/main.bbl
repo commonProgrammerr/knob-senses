@@ -5,11 +5,13 @@
 \providecommand{\abntbstabout}[1]{}
 \abntbstabout{v-1.9.7 }
 
-\bibitem[Albelali et al. 2025]{albelali2025}
-\abntrefinfo{Albelali et al.}{ALBELALI et al.}{2025}
-{ALBELALI, S. et al. \textbf{Hidden Leaks in Time Series Forecasting: How Data
-  Leakage Affects {LSTM} Evaluation Across Configurations and Validation
-  Strategies}. 2025. ArXiv preprint.}
+\bibitem[Albelali e Ahmed 2025]{albelali2025}
+\abntrefinfo{Albelali e Ahmed}{ALBELALI; AHMED}{2025}
+{ALBELALI, S.; AHMED, M. \textbf{Hidden Leaks in Time Series Forecasting: How
+  Data Leakage Affects {LSTM} Evaluation Across Configurations and Validation
+  Strategies}. 2025. ArXiv preprint arXiv:2512.06932.
+Dispon{\'\i}vel em: \url{https://arxiv.org/abs/2512.06932}. Acesso em: 7 nov.
+  2026.}
 
 \bibitem[Balfour et al. 2021]{balfour2021}
 \abntrefinfo{Balfour et al.}{BALFOUR et al.}{2021}
@@ -45,7 +47,7 @@
 \bibitem[Chicco, Warrens e Jurman 2021]{chicco2021}
 \abntrefinfo{Chicco, Warrens e Jurman}{CHICCO; WARRENS; JURMAN}{2021}
 {CHICCO, D.; WARRENS, M.~J.; JURMAN, G. The coefficient of determination
-  r-squared is more informative than {SMAPE}, {MAE}, {MAPE}, {MSE} and {RMSE}
+  {R}-squared is more informative than {SMAPE}, {MAE}, {MAPE}, {MSE} and {RMSE}
   in regression analysis evaluation.
 \textbf{PeerJ Computer Science}, v.~7, p.~e623, 2021.}
 
@@ -58,7 +60,7 @@
 \bibitem[Chollet et al. 2015]{chollet2015}
 \abntrefinfo{Chollet et al.}{CHOLLET et al.}{2015}
 {CHOLLET, F. et al. \textbf{Keras}. 2015. \url{https://keras.io}.
-Acesso em: 2026-11-07.}
+Acesso em: 7 nov. 2026.}
 
 \bibitem[David et al. 2021]{david2021}
 \abntrefinfo{David et al.}{DAVID et al.}{2021}
@@ -77,8 +79,8 @@ Acesso em: 2026-11-07.}
 
 \bibitem[Dobos 2014]{dobos2014}
 \abntrefinfo{Dobos}{DOBOS}{2014}
-{DOBOS, A.~P. \textbf{{PVWatts} Version 5 Manual}.
-Golden, Colorado, 2014.}
+{DOBOS, A.~P. \textbf{{PVWatts} Version 5 Manual}. Golden, CO: National
+  Renewable Energy Laboratory, 2014.  (Technical Report NREL/TP-6A20-62641).}
 
 \bibitem[Dolara, Leva e Manzolini 2015]{dolara2015modelos}
 \abntrefinfo{Dolara, Leva e Manzolini}{DOLARA; LEVA; MANZOLINI}{2015}
@@ -93,27 +95,27 @@ Golden, Colorado, 2014.}
   Nacional 2026: relat{\'o}rio s{\'i}ntese}. Rio de Janeiro: EPE, 2026.
   \url{https://www.epe.gov.br/pt/publicacoes-dados-abertos/publicacoes/balanco-energetico-nacional-2026}.
 Ano-base 2025.
-Acesso em: 2026-10-10.}
+Acesso em: 10 out. 2026.}
 
-\bibitem[{Espressif Systems} 2024]{espressif2024}
-\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2024}
-{{Espressif Systems}. \textbf{{ESP32-S3} Series Datasheet}. 2024.
+\bibitem[{ESPRESSIF SYSTEMS} 2024]{espressif2024}
+\abntrefinfo{{ESPRESSIF SYSTEMS}}{{ESPRESSIF SYSTEMS}}{2024}
+{{ESPRESSIF SYSTEMS}. \textbf{{ESP32-S3} Series Datasheet}. 2024.
   \url{https://www.espressif.com/}.
-Acesso em: 2026-11-07.}
+Acesso em: 7 nov. 2026.}
 
-\bibitem[{Espressif Systems} 2026]{espnn2026}
-\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2026a}
+\bibitem[{ESPRESSIF SYSTEMS} 2026a]{espnn2026}
+\abntrefinfo{{ESPRESSIF SYSTEMS}}{{ESPRESSIF SYSTEMS}}{2026a}
 {\underline{\ \ \ \ \ \ \ \ }. \textbf{{esp-nn}: Neural network kernels
-  optimized for {Espressif} chips}. 2026.
+  optimized for {Espressif} chips}. 2026a.
   \url{https://github.com/espressif/esp-nn}.
-Acesso em: 2026-11-12.}
+Acesso em: 12 nov. 2026.}
 
-\bibitem[{Espressif Systems} 2026]{esptflitemicro2026}
-\abntrefinfo{{Espressif Systems}}{{Espressif Systems}}{2026b}
+\bibitem[{ESPRESSIF SYSTEMS} 2026b]{esptflitemicro2026}
+\abntrefinfo{{ESPRESSIF SYSTEMS}}{{ESPRESSIF SYSTEMS}}{2026b}
 {\underline{\ \ \ \ \ \ \ \ }. \textbf{{esp-tflite-micro}: {TensorFlow Lite}
-  for Microcontrollers for {ESP} SoCs}. 2026.
+  for Microcontrollers for {ESP} SoCs}. 2026b.
   \url{https://github.com/espressif/esp-tflite-micro}.
-Acesso em: 2026-11-12.}
+Acesso em: 12 nov. 2026.}
 
 \bibitem[Gil 2002]{gil2002}
 \abntrefinfo{Gil}{GIL}{2002}
@@ -137,7 +139,7 @@ Acesso em: 2026-11-12.}
 \abntrefinfo{Google}{GOOGLE}{2024}
 {GOOGLE. \textbf{{TensorFlow Lite} for Microcontrollers}. 2024.
   \url{https://www.tensorflow.org/lite/microcontrollers}.
-Acesso em: 2026-11-07.}
+Acesso em: 7 nov. 2026.}
 
 \bibitem[Grinsztajn, Oyallon e Varoquaux 2022]{grinsztajn2022}
 \abntrefinfo{Grinsztajn, Oyallon e Varoquaux}{GRINSZTAJN; OYALLON;
@@ -172,11 +174,6 @@ Acesso em: 2026-11-07.}
 {HUBER, P.~J. Robust estimation of a location parameter.
 \textbf{The Annals of Mathematical Statistics}, v.~35, n.~1, p. 73--101, 1964.}
 
-\bibitem[Hyndman e Koehler 2006]{hyndman2006}
-\abntrefinfo{Hyndman e Koehler}{HYNDMAN; KOEHLER}{2006}
-{HYNDMAN, R.~J.; KOEHLER, A.~B. Another look at measures of forecast accuracy.
-\textbf{International Journal of Forecasting}, v.~22, n.~4, p. 679--688, 2006.}
-
 \bibitem[Jacob et al. 2018]{jacob2018}
 \abntrefinfo{Jacob et al.}{JACOB et al.}{2018}
 {JACOB, B.; KLIGYS, S.; CHEN, B.; ZHU, M.; TANG, M.; HOWARD, A.; ADAM, H.;
@@ -190,7 +187,7 @@ Acesso em: 2026-11-07.}
 {JACQUES, S.; CALDEIRA, A.; REN, Z.; SCHELLMANNS, A.; BATUT, N. Impact of the
   cell temperature on the energy efficiency of a single glass {PV} module:
   thermal modeling in steady-state and validation by experimental data.
-\textbf{Renewable Energy \& Power Quality Journal}, p. 291--294, 2013.}
+\textbf{Renewable Energy \& Power Quality Journal}, v.~11, p. 291--294, 2013.}
 
 \bibitem[Kadlec, Gabrys e Strandt 2009]{kadlec2009}
 \abntrefinfo{Kadlec, Gabrys e Strandt}{KADLEC; GABRYS; STRANDT}{2009}
@@ -256,13 +253,13 @@ Acesso em: 2026-11-07.}
   photovoltaic power forecasting.
 \textbf{Applied Energy}, v.~283, p. 116239, 2021.}
 
-\bibitem[{MORAES NETO}, {PEDROSA FILHO} e Lima 2026]{moraesneto2024}
-\abntrefinfo{{MORAES NETO}, {PEDROSA FILHO} e Lima}{{MORAES NETO}; {PEDROSA
-  FILHO}; LIMA}{2026}
-{{MORAES NETO}, J.~O.; {PEDROSA FILHO}, M. H.~O.; LIMA, R.~A. Comparative
+\bibitem[Moraes{ }Neto, Pedrosa{ }Filho e Lima 2026]{moraesneto2024}
+\abntrefinfo{Moraes{ }Neto, Pedrosa{ }Filho e Lima}{MORAES{ }NETO; PEDROSA{
+  }FILHO; LIMA}{2026}
+{MORAES{ }NETO, J.~O.; PEDROSA{ }FILHO, M. H.~O.; LIMA, R.~A. Comparative
   analysis of machine learning and {LSTM} models for contemporaneous {ACP}
-  estimation in grid-connected {PV} systems deployed on {ESP32-S3} using edge
-  impulse.
+  estimation in grid-connected {PV} systems deployed on {ESP32-S3} using {Edge
+  Impulse}.
 \textbf{IEEE Access}, v.~14, p. 170804--170815, 2026.}
 
 \bibitem[Nagel et al. 2021]{nagel2021quantization}
@@ -275,7 +272,7 @@ Acesso em: 2026-11-07.}
 \abntrefinfo{Nordby}{NORDBY}{2024}
 {NORDBY, J. \textbf{emlearn: Machine Learning inference engine for
   Microcontrollers}. 2024. \url{https://emlearn.readthedocs.io/}.
-Acesso em: 2026-11-07.}
+Acesso em: 7 nov. 2026.}
 
 \bibitem[Pedregosa et al. 2011]{pedregosa2011}
 \abntrefinfo{Pedregosa et al.}{PEDREGOSA et al.}{2011}
@@ -286,20 +283,20 @@ Acesso em: 2026-11-07.}
 
 \bibitem[{PEDROSA FILHO} 2022]{pedrosafilho2022}
 \abntrefinfo{{PEDROSA FILHO}}{{PEDROSA FILHO}}{2022}
-{{PEDROSA FILHO}, M. H.~O. Rede solarim{\'e}trica de pernambuco. In:  CBENS.
+{{PEDROSA FILHO}, M. H.~O. Rede solarim{\'e}trica de {Pernambuco}. In:  CBENS.
   \textbf{Anais do IX Congresso Brasileiro de Energia Solar}.
   Florian{\'o}polis, 2022.}
 
 \bibitem[{PEDROSA FILHO} 2025]{pedrosafilho2025}
 \abntrefinfo{{PEDROSA FILHO}}{{PEDROSA FILHO}}{2025}
-{\underline{\ \ \ \ \ \ \ \ }. Pernambuco solarimetric network. In:  ISES.
+{\underline{\ \ \ \ \ \ \ \ }. {Pernambuco} solarimetric network. In:  ISES.
   \textbf{Proceedings of the Solar World Congress}. Fortaleza, 2025.}
 
-\bibitem[{PlatformIO Labs} 2024]{platformio2024}
-\abntrefinfo{{PlatformIO Labs}}{{PlatformIO Labs}}{2024}
-{{PlatformIO Labs}. \textbf{PlatformIO Documentation}. 2024.
+\bibitem[{PLATFORMIO LABS} 2024]{platformio2024}
+\abntrefinfo{{PLATFORMIO LABS}}{{PLATFORMIO LABS}}{2024}
+{{PLATFORMIO LABS}. \textbf{PlatformIO Documentation}. 2024.
   \url{https://docs.platformio.org/}.
-Acesso em: 2026-11-07.}
+Acesso em: 7 nov. 2026.}
 
 \bibitem[Prechelt 1998]{prechelt1998}
 \abntrefinfo{Prechelt}{PRECHELT}{1998}
@@ -321,11 +318,6 @@ Acesso em: 2026-11-07.}
   networks: A deep learning framework for solving forward and inverse problems
   involving nonlinear partial differential equations.
 \textbf{Journal of Computational Physics}, v.~378, p. 686--707, 2019.}
-
-\bibitem[Ripka 2010]{ripka2010}
-\abntrefinfo{Ripka}{RIPKA}{2010}
-{RIPKA, P. Electric current sensors: a review.
-\textbf{Measurement Science and Technology}, v.~21, n.~11, p. 112001, 2010.}
 
 \bibitem[Roberts et al. 2017]{roberts2017}
 \abntrefinfo{Roberts et al.}{ROBERTS et al.}{2017}

@@ -95,16 +95,14 @@ def _record_prediction(df, seq, pred, inference_us, logged) -> dict | None:
     `inference_us` e' o tempo medido no firmware, em microssegundos, ao redor de
     runInference() - so' o processamento, sem a comunicação serial.
 
-    PCA == 0 e' sentinela de faltante e PCA NaN e' gap artificial: a linha fica no
-    log com real/err NaN, fora do erro (quem mede o erro DENTRO dos gaps junta o
-    log com o dataset original).
+    Zeros participam das métricas. Referências ausentes permanecem NaN.
     """
     if seq in logged:
         return None
     logged.add(seq)
     row = df.iloc[seq]
     real = row[contract.TARGET]
-    real_valid = real != 0.0 and not np.isnan(real)
+    real_valid = np.isfinite(real)
     return dict(
         sample=row[contract.INDEX],
         pred=pred,
@@ -230,8 +228,7 @@ def serve_serial(df: pd.DataFrame, porta: str, baud: int = 921600,
 def eval_metrics(df_eval: pd.DataFrame) -> dict:
     """R2/MAE/vies/amplitude e tempo de inferencia do log do servidor.
 
-    Os numeros do painel de avaliacao. Linhas com real NaN (gaps artificiais,
-    sentinela de faltante) ficam fora do calculo do erro: quem mede o erro DENTRO
+    Os numeros do painel de avaliacao. Linhas com real NaN (referência ausente) ficam fora do calculo do erro: quem mede o erro DENTRO
     dos gaps junta o log com o dataset original. O tempo de inferencia nao depende
     do real, entao e' resumido sobre todas as predicoes logadas.
     """

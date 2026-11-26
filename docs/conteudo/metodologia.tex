@@ -4,25 +4,28 @@
 \section{Caracterização do Trabalho}
 
 O estudo foi conduzido como pesquisa aplicada, quantitativa e experimental
-\cite{gil2002}, com treinamento de modelos de regressão em registros históricos
-de geração fotovoltaica e posterior avaliação em computador e em dispositivo embarcado (ESP32-S3).
-Adotou-se a estimação contemporânea da potência ativa em corrente alternada
-(PCA), a partir de três variáveis meteorológicas. A formulação específica foi:
+\cite{gil2002}, com treinamento de modelos de regressão em registros
+históricos de geração fotovoltaica e posterior avaliação em computador e em
+dispositivo embarcado (ESP32-S3). Adotou-se a estimação contemporânea da
+potência ativa em corrente alternada (PCA), a partir de três variáveis
+meteorológicas. A formulação específica foi:
 
 \begin{equation}
 \label{eq:softsensor}
 \hat{P}_{CA}(t) = f\left(G_{ghit}(t),\, T_{amb}(t),\, T_{mod}(t)\right),
 \end{equation}
 
-\noindent em que $G_{ghit}$ é a irradiância global transposta para o plano dos
-módulos (\texttt{ghit}), $T_{amb}$ é a temperatura ambiente e $T_{mod}$ é a
-temperatura do módulo estimada pelo modelo de Jacques \cite{jacques2013}.
-Os fundamentos dessa abordagem são apresentados no
+\noindent em que $G_{ghit}$ é a irradiância global transposta para o plano
+dos módulos (\texttt{ghit}), $T_{amb}$ é a temperatura ambiente e $T_{mod}$
+é a temperatura do módulo estimada pelo modelo de Jacques
+\cite{jacques2013}. Os fundamentos dessa abordagem são apresentados no
 \cref{cap:fundamentacao-teorica}. O fluxo das etapas executadas e as
 ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
-\cref{tab:ferramentas}, respectivamente.
+\cref{tab:ferramentas}, respectivamente. O código, os artefatos de treino e
+os resultados do ensaio estão disponíveis em
+\url{https://github.com/commonProgrammerr/knob-senses}.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \small
   \caption{Ferramentas utilizadas}
@@ -36,7 +39,7 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
     scikit-learn & 1.9.1 & Regressão, métricas e transformações \\
     TensorFlow  & 2.21  & Treino e conversão do MLP \\
     Keras & 3.15 & Treino do MLP \\
-    emlearn & 0.23 & Biblioteca C do Random Forest \\
+    emlearn & 0.23 & Biblioteca C do \textit{Random Forest} \\
     esp-tflite-micro & 1.4.3 & Runtime do TFLite Micro pela Espressif \\
     esp-nn & 1.5.0 & Núcleos quantizados para família ESP32 \\
     PlatformIO & 3.3.4 & Build e upload do firmware \\
@@ -45,14 +48,16 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
   \source{Elaborado pelo autor.}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
   \caption{Etapas da metodologia experimental}%
   \label{fig:fluxograma}%
-  \resizebox{\linewidth}{!}{%
+  \resizebox{0.85\linewidth}{!}{%
   \begin{tikzpicture}[
-      caixa/.style  = {draw, rectangle, rounded corners = 2pt, align = center,
-                       minimum height = 10mm, minimum width = 40mm, font = \small},
+      caixa/.style  = {draw, rectangle, rounded corners = 2pt, align =
+      center,
+                       minimum height = 10mm, minimum width = 40mm, font =
+                       \small},
       caixa larga/.style = {caixa, minimum width = 94mm},
       avaliacao/.style = {caixa, dashed},
       seta/.style   = {-{Stealth[length=2.2mm]}, thick}
@@ -60,12 +65,12 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
     \node[caixa larga] (dados) at (0, 0) {RedeSolarPE\\registros de 5~min};
     \node[caixa larga] (prep) at (0, -1.8) {Preparação e agregação};
     \node[caixa larga] (split) at (0, -3.6) {Separação temporal};
-    \node[avaliacao] (aval) at (7.5, -3.6) {Avaliação offline\\RF, MLP e baseline};
-    \node[caixa] (rf) at (-2.6, -5.5) {Random Forest};
+    \node[avaliacao] (aval) at (7.5, -3.6) {Avaliação \textit{offline}\\RF, MLP e \textit{baseline}};
+    \node[caixa] (rf) at (-2.6, -5.5) {\textit{Random Forest}};
     \node[caixa] (mlp) at (2.6, -5.5) {MLP};
     \node[caixa] (lib) at (-2.6, -7.4) {Biblioteca C\\emlearn};
     \node[caixa] (tflite) at (2.6, -7.4) {Conversão\\TFLite};
-    \node[caixa larga] (firmware) at (0, -9.3) {Firmware ESP32-S3};
+    \node[caixa larga] (firmware) at (0, -9.3) {Firmware MLP no ESP32-S3};
     \node[caixa larga] (protocolo) at (0, -11.2) {Protocolo CDC};
     \node[caixa larga] (ensaio) at (0, -13.1) {Ensaio com lacunas};
     \node[avaliacao] (coleta_res) at (7.5, -13.1) {Calcular \\MAE · RMSE · R$^2$ · viés};
@@ -76,7 +81,6 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
     \draw[seta] (split.east) -- (aval.west);
     \draw[seta] (rf) -- (lib);
     \draw[seta] (mlp) -- (tflite);
-    \draw[seta] (lib.south) -- ++(0,-0.4) -| (firmware.north);
     \draw[seta] (tflite.south) -- ++(0,-0.4) -| (firmware.north);
     \draw[seta] (firmware) -- (protocolo);
     \draw[seta] (protocolo) -- (ensaio);
@@ -92,85 +96,102 @@ ferramentas utilizadas são apresentados na \cref{fig:fluxograma} e na
 
 Os registros foram obtidos da Rede Solarimétrica de Pernambuco
 (RedeSolarPE), mantida pelo Instituto Federal de Pernambuco (IFPE),
-\textit{campus} Pesqueira \cite{pedrosafilho2022,pedrosafilho2025}.
-O recorte utilizado correspondeu à planta fotovoltaica do
-\textit{campus} Pesqueira, de 86~kWp, com 296 módulos de 245~Wp e
-102 módulos de 140~Wp \cite{moraesneto2024}. Foram selecionados três
-inversores de 2~kW, denominados E1, E2 e E3, do mesmo modelo e fabricante.
+\textit{campus} Pesqueira \cite{pedrosafilho2022,pedrosafilho2025}. O
+recorte utilizado correspondeu à planta fotovoltaica do \textit{campus}
+Pesqueira, de 86,8~kWp, com 296 módulos de 245~Wp e 102 módulos de 140~Wp
+\cite{moraesneto2024}. Foram selecionados três inversores de 2~kW,
+denominados E1, E2 e E3, identificados nas séries da rede. A potência
+nominal CC da planta resulta de $296\times245+102\times140=86\,800$~Wp. Os
+arquivos de medição não identificam quantos módulos alimentam cada um desses
+três inversores nem o fabricante e o modelo do equipamento. Por isso, a
+relação entre potência CC instalada e potência CA nominal por inversor
+permanece indeterminada.
 
-A base consiste em 5 anos de dados distribuídos em nove arquivos CSV, com 
-os registros de E1 entre 2021 e 2025 e de E2 e E3 entre 2024 e 2025.
-E1 foi utilizado para treinamento, validação e calibração devido ao
-maior histórico; os registros de 2025 de E1, E2 e E3 foram destinados
-à avaliação. As séries originais possuem resolução de 5~min e incluem
-somente observações diurnas, selecionadas na origem por ângulo zenital
-solar $\leq 80^\circ$.
+A base abrange cinco anos de dados distribuídos em nove arquivos CSV, com os
+registros de E1 entre 2021 e 2025 e de E2 e E3 entre 2024 e 2025. E1 foi
+utilizado para treinamento, validação e calibração devido ao maior
+histórico; os registros de 2025 de E1, E2 e E3 foram destinados à avaliação.
+As séries originais possuem resolução de 5~min e incluem somente observações
+diurnas, selecionadas na origem por ângulo zenital solar $\leq 80^\circ$.
 
 O alvo é a PCA medida pelos inversores, em kW. As entradas selecionadas
 foram irradiância transposta (\texttt{ghit}, W/m$^2$), temperatura ambiente
-(\texttt{temp\_amb}) e temperatura do módulo estimada
-(\texttt{jacques}).
+(\texttt{temp\_amb}) e temperatura do módulo estimada (\texttt{jacques}).
 
 \subsection{Análise Exploratória}
 
 Antes do treinamento, foram inspecionadas a cobertura temporal, as lacunas
 contínuas, o perfil horário da PCA e a variação mensal da razão
 $\mathrm{PCA}/\texttt{ghit}$. A relação entre variáveis foi examinada por
-matriz de correlação. A distribuição da potência foi observada nas resoluções de 5~min, 10~min,
-30~min, 1~h, 6~h e 1~d. Os valores obtidos dessas análises são discutidos
-no capítulo de Resultados.
+matriz de correlação. A distribuição da potência foi observada nas
+resoluções de 5~min, 10~min, 30~min, 1~h, 6~h e 1~d. Os valores obtidos
+dessas análises são discutidos no capítulo de Resultados.
 
 \subsection{Preparação dos Dados}
 
 A preparação e a divisão temporal foram aplicadas às granularidades de
-5~min, 10~min, 1~h e 1~d, em quatro etapas: 
-(i)
-Os nove CSVs foram reunidos, as colunas não utilizadas na modelagem foram
-descartadas e as amostras sem PCA (\textit{NaN}) foram removidas;
-(ii)
-Foram excluídos os registros com PCA nula e irradiância superior a
-50~W/m$^2$, irradiância inferior a 5~W/m$^2$,
-temperatura ambiente acima de $50^\circ$C e potência em saturação
-($\mathrm{PCA}\geq2$~kW). As regras de apagão e saturação seguiram os
-critérios adotados em \cite{balfour2021,severiano2026}. Os zeros de PCA
-remanescentes, com $5\leq\texttt{ghit}\leq50$~W/m$^2$, foram mantidos como
-observações válidas;
-(iii)
-Os dados filtrados foram agrupados por intervalo e representados pela
-média das leituras disponíveis. Na resolução diária, a média considerou
-apenas as observações diurnas existentes, e não um período contínuo de
-24 horas;
-(iv)
-O conjunto de E1 foi separado, sem embaralhamento, em treinamento
-(2021 a 30/06/2024), validação e calibração (2024H2) e teste (2025)
-\cite{albelali2025,cerqueira2019}. A janela 2024H2 foi utilizada na
-seleção de configurações, no acompanhamento do MLP e no cálculo da correção
-de viés. As séries de E2 e E3 de 2025 foram reservadas para avaliação
-adicional entre inversores, sem participação no treinamento ou na calibração.
+5~min, 10~min, 1~h e 1~d. Primeiro, os nove CSVs foram reunidos, as colunas
+não utilizadas na modelagem foram descartadas e as amostras sem PCA
+(\textit{NaN}) foram removidas.
 
-O vetor de entrada foi fixado na ordem
-\texttt{temperatura\_ambiente}, \texttt{ghit} e \texttt{jacques}, com
-alvo \texttt{PCA} e semente aleatória 42. O mesmo contrato foi reutilizado
-nos notebooks de treino, nas rotinas de avaliação e no firmware. Não foram
-incluídas características defasadas: todas as entradas e o alvo corresponderam
-ao mesmo intervalo.
+Depois, foram excluídos os registros com PCA nula e irradiância superior a
+50~W/m$^2$, irradiância inferior a 5~W/m$^2$, temperatura ambiente maior ou
+igual a $50^\circ$C e potência em saturação ($\mathrm{PCA}\geq2$~kW). As
+regras de apagão e saturação seguiram os critérios adotados em
+\cite{balfour2021,severiano2026}. Os zeros de PCA remanescentes, com
+$5\leq\texttt{ghit}\leq50$~W/m$^2$, foram mantidos como observações válidas.
+
+Em seguida, os dados filtrados foram agrupados por intervalo e representados
+pela média das leituras disponíveis. Na resolução diária, a média considerou
+apenas as observações diurnas existentes, e não um período contínuo de 24
+horas.
+
+Por fim, o conjunto de E1 foi separado, sem embaralhamento, em treinamento
+(2021 a 30/06/2024), validação e calibração (2024H2) e teste (2025)
+\cite{albelali2025,cerqueira2019}. A janela 2024H2 foi utilizada na seleção
+de configurações, no acompanhamento do MLP e no cálculo da correção de viés.
+As séries de E2 e E3 de 2025 foram reservadas para avaliação adicional entre
+inversores, sem participação no treinamento ou na calibração.
+
+Dos 410.451 registros originais, 76 não continham PCA. Atribuindo cada
+exclusão à primeira regra satisfeita, na ordem acima, contabilizaram-se
+8.406 apagões, 145 leituras de irradiância baixa, quatro de temperatura
+elevada e 733 de saturação. Assim, dos 410.375 registros com PCA, os filtros
+removeram 9.288 e preservaram 401.087. Em 2025, 101 dos 134.907 registros
+brutos dos três inversores apresentavam saturação (0,075\%). O erro de teste
+caracteriza o regime diurno selecionado, abaixo da saturação.
+
+A janela 2024H2 corresponde ao período de 1º de julho a 31 de dezembro de
+2024. A razão $\mathrm{PCA}/G_{ghit}$ tem unidade de kW/(W/m$^2$). Para
+obter um índice de desempenho adimensional seria preciso normalizar a
+potência pela capacidade CC de referência e a irradiância pela irradiância
+de referência.
+
+O vetor de entrada foi fixado na ordem \texttt{temperatura\_ambiente},
+\texttt{ghit} e \texttt{jacques}, com alvo \texttt{PCA} e semente aleatória
+42. O mesmo contrato foi reutilizado nos notebooks de treino, nas rotinas de
+avaliação e no firmware. Não foram incluídas características defasadas:
+todas as entradas e o alvo corresponderam ao mesmo intervalo.
 
 \section{Treinamento dos Modelos}
 
-Para fins de comparação foram treinados três regressores: a regressão
-linear múltipla, como \textit{baseline}, o Random Forest (RF) e o
-perceptron de múltiplas camadas (MLP). Os três modelos foram ajustados
-separadamente para cada granularidade,
-com o mesmo conjunto de entradas e a mesma partição temporal. Os procedimentos
-estocásticos utilizaram a semente 42. Os parâmetros dos modelos não lineares
-foram selecionados com a janela 2024H2, sem consultar o teste de 2025.
+Para fins de comparação foram treinados três regressores: a regressão linear
+múltipla, como \textit{baseline}, o \textit{Random Forest} (RF) e o perceptron de
+múltiplas camadas (MLP). Os três modelos foram ajustados separadamente para
+cada granularidade, com o mesmo conjunto de entradas e a mesma partição
+temporal. Os procedimentos estocásticos utilizaram a semente 42. A ordenação
+dos candidatos do RF e a escolha dos pesos do MLP utilizaram a janela
+2024H2.
 
-Para RF e MLP, calculou-se uma correção aditiva de viés por modelo e
-granularidade, utilizando as predições em unidade física na janela de
-validação e calibração (2024H2), conforme a \cref{eq:offset_calibracao}.
-O valor $c_{\mathrm{cal}}$ foi aplicado às estimativas posteriores,
-sem utilizar as observações de 2025 no seu cálculo. Essa correção é
-distinta do deslocamento empregado na transformação Box--Cox do MLP.
+Para cada um dos três modelos, calculou-se uma correção aditiva de viés por
+modelo e granularidade, utilizando as predições em unidade física na janela
+de validação e calibração (2024H2), conforme a \cref{eq:offset_calibracao}.
+O valor $c_{\mathrm{cal}}$ foi aplicado às estimativas posteriores, sem
+utilizar as observações de 2025 no seu cálculo. Essa correção é negativa
+quando a predição supera, em média, a medição em 2024H2. O histórico de
+execução permite identificar a janela de cálculo, mas não datar a decisão
+inicial de adotar a calibração. Essa constante é distinta do deslocamento
+empregado na transformação Box--Cox do MLP.
 
 \subsection{Regressão Linear}
 
@@ -179,25 +200,30 @@ A linha de base foi ajustada por mínimos quadrados ordinários com a classe
 intercepto e as mesmas três entradas dos demais modelos, na ordem indicada
 na preparação dos dados. A forma geral da regressão está na
 \cref{eq:ft-regressao-linear}. Foi ajustado um modelo independente por
-granularidade; suas predições foram avaliadas diretamente no respectivo
-conjunto de teste, sem correção de viés em 2024H2 ou limitação física
-adicional.
+granularidade. Preservou-se a referência original sem ajuste e
+acrescentou-se uma segunda versão com correção aditiva. Para isolar seu
+efeito, cada comparação utilizou as mesmas observações de E1 em 2025, sem
+limitação física final. A reavaliação com e sem a correção, a partir dos pesos exportados do MLP, dos
+estimadores RF salvos e da regressão reajustada na partição original, é
+apresentada na \cref{sec:resultados-comparacao-modelos}.
 
-\subsection{Random Forest}
+\subsection{\textit{Random Forest}}
 
 Para cada granularidade, foram avaliadas 14 configurações do RF
-\cite{breiman2001}, variando número de árvores, quantidade mínima de
-amostras por folha e limite de profundidade. A busca incluiu candidatos
-entre 300 árvores com mínimo de duas amostras por folha e seis árvores
-com mínimo de 800 amostras por folha, além de uma configuração com
-profundidade limitada. Cada configuração foi avaliada
-pelo $R^2$ na janela 2024H2, após aplicar sua própria correção de viés.
-Entre as duas primeiras colocadas, foi selecionada aquela com menor tempo
-de inferência por amostra. As configurações selecionadas e os respectivos
-indicadores são apresentados no capítulo de Resultados.
+\cite{breiman2001}, variando número de árvores (de 6 a 300), quantidade
+mínima de amostras por folha (de 2 a 800) e limite de profundidade. A lista
+completa está no Apêndice~\ref{ap:config-rf}. Cada configuração foi avaliada
+pelo $R^2$ na janela 2024H2, após aplicar sua própria correção de viés. Entre
+as duas primeiras colocadas, foi selecionada aquela com menor tempo de
+inferência por amostra no computador que executou o notebook. Em ordem
+crescente de intervalo, o treino reuniu 156.440, 79.065, 14.133 e 1.250
+exemplos e a validação reuniu 22.533, 11.366, 2.033 e 182. Os estimadores
+selecionados somaram, respectivamente, 3.012, 7.585, 22.908 e 12.654 nós. As
+configurações selecionadas e os respectivos indicadores são apresentados no
+capítulo de Resultados.
 
 Os modelos ajustados foram armazenados para a avaliação posterior e a
-geração do código C pelo script \url{utils/gerar_lib_rf.py}, com
+geração do código C pelo script \texttt{utils/gerar\_lib\_rf.py}, com
 \texttt{emlearn} \cite{emlearn2024}. A biblioteca gerada incluiu
 normalização \textit{z-score}, inferência, correção de viés e limitação da
 saída a $[0,2]$~kW. A padronização seguiu o \textit{z-score} definido na
@@ -207,32 +233,36 @@ conjunto de treino.
 
 O MLP foi treinado no Keras \cite{chollet2015}, com três camadas ocultas de
 128, 64 e 32 neurônios, ativação ReLU, \textit{dropout} de 0,1 e saída
-linear, com viés inicializado pela média do alvo transformado. Essa escolha
-de arquitetura foi deliberada a fim de aumentar a compatibilidade com técnicas
-de otimização como \textit{PTQ} e \textit{pruning}. Entretanto, somente a
-quantização foi executada, uma vez que a relação entre custo computacional e
-acurácia demonstrou-se suficiente.
+linear, com viés inicializado pela média do alvo transformado. O notebook
+fixa essas larguras para as quatro resoluções, sem registrar uma busca entre
+arquiteturas. Contando um viés por saída, as camadas densas somam
+$(3+1)128+(128+1)64+(64+1)32+(32+1)1=10.881$ parâmetros treináveis. O
+procedimento de implantação utilizou PTQ. A poda de pesos permaneceu como
+alternativa sem avaliação experimental.
 
-As três entradas foram normalizadas pelo método \textit{min-max} 
+As três entradas foram normalizadas pelo método \textit{min-max}
 (\cref{eq:minmax}), com limites definidos exclusivamente no treino e
 reutilizados na validação, no teste e no firmware. Para admitir os alvos
 nulos preservados após os filtros, foi aplicado à PCA o deslocamento
 $\varepsilon=0{,}001$~kW antes da transformação de Box--Cox
-(\cref{eq:boxcox}). O parâmetro $\lambda$ foi ajustado somente no
-treino, separadamente para cada granularidade. Na inferência, a saída do
-modelo no domínio transformado foi restringida ao domínio válido da inversa
+(\cref{eq:boxcox}). O parâmetro $\lambda$ foi ajustado somente no treino,
+separadamente para cada granularidade. Na inferência, a saída do modelo no
+domínio transformado foi restringida ao domínio válido da inversa
 (\cref{eq:boxcox_inversa}) e convertida novamente para kW.
 
 A função de perda escolhida foi Huber \cite{huber1964}, com limiar
 $\delta=0{,}25\,\mathrm{IQR}$ do alvo transformado, e a otimização foi
-realizada pelo algoritmo Adam \cite{kingma2015}. A parada antecipada 
-monitorou o MAE de validação e restaurou os
-melhores pesos, com paciência correspondente ao dobro dos valores de
-referência da \cref{tab:hiperparametros}; a redução por platô dividiu a
-taxa de aprendizado por dois após oito épocas sem melhora do MAE, até
-$10^{-8}$.
+realizada pelo algoritmo Adam \cite{kingma2015}. A parada antecipada
+monitorou o MAE de validação e restaurou os melhores pesos, com paciência
+correspondente ao dobro dos valores de referência da
+\cref{tab:hiperparametros}; a redução por platô dividiu a taxa de
+aprendizado por dois após oito épocas sem melhora do MAE, até $10^{-8}$. Em
+cada época, o otimizador percorreu as amostras do treino em minilotes. Nas
+resoluções de 5~min, 10~min, 1~h e 1~d, as paciências efetivas foram 120,
+120, 80 e 120 épocas. O menor MAE de validação no domínio transformado
+ocorreu nas épocas 35, 8, 7 e 3, respectivamente.
 
-\begin{table}[H]
+\begin{table}[htbp]
     \centering
     \caption{Hiperparâmetros do MLP por granularidade}
     \label{tab:hiperparametros}
@@ -255,80 +285,87 @@ $10^{-8}$.
 O pós-processamento executado no firmware aplicou, nessa ordem, a limitação
 da saída no domínio válido da Box--Cox, a transformação inversa, a remoção
 de $\varepsilon$, a correção aditiva $c_{\mathrm{cal}}$ e a limitação física
-final a $[0,2]$~kW. Os parâmetros de cada granularidade foram armazenados
-em \url{dist/{freq}/transformacao_alvo.json} e incorporados ao firmware.
+final a $[0,2]$~kW. Os parâmetros de cada granularidade foram armazenados em
+\texttt{dist/\{freq\}/transformacao\_alvo.json} e incorporados ao firmware.
 
 Após o treinamento em \texttt{float32}, o modelo foi exportado e convertido
-para TensorFlow Lite por quantização pós-treinamento (PTQ), 
-na modalidade inteira de 8 bits (\texttt{int8}). A conversão foi realizada sem
+para TensorFlow Lite por quantização pós-treinamento (PTQ), na modalidade
+inteira de 8 bits (\texttt{int8}). A conversão foi realizada sem
 retreinamento. Uma amostra representativa do treino foi utilizada para
 calibrar escalas e pontos zero dos tensores, sendo essa calibração da PTQ
 distinta da correção de viés $c_{\mathrm{cal}}$ calculada em 2024H2.
 
-O script \url{utils/generate_model_data_mlp.py} converteu o arquivo
+O script \texttt{utils/generate\_model\_data\_mlp.py} converteu o arquivo
 \texttt{.tflite} em dados C++ inseridos em
-\url{lib/knob-mlp-tflite/src/model_data.cc}. Na execução, o interpretador
-do TensorFlow Lite Micro \cite{esptflitemicro2026,tflitemicro2024}
-utiliza os operadores necessários à arquitetura e os núcleos otimizados
-da biblioteca \texttt{esp-nn} \cite{espnn2026}. O pós-processamento em
-unidades físicas permaneceu no firmware, fora do núcleo quantizado da rede.
+\texttt{lib/knob-mlp-tflite/src/model\_data.cc}. Na execução, o interpretador do
+TensorFlow Lite Micro \cite{esptflitemicro2026,tflitemicro2024} utiliza os
+operadores necessários à arquitetura e os núcleos otimizados da biblioteca
+\texttt{esp-nn} \cite{espnn2026}. O pós-processamento em unidades físicas
+permaneceu no firmware, fora do núcleo quantizado da rede.
 
 \subsection{Avaliação e Métricas}
 
-A avaliação \textit{offline} empregou o mesmo conjunto de teste de 2025
-para RF, MLP e regressão linear em cada granularidade. Foram calculados
-MAE, RMSE, $R^2$, MAPE e viés conforme (\cref{eq:mae,eq:rmse,eq:r2,eq:mape,eq:vies}).
-Também foram calculados o percentil 90 do erro absoluto e o maior valor predito,
-acompanhado da quantidade de amostras que o atingiram. Registros sem
-rótulo válido (\textit{NaN}) e leituras rejeitadas pelos filtros de
-qualidade não participaram da avaliação.
+A avaliação \textit{offline} empregou o mesmo conjunto de teste de 2025 para
+RF, MLP e regressão linear em cada granularidade. Foram calculados MAE,
+RMSE, $R^2$ e viés (\cref{eq:mae,eq:rmse,eq:r2,eq:vies}). Para o ensaio
+embarcado, calculou-se também o P90 do erro absoluto. Registros sem rótulo válido
+(\textit{NaN}) e leituras rejeitadas pelos filtros de qualidade não
+participaram da avaliação. No ensaio, as referências de potência iguais a
+zero foram mantidas como observações válidas em MAE, RMSE, $R^2$, viés e
+P90.
 
 Complementarmente, foi realizada uma avaliação cruzada entre granularidades,
 em que os modelos não lineares foram aplicados aos conjuntos de teste das
-demais resoluções.
-Os parâmetros de normalização permaneceram os do conjunto de treino de cada
-modelo; as linhas da matriz corresponderam à granularidade de treinamento
-e as colunas à granularidade de avaliação. Essa análise foi mantida como
-complementar à avaliação na granularidade original.
+demais resoluções. Os parâmetros de normalização permaneceram os do conjunto
+de treino de cada modelo; as linhas da matriz corresponderam à granularidade
+de treinamento e as colunas à granularidade de avaliação. Essa análise foi
+mantida como complementar à avaliação na granularidade original.
 
 \section{Implantação Embarcada}
 
-A implementação utilizou o ESP32-S3 \cite{espressif2024} e dois ambientes
-do PlatformIO \cite{platformio2024}: \texttt{rf} e \texttt{mlp-tflite}.
-Cada ambiente inclui somente a biblioteca do modelo selecionado e suas
-dependências. O script \url{scripts/pre_build.py}, configurado em
+A implementação utilizou o ESP32-S3 \cite{espressif2024} e dois ambientes do
+PlatformIO \cite{platformio2024}: \texttt{rf} e \texttt{mlp-tflite}. Cada
+ambiente inclui somente a biblioteca do modelo selecionado e suas
+dependências. O script \texttt{scripts/pre\_build.py}, configurado em
 \texttt{extra\_scripts}, compara a assinatura do artefato salvo com a
 configuração da compilação e regenera os arquivos por meio de
-\url{utils/gerar_lib_rf.py} ou
-\url{utils/generate_model_data_mlp.py} quando necessário.
+\texttt{utils/gerar\_lib\_rf.py} ou \texttt{utils/generate\_model\_data\_mlp.py} quando
+necessário. O ambiente \texttt{rf} foi mantido para a compilação e para a
+exportação da biblioteca C, mas não há resultados de erro do RF no ensaio
+embarcado; os resultados de placa deste trabalho se referem ao MLP.
 
-O firmware não adquiriu dados diretamente dos sensores durante o ensaio.
-No ensaio, o computador transmite as três entradas meteorológicas, em suas
+O firmware não adquiriu dados diretamente dos sensores durante o ensaio. No
+ensaio, o computador transmite as três entradas meteorológicas, em suas
 unidades originais; o firmware realiza a normalização, a inferência e o
-pós-processamento e devolve a estimativa em kW e o tempo de inferência
-por amostra. A referência de PCA permaneceu exclusivamente no computador,
+pós-processamento e devolve a estimativa em kW e o tempo de inferência por
+amostra. A referência de PCA permaneceu exclusivamente no computador,
 responsável pelo cálculo dos erros. O tempo de inferência foi medido no
 firmware em torno da função de inferência, separadamente do tempo de
 transmissão dos lotes.
 
 No ambiente do RF, a biblioteca C realiza a padronização \textit{z-score};
-no ambiente do MLP, o firmware aplica o \textit{min-max} antes da inferência.
-O MLP utiliza arena fixa de 8\,192~bytes.
-Os parâmetros de normalização e pós-processamento foram compilados com o
-código, sem leitura de arquivos de configuração em tempo de execução.
-O firmware registra falhas de comunicação e inferência e monitora
-os recursos de memória durante a execução.
+no ambiente do MLP, o firmware aplica o \textit{min-max} antes da
+inferência. O artefato local do ambiente \texttt{mlp-tflite} registra CPU
+configurada a 240~MHz e imagem de aplicação de 351.376 bytes. No executável
+ELF desse ambiente, as seções \texttt{.dram0.data} e \texttt{.dram0.bss}
+ocupam 13.812 e 14.384 bytes, respectivamente (28.196 bytes de dados
+estáticos). O arquivo de ensaio não registra o pico de RAM em execução nem a
+assinatura do binário gravado. O MLP utiliza arena fixa de 8\,192~bytes. Os
+parâmetros de normalização e pós-processamento foram compilados com o
+código, sem leitura de arquivos de configuração em tempo de execução. O
+firmware registra falhas de comunicação e inferência e monitora os recursos
+de memória durante a execução.
 
 \section{Protocolo de Comunicação}
 
 O ensaio utilizou mensagens binárias \textit{little-endian} sobre USB CDC
-Serial. O host envia lotes de até 64 amostras, identificados por índice
+Serial. O servidor envia lotes de até 64 amostras, identificados por índice
 inicial e quantidade de registros, e recebe as respectivas estimativas e
 tempos de inferência. O \textit{handshake} de um byte emprega os comandos
-\texttt{0x52} (\texttt{RESET}) e \texttt{0x4B} (\texttt{RESUME}),
-conforme o formato apresentado na \cref{tab:protocolo}.
+\texttt{0x52} (\texttt{RESET}) e \texttt{0x4B} (\texttt{RESUME}), conforme o
+formato apresentado na \cref{tab:protocolo}.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \caption{Mensagens do protocolo de ensaio}
   \label{tab:protocolo}
@@ -337,46 +374,76 @@ conforme o formato apresentado na \cref{tab:protocolo}.
     \toprule
     Mensagem & Sentido & Conteúdo \\
     \midrule
-    Handshake & Serv. $\rightarrow$ ESP32 & Comando: \texttt{0x52} (\texttt{RESET}) ou \texttt{0x4B} (\texttt{RESUME}). \\
-    Lote de amostras & Serv. $\rightarrow$ ESP32 & Tipo \texttt{0x01}; \textit{header}; \textit{payload} = $n \times$ (3 valores \texttt{float}). \\
-    Lote de predições & Serv. $\leftarrow$ ESP32 & Tipo \texttt{0x03}; \textit{header}; \textit{payload} = $n \times$ (predição e tempo em $\mu$s) \\
-    Fim do dataset & Serv. $\rightarrow$ ESP32 & Tipo \texttt{0x01}; \textit{header} ($n=0$). \\
+    Handshake & Servidor $\rightarrow$ ESP32 & Comando: \texttt{0x52} (\texttt{RESET}) ou \texttt{0x4B} (\texttt{RESUME}). \\
+    Lote de amostras & Servidor $\rightarrow$ ESP32 & Tipo \texttt{0x01}; \textit{header}; \textit{payload} = $n \times$ (3 valores \texttt{float}). \\
+    Lote de predições & Servidor $\leftarrow$ ESP32 & Tipo \texttt{0x03}; \textit{header}; \textit{payload} = $n \times$ (predição e tempo em $\mu$s) \\
+    Fim do dataset & Servidor $\rightarrow$ ESP32 & Tipo \texttt{0x01}; \textit{header} ($n=0$). \\
     \bottomrule
   \end{tabular}
   \source{Elaborado pelo autor.}
 \end{table}
 
-O servidor mantém o lote atual como pendente. Em caso de
-\textit{timeout} (2~s no firmware e 5~s no servidor), envia
-\texttt{RESUME} e retransmite o mesmo lote, sem avançar indevidamente
-na contagem de amostras. O envio de um lote vazio ($n=0$) encerra o
-processamento.
+O cabeçalho tem nove bytes: um de tipo, quatro de índice inicial e quatro de
+contagem (inteiros sem sinal). O dispositivo confirma ambos os comandos de
+abertura com \texttt{0x4B}. Na resposta, o cabeçalho antecede dois vetores
+contíguos na mesma ordem das entradas: primeiro as $n$ estimativas
+\texttt{float32}, depois os $n$ tempos \texttt{uint32}.
+
+O servidor mantém o lote atual como pendente. Em caso de \textit{timeout}
+(2~s no firmware e 5~s no servidor), envia \texttt{RESUME} e retransmite o
+mesmo lote, sem avançar indevidamente na contagem de amostras. O envio de um
+lote vazio ($n=0$) encerra o processamento.
 
 \section{Ensaio na Placa}
 
-O modelo escolhido para o ensaio foi o MLP quantizado com granularidade de 1~h
-devido aos resultados obtidos, discutidos posteriormente no \cref{cap:resultados}.
-O ensaio consolidado foi executado no microcontrolador ESP32-S3 e alimentado 
-por registros históricos de 2025 dos inversores E1, E2 e E3. 
-O servidor de teste, implementado no notebook \url{notebooks/model_teste.ipynb}, 
-transmitiu as características de cada
-amostra e armazenou as respostas, para a avaliação posterior, o valor medido de PCA,
-a estimativa recebida, o identificador da amostra e o tempo de inferência.
-Esse procedimento testou a inferência em hardware real mediante reprodução
-de dados, sem aquisição meteorológica direta na planta.
+O modelo escolhido para o ensaio foi o MLP quantizado com granularidade de
+1~h devido aos resultados obtidos, discutidos posteriormente no
+\cref{cap:resultados}. O ensaio consolidado foi executado no
+microcontrolador ESP32-S3 e alimentado por registros históricos de 2025 dos
+inversores E1, E2 e E3. O servidor de teste, implementado no notebook
+\texttt{notebooks/model\_teste.ipynb}, transmitiu as três entradas de cada
+amostra, recebeu a estimativa e o tempo de inferência e registrou, para a
+avaliação posterior, o identificador da amostra, a PCA medida, a estimativa
+recebida e o tempo medido. Esse procedimento testou a inferência em \textit{hardware}
+real mediante reprodução de dados, sem aquisição meteorológica direta na
+planta.
 
-Para simular falhas na leitura, foram inseridas lacunas artificiais na disponibilidade
-da PCA com durações de 6~h, 24~h, 3 dias e 10 dias, distribuídas em seis 
-blocos por inversor ao longo de 2025.
-O sorteio evitou sobreposição com lacunas reais de duração superior a 16~h;
-para os blocos de 6~h, também se evitou cruzar a pausa noturna. Durante
-cada lacuna artificial, o valor de PCA era considerado indisponível para
-o estimador, mas mantido no arquivo de avaliação; as três entradas
-meteorológicas continuavam disponíveis e foram enviadas normalmente à placa.
+Para simular falhas na leitura, foram inseridas lacunas artificiais na
+disponibilidade da PCA com durações de 6~h, 24~h, 3 dias e 10 dias,
+distribuídas em seis blocos por inversor ao longo de 2025. O sorteio evitou
+sobreposição com lacunas reais de duração superior a 16~h; para os blocos de
+6~h, também se evitou cruzar a pausa noturna. A \cref{tab:blocos-mascara}, no Apêndice~\ref{ap:tabelas-metodo},
+identifica cada início e o total de referências. Durante cada lacuna
+artificial, o valor de PCA era considerado indisponível para o estimador,
+mas mantido no arquivo de avaliação; as três entradas meteorológicas
+continuavam disponíveis e foram enviadas normalmente à placa.
 
-As métricas foram calculadas separadamente nas observações dentro e fora
-dos blocos artificiais, também por inversor e por duração. A análise
-distinguiu as lacunas artificiais das ausências reais de registro e não
-inferiu o desempenho do modelo nos horários em que não havia observação
-histórica para comparação. Os resultados da avaliação embarcada e dos
-diferentes blocos são apresentados no capítulo de Resultados.
+As métricas foram calculadas separadamente nas observações dentro e fora dos
+blocos artificiais, também por inversor e por duração. A análise distinguiu
+as lacunas artificiais das ausências reais de registro e não inferiu o
+desempenho do modelo nos horários em que não havia observação histórica para
+comparação. Os resultados da avaliação embarcada e dos diferentes blocos são
+apresentados no capítulo de Resultados.
+
+O servidor selecionou a resolução de 1~h em cada arquivo de teste por
+inversor. A agregação das leituras disponíveis produziu 4.042 intervalos com
+entradas e referência em cada série. Os 12.126 registros transmitidos
+retornaram predição válida. O sorteio utilizou a semente geral 42, que gerou
+as sementes 11 (E1), 99 (E2) e 83 (E3). Depois de receber as estimativas, o
+servidor marcou 182, 181 e 188 registros, respectivamente. Ao todo, 551 de
+12.126 horários-inversor (4,54\%) ficaram dentro das lacunas e 11.575 fora.
+A marcação altera a disponibilidade da referência para análise e permite
+estratificar o erro das mesmas predições. O intervalo real de 280~h entre 22
+de agosto às 16~h e 3 de setembro às 8~h já está ausente nos três arquivos
+brutos. Os registros não documentam a causa operacional.
+
+Para a comparação retrospectiva, ocultaram-se simultaneamente todas as
+referências marcadas de cada inversor. Entre a medição válida anterior e a
+posterior, estimou-se a PCA por interpolação linear em tempo decorrido. As
+duas bordas estavam disponíveis nos 18 blocos; os resultados dessa comparação
+são apresentados na \cref{sec:resultados-analise-gaps}. A interpolação requer
+a leitura posterior à lacuna. A estimativa horária do MLP requer que as
+entradas médias da hora estejam disponíveis. O tempo medido pelo firmware
+começa apenas na chamada de inferência.
+
+% Tabela de blocos mascarados movida para o Apêndice B.

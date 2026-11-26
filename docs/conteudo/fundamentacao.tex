@@ -4,15 +4,13 @@
 A elaboração de um \textit{soft-sensor} embarcado para estimação contemporânea
 da potência ativa em corrente alternada (PCA) de inversores fotovoltaicos a partir de
 variáveis meteorológicas combina conceitos de conversão fotovoltaica,
-aprendizado supervisionado e inferência em microcontroladores. 
-Este capítulo organiza esses fundamentos na ordem em
-que aparecem no restante do trabalho: primeiro, os fatores físicos que
-condicionam a geração e a definição de uma estimativa contemporânea;
-depois, o conceito de sensor virtual, a organização temporal dos dados e
-as transformações aplicadas ao alvo; em seguida, os modelos de regressão
-e as métricas de avaliação; por fim, os requisitos de execução embarcada.
-Cada seção fixa as hipóteses e os compromissos que sustentam as escolhas
-metodológicas descritas adiante.
+aprendizado supervisionado e inferência em microcontroladores. Este capítulo
+organiza esses fundamentos na ordem em que aparecem no restante do trabalho:
+primeiro, os fatores físicos que condicionam a geração e a definição de uma
+estimativa contemporânea; depois, o conceito de sensor virtual, a organização
+temporal dos dados e as transformações aplicadas ao alvo; em seguida, os
+modelos de regressão e as métricas de avaliação; por fim, os requisitos de
+execução embarcada e a comparação com trabalhos relacionados.
 
 \section{Fundamentos da geração fotovoltaica}
 \label{sec:ft-geracao}
@@ -35,52 +33,62 @@ P_{\mathrm{CC}}\approx P_{\mathrm{STC}}
 \left[1+\gamma\left(T_{\mathrm{cel}}-T_{\mathrm{STC}}\right)\right],
 \end{equation}
 
-\noindent em que $P_{\mathrm{STC}}$, $G_{\mathrm{STC}}$ e
-$T_{\mathrm{STC}}$ são valores de referência, $G_{\mathrm{POA}}$ é a
-irradiância no plano dos módulos, $T_{\mathrm{cel}}$ é a temperatura da
-célula e $\gamma$ é o coeficiente térmico de potência, geralmente
-negativo. O sinal do coeficiente explica por que o aquecimento reduz a
-potência mesmo quando a irradiância permanece alta. A irradiância
-efetiva é medida no plano dos módulos; quando o dado disponível está no
-plano horizontal, é necessário transpor a irradiância, e a escolha do
-modelo de transposição afeta a precisão de modelos fotovoltaicos
-\cite{dolara2015modelos,mayer2020modelos}. Neste trabalho, a variável de entrada já
-corresponde à irradiância transposta, o que remove essa etapa do ajuste,
-mas não elimina a incerteza associada à medição e à orientação dos
-sensores.
+\noindent em que $P_{\mathrm{STC}}$, $G_{\mathrm{STC}}$ e $T_{\mathrm{STC}}$
+denotam a potência nominal e as condições padrão de ensaio (STC), com
+irradiância de 1000~W/m$^2$, temperatura de célula de 25~$^\circ$C e
+espectro AM1,5 global. A variável $G_{\mathrm{POA}}$ é a irradiância no
+plano dos módulos, $T_{\mathrm{cel}}$ é a temperatura da célula e $\gamma$ é
+o coeficiente térmico de potência, geralmente negativo, expresso em K$^{-1}$
+(por exemplo, $-0{,}004$~K$^{-1}$ corresponde a uma queda relativa de 0,4\%
+por grau). O sinal do coeficiente explica por que o aquecimento reduz a
+potência mesmo quando a irradiância permanece alta. Quando a irradiância
+disponível está no plano horizontal, é necessário transpor a irradiância, e
+a escolha do modelo de transposição afeta a precisão de modelos
+fotovoltaicos \cite{dolara2015modelos,mayer2020modelos}. Neste trabalho,
+$G_{\mathrm{POA}}$ corresponde a \texttt{ghit}, a irradiância global
+transposta usada como entrada. A transposição foi feita na origem, o que
+remove essa etapa do ajuste, mas não elimina a incerteza associada à medição
+e à orientação dos sensores.
 
 A temperatura das células não é medida diretamente em muitas
 instalações. Modelos empíricos estimam essa temperatura a partir da
 temperatura ambiente, da irradiância e, em alguns casos, do vento e da
-forma de montagem dos módulos. O modelo de Jacques et al.
-\cite{jacques2013} segue essa abordagem e fornece uma estimativa de
-temperatura do módulo em regime estacionário. O uso dessa estimativa
-como entrada evita a instalação de sensores de temperatura na célula,
-mas introduz a incerteza do próprio modelo e exige que as condições de
-treinamento sejam representativas das condições de operação. A
-temperatura ambiente, portanto, não substitui a temperatura do módulo:
-ela é um dos argumentos do modelo que a estima.
+forma de montagem dos módulos. Na formulação de \citeonline{jacques2013}, a
+temperatura de célula em regime estacionário é dada por
+\begin{equation}
+\label{eq:jacques}
+T_{\mathrm{cel}}=T_{\mathrm{amb}}+
+(\mathrm{NOCT}-20)\frac{G_{\mathrm{inc}}}{800}
+\frac{R_\lambda S+1/h(w)}{R_\lambda S+1/h_{\mathrm{NOCT}}}.
+\end{equation}
+Aqui, NOCT é a temperatura nominal de operação da célula em graus Celsius,
+$G_{\mathrm{inc}}$ é a irradiância incidente em W/m$^2$, $R_\lambda$ é a
+resistência térmica por condução e $S$ é a área do módulo. O coeficiente de
+troca térmica $h(w)$ depende da velocidade do vento, e $h_{\mathrm{NOCT}}$ é
+seu valor nas condições nominais de operação. A base fornece a coluna
+\texttt{jacques} já calculada. Seu emprego como estimativa da temperatura do
+módulo dispensa o recálculo no microcontrolador. A parametrização adotada na
+geração da coluna não está documentada nos arquivos de dados.
 
-A PCA depende ainda do rendimento de conversão e do limite de
-saída do inversor. Em inversores conectados à rede, a PCA cresce
-com a potência CC até o limite nominal; acima desse ponto, o
-equipamento satura a saída e parte da energia disponível é perdida
-\cite{good2016}. O fenômeno, conhecido como saturação ou
-\textit{clipping}, introduz uma
-não linearidade adicional na relação entre irradiância e PCA e explica
-por que observações na vizinhança do limite nominal requerem tratamento
-próprio na preparação dos dados. Além do limite de potência, o
-rendimento varia com a carga e com a tensão de entrada \cite{chmielowiec2022}, o que reforça a
-diferença entre a potência CC estimada pela equação e a PCA
-medida.
+A PCA depende ainda do rendimento de conversão e do limite de saída do
+inversor. Em inversores conectados à rede, a PCA cresce com a potência CC
+até o limite nominal; acima desse ponto, o equipamento satura a saída e
+parte da energia disponível é perdida \cite{good2016}. O fenômeno, conhecido
+como saturação ou \textit{clipping}, introduz uma não linearidade adicional
+na relação entre irradiância e PCA e explica por que observações na
+vizinhança do limite nominal requerem tratamento próprio na preparação dos
+dados. Neste estudo, o filtro excluiu PCA $\geq 2$~kW antes da agregação. As
+métricas, portanto, descrevem os registros retidos abaixo desse limiar. Além
+do limite de potência, o rendimento varia com a carga e com a tensão de
+entrada \cite{chmielowiec2022}, o que reforça a diferença entre a potência
+CC estimada pela equação e a PCA medida.
 
 Em conjunto, esses fatores mostram que a relação entre as condições
-meteorológicas e a saída elétrica não é estritamente linear. Um modelo
-puramente linear pode capturar a tendência média, mas tende a errar com
-mais frequência nos extremos de irradiância e de temperatura, onde os
-efeitos térmicos e a saturação do inversor se acumulam. Essa expectativa
-orienta a comparação entre a regressão linear e os modelos não lineares
-no capítulo de resultados.
+meteorológicas e a saída elétrica não é estritamente linear. Mesmo abaixo do
+limite de saturação, o termo de interação entre irradiância e temperatura na
+\cref{eq:ft-potencia-fv} pode produzir desvios em relação a um ajuste
+puramente aditivo. Essa expectativa orienta a comparação entre a regressão
+linear e os modelos não lineares no capítulo de resultados.
 
 \subsection{Estimação contemporânea da potência}
 \label{subsec:ft-potencia-contemporanea}
@@ -128,17 +136,16 @@ do tempo. No contexto fotovoltaico, sensores virtuais já foram
 empregados no monitoramento em tempo real de sistemas de potência
 apoiados por Internet das Coisas \cite{boubakr2022monitoramento}.
 
-Interrupções de comunicação, aquisição ou armazenamento geram lacunas
-nas séries de monitoramento. A literatura destaca a importância de
-distinguir registros ausentes de medidas válidas de potência nula, bem
-como de tratar inconsistências antes de avaliar o desempenho
-fotovoltaico \cite{lindig2020monitoramento,livera2020qualidade}. Uma
-leitura de potência igual a zero pode significar ausência de geração,
-falha de medição ou um código de erro do equipamento; tratar todos os
-zeros como observações válidas distorce a distribuição do alvo e a
-avaliação do modelo. Por isso, a preparação dos dados combina filtros
-físicos e a manutenção de zeros apenas nas faixas em que eles são
-plausíveis.
+Interrupções de comunicação, aquisição ou armazenamento geram lacunas nas
+séries de monitoramento. A literatura destaca a importância de distinguir
+registros ausentes de medidas válidas de potência nula, bem como de tratar
+inconsistências antes de avaliar o desempenho fotovoltaico
+\cite{lindig2020monitoramento,livera2020qualidade}. Uma leitura de potência
+igual a zero pode significar ausência de geração, falha de medição ou um
+código de erro do equipamento; tratar todos os zeros como observações
+válidas distorce a distribuição do alvo e a avaliação do modelo. Por isso, a
+preparação dos dados combina filtros físicos e a manutenção de zeros apenas
+nas faixas em que eles são plausíveis.
 
 A interpolação utiliza valores vizinhos da própria série e pode
 requerer observações posteriores ao intervalo ausente. Em uma falha de
@@ -158,8 +165,9 @@ com falhas simultâneas, atrasos de comunicação e deriva dos sensores.
 Essa distinção limita o alcance dos resultados e é retomada no capítulo
 de resultados.
 
+{\hyphenpenalty=10000
 \section{Representação dos dados e generalização}
-\label{sec:ft-dados}
+\label{sec:ft-dados}}
 
 \subsection{Partição temporal e granularidade}
 \label{subsec:ft-granularidade}
@@ -177,12 +185,13 @@ treinamento no passado e teste no futuro.
 A granularidade define o intervalo representado por cada registro. A
 agregação por média suaviza oscilações rápidas da potência, mas também
 modifica a distribuição do alvo e a quantidade de amostras \cite{mayer2021}.
-Em resoluções mais grossas, a variância do alvo diminui e a autocorrelação aumenta;
-como consequência, as métricas de erro não são diretamente comparáveis
-entre resoluções, e um MAE menor em 1~d não significa que o modelo seja
-mais preciso em 5~min. Além disso, a média das medições diurnas não
-equivale à energia diária nem à potência média durante 24 horas, porque
-o período noturno e as lacunas de aquisição ficam fora do cálculo.
+Em resoluções de maior intervalo, a variância do alvo diminui e a
+autocorrelação aumenta; como consequência, as métricas de erro não são
+diretamente comparáveis entre resoluções, e um MAE menor em 1~d não
+significa que o modelo seja mais preciso em 5~min. Além disso, a média das
+medições diurnas não equivale à energia diária nem à potência média durante
+24 horas, porque o período noturno e as lacunas de aquisição ficam fora do
+cálculo.
 
 Essas propriedades justificam treinar um modelo por granularidade e
 comparar os resultados dentro de cada resolução, em vez de eleger uma
@@ -296,7 +305,7 @@ entanto, não representa a saturação do inversor nem as interações entre
 irradiância e temperatura, o que limita seu desempenho nos extremos da
 faixa de operação.
 
-\subsection{Random Forest}
+\subsection{\textit{Random Forest}}
 \label{subsec:ft-rf}
 
 O \textit{Random Forest} combina árvores de decisão, cuja média fornece
@@ -354,15 +363,15 @@ treinamento de redes com várias camadas \cite{glorot2011}. A camada de saída �
 problemas de regressão, de modo que a rede produz uma estimativa
 contínua em vez de uma probabilidade.
 
-A profundidade e a largura das camadas ocultas determinam a capacidade
-do modelo. Com unidades suficientes, a rede pode aproximar funções
-contínuas \cite{hornik1989}, mas a escolha da arquitetura envolve um compromisso entre
-capacidade, tempo de treinamento e custo de inferência. Para limitar o
-sobreajuste, podem ser empregados \textit{dropout}, que desativa
-unidades durante o treinamento, e parada antecipada com base no erro de
-validação \cite{prechelt1998,srivastava2014}. A parada antecipada
-restaura os parâmetros do melhor ponto observado, e não os da última
-época.
+A profundidade e a largura das camadas ocultas determinam a capacidade do
+modelo. Com unidades suficientes, a rede pode aproximar funções contínuas em
+domínios compactos \cite{hornik1989}, mas a escolha da arquitetura envolve
+um compromisso entre capacidade, tempo de treinamento e custo de inferência.
+Para limitar o sobreajuste, podem ser empregados \textit{dropout}, que
+desativa unidades durante o treinamento, e parada antecipada com base no
+erro de validação \cite{prechelt1998,srivastava2014}. No treinamento deste
+trabalho, a opção \texttt{restore\_best\_weights} foi ativada para recuperar
+os parâmetros da época com menor MAE de validação.
 
 A perda de Huber combina comportamento quadrático para erros pequenos e
 linear para erros elevados \cite{huber1964}. Definindo o resíduo
@@ -432,18 +441,7 @@ referência. Além disso, valores de $R^2$ de conjuntos com dispersões
 distintas não são diretamente equivalentes, o que impede comparar
 resoluções diferentes apenas por esse indicador.
 
-O erro percentual absoluto médio (MAPE) é expresso por
-
-\begin{equation}
-\label{eq:mape}
-\mathrm{MAPE}=\frac{100}{n_{+}}
-\sum_{i:y_i>0}\left|\frac{y_i-\hat y_i}{y_i}\right|,
-\end{equation}
-
-\noindent em que $n_{+}$ é a quantidade de observações com referência
-estritamente positiva. Essa convenção exclui denominadores nulos, mas
-não remove a instabilidade do MAPE para potências muito pequenas
-\cite{hyndman2006}. O viés médio, com sinal positivo para superestimação,
+O viés médio, com sinal positivo para superestimação,
 é definido por
 
 \begin{equation}
@@ -511,7 +509,7 @@ convencional \cite{david2021}. O custo de implantação inclui não apenas
 o arquivo de parâmetros, mas também código, buffers e memória de
 trabalho. Por isso, a escolha do modelo não pode considerar apenas a
 precisão obtida no computador; ela precisa incluir o consumo de memória
-e o tempo de inferência no hardware alvo.
+e o tempo de inferência no \textit{hardware} alvo.
 
 A quantização pós-treinamento (\textit{Post-Training Quantization}, PTQ)
 converte um modelo previamente treinado em ponto flutuante para uma
@@ -555,10 +553,98 @@ inicialização de buffers ou ajuste de frequência; por isso, a média sem
 aquecimento e o P90 complementam a média geral.
 
 A execução com reprodução de dados históricos comprova o funcionamento
-do modelo no hardware e permite quantificar sua precisão nesse cenário,
+do modelo no \textit{hardware} e permite quantificar sua precisão nesse cenário,
 mas não substitui a validação em campo com aquisição contínua e falhas
 reais de instrumentação. O tempo medido também depende do modelo, do
 runtime e da frequência do processador, o que impede comparar plataformas
 distintas sem controlar essas condições. A avaliação embarcada deve,
 portanto, ser lida como uma etapa intermediária entre o teste no
 computador e a operação em campo.
+
+\section{Trabalhos relacionados}
+\label{sec:ft-relacionados}
+
+Os estudos desta seção foram selecionados por abordar pelo menos um dos
+elementos que este trabalho combina: a estimação de potência a partir de
+variáveis meteorológicas, a inferência em microcontrolador, a escolha da
+resolução temporal e o tratamento de lacunas de telemetria. O
+Quadro~\ref{qua:comparacao-estudos} compara os trabalhos quanto às entradas,
+aos modelos, à plataforma de implantação, à resolução, às métricas e à forma
+de tratar as ausências. A comparação dos protocolos é necessária porque as
+métricas dependem da variável-alvo, da resolução e do conjunto de teste;
+diferenças nessas condições impedem a comparação direta dos erros publicados.
+
+O estudo de \citeonline{moraesneto2024} é o mais próximo desta proposta: ele
+realiza estimação contemporânea da PCA com modelos tabulares em um ESP32-S3,
+mas interpola ausências de até 30~min e remove as maiores antes da avaliação,
+de modo que o erro dentro de interrupções longas não é medido. Os modelos
+tabulares foram embarcados em ponto flutuante, e apenas a LSTM recebeu pesos
+de 8~bits.
+
+Os demais estudos cobrem partes do problema sem combiná-las.
+\citeonline{boubakr2022monitoramento} acompanham a operação em tempo real,
+mas não informam erro de reconstrução; \citeonline{dolara2015modelos} modelam
+a produção por circuitos equivalentes, sem implantação em microcontrolador.
+\citeonline{lindig2020monitoramento} e \citeonline{livera2020qualidade}
+tratam da qualidade e da imputação dos dados, enquanto
+\citeonline{severiano2026} e \citeonline{balfour2021} concentram-se na
+detecção de anomalias e de práticas que mascaram o desempenho. Nenhum deles
+avalia a estimativa dentro de lacunas de telemetria.
+
+A combinação dessas escolhas permite observar o que esses estudos não separam:
+como o erro varia com a resolução, o custo de aplicar um modelo em
+escala diferente daquela do treino e o erro que permanece quando a potência
+não é registrada, mas as entradas meteorológicas continuam disponíveis. É
+nesse recorte que este trabalho se distingue, e não pela proposição de uma
+arquitetura inédita.
+
+\newfloat{quadrocomparativo}{htbp}{loq}
+\floatname{quadrocomparativo}{Quadro}
+\captionsetup[quadrocomparativo]{labelsep=endash}
+\begin{quadrocomparativo}[htbp]
+\centering
+\small
+\caption{Entradas, implementação e tratamento das lacunas em estudos
+fotovoltaicos}
+\label{qua:comparacao-estudos}
+\begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}XX@{}}
+\toprule
+Estudo & Entradas, modelos e plataforma & Resolução, avaliação e lacunas \\
+\midrule
+\citeonline{moraesneto2024} &
+Irradiância horizontal, temperatura ambiente e temperatura estimada do módulo. Regressão linear, árvore, RF, SVR, XGBoost e LSTM. Implantação com Edge Impulse no ESP32-S3. &
+Médias horárias, diárias, semanais e mensais. XGBoost diário: $R^2=0{,}9785$ e inferência de 3,1~ms. Interpolação de ausências de até 30~min e remoção das maiores antes da avaliação. \\
+\midrule
+\citeonline{boubakr2022monitoramento} &
+Irradiância, temperatura, umidade, tensão e corrente. Aquisição em ESP32, transmissão por Wi-Fi e rastreamento do ponto de máxima potência. &
+Monitoramento em tempo real com ensaios de 45~min. Variação da potência sob sombreamento. O estudo não informa erro de reconstrução de PCA nem testa interrupções da telemetria. \\
+\midrule
+\citeonline{dolara2015modelos} &
+Irradiância, vento, temperatura ambiente e características dos módulos. Circuitos equivalentes com três a cinco parâmetros e modelos térmicos NOCT e Sandia. &
+Avaliação horária da produção em módulos mono e policristalinos por erros normalizados. A avaliação não relata inferência em microcontrolador nem reconstrução de lacunas. \\
+\midrule
+\citeonline{lindig2020monitoramento}; \citeonline{livera2020qualidade} &
+Séries de monitoramento de usinas. Métodos de verificação de qualidade,
+imputação e filtragem de dados. &
+Foco na qualidade e na imputação dos dados; não empregam sensor virtual
+embarcado nem medem o erro dentro de lacunas. \\
+\midrule
+\citeonline{severiano2026} &
+Dados de inversores. Método baseado em regras para detectar e classificar
+baixo desempenho. &
+Detecção de anomalias; não reconstrói a PCA nem avalia lacunas de
+telemetria. \\
+\midrule
+\citeonline{balfour2021} &
+Dados de operação de usinas. Análise de práticas de projeto e operação que
+mascaram problemas de desempenho, incluindo o clipping. &
+Identificação de mascaramento; não estima a PCA nem trata lacunas de
+telemetria. \\
+\midrule
+Este trabalho &
+Irradiância no plano dos módulos, temperatura ambiente e temperatura estimada do módulo. Regressão linear, RF e MLP. Ensaio do MLP horário no ESP32-S3. &
+5~min, 10~min, 1~h e 1~d. Transferência entre escalas e MAE dentro e fora de blocos com PCA ocultada em três inversores. \\
+\bottomrule
+\end{tabularx}
+\source{Elaborado pelo autor com base nos estudos indicados.}
+\end{quadrocomparativo}

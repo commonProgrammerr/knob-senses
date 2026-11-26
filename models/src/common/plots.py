@@ -271,8 +271,9 @@ def hexbin_real_vs_pred(ax, y, pred, titulo: str | None = None, extent=None,
         limite = float(np.nanmax([np.nanmax(y), np.nanmax(pred)])) * 1.06
         extent = (0, limite, 0, limite)
     ax.plot(extent[:2], extent[2:], "r--", lw=1)
-    ax.set_xlabel("PCA real (kW)")
-    ax.set_ylabel("PCA previsto (kW)")
+    ax.set_xlabel("PCA real (kW)", fontsize=12)
+    ax.set_ylabel("PCA previsto (kW)", fontsize=12)
+    ax.tick_params(labelsize=11)
     if titulo:
         ax.set_title(titulo)
     ax.set_aspect("equal")

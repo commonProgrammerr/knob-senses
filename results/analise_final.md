@@ -16,7 +16,7 @@ Fonte: `results/ensaio/board_test.csv`, granularidade de 1 h, três usinas. Este
 - Linhas em gaps artificiais: 551 (4.5%).
 - Blocos artificiais por usina: 6.
 - Gap real: 1 bloco(s); maior: 280 h.
-- Linhas com `real` NaN: 9 (sentinela de PCA == 0, fora dos gaps).
+- Linhas com `real` NaN: 0 (referência ausente).
 
 ### Gaps reais
 
@@ -61,14 +61,14 @@ A série completa usa somente `ifpee1`. O detalhe dos blocos artificiais é sepa
 
 | escopo | inversor | n | MAE (kW) | RMSE (kW) | R² | viés (kW) | MAPE (%) | P90 (kW) | inferência média (µs) | inferência P90 (µs) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| total | todos | 12117 | 0.0585 | 0.0765 | 0.9756 | 0.0145 | 12.2934 | 0.1246 | 991.9 | 978 |
-| total | ifpee1 | 4039 | 0.0549 | 0.0699 | 0.9801 | 0.0048 | 11.9605 | 0.1115 | 991.911 | 978 |
-| total | ifpee2 | 4039 | 0.0629 | 0.0844 | 0.9692 | 0.0291 | 12.8785 | 0.1405 | 991.89 | 978 |
-| total | ifpee3 | 4039 | 0.0577 | 0.0746 | 0.9772 | 0.0096 | 12.041 | 0.1203 | 991.9 | 978 |
-| fora dos gaps | todos | 11566 | 0.0586 | 0.0767 | 0.9756 | 0.0147 | 12.2881 | 0.1252 | 992.582 | 978 |
-| fora dos gaps | ifpee1 | 3857 | 0.0553 | 0.0705 | 0.9798 | 0.0058 | 11.9697 | 0.1129 | 992.583 | 978 |
-| fora dos gaps | ifpee2 | 3858 | 0.0629 | 0.0844 | 0.9695 | 0.0291 | 12.876 | 0.1401 | 992.567 | 978 |
-| fora dos gaps | ifpee3 | 3851 | 0.0576 | 0.0746 | 0.9771 | 0.009 | 12.0179 | 0.1205 | 992.594 | 978 |
+| total | todos | 12126 | 0.0584 | 0.0765 | 0.9757 | 0.0145 | 12.2934 | 0.1246 | 991.9 | 978 |
+| total | ifpee1 | 4042 | 0.0548 | 0.0698 | 0.9802 | 0.0048 | 11.9605 | 0.1114 | 991.911 | 978 |
+| total | ifpee2 | 4042 | 0.0629 | 0.0843 | 0.9693 | 0.0291 | 12.8785 | 0.1405 | 991.89 | 978 |
+| total | ifpee3 | 4042 | 0.0576 | 0.0746 | 0.9772 | 0.0095 | 12.041 | 0.1202 | 991.9 | 978 |
+| fora dos gaps | todos | 11575 | 0.0586 | 0.0767 | 0.9757 | 0.0147 | 12.2881 | 0.1252 | 992.582 | 978 |
+| fora dos gaps | ifpee1 | 3860 | 0.0553 | 0.0705 | 0.9799 | 0.0058 | 11.9697 | 0.1127 | 992.583 | 978 |
+| fora dos gaps | ifpee2 | 3861 | 0.0629 | 0.0843 | 0.9696 | 0.0291 | 12.876 | 0.14 | 992.567 | 978 |
+| fora dos gaps | ifpee3 | 3854 | 0.0576 | 0.0746 | 0.9772 | 0.009 | 12.0179 | 0.1203 | 992.594 | 978 |
 | dentro dos gaps | todos | 551 | 0.0555 | 0.072 | 0.9766 | 0.011 | 12.4044 | 0.1082 | 977.584 | 978 |
 | dentro dos gaps | ifpee1 | 182 | 0.0448 | 0.054 | 0.9865 | -0.0159 | 11.7656 | 0.0902 | 977.643 | 978 |
 | dentro dos gaps | ifpee2 | 181 | 0.0631 | 0.0846 | 0.9627 | 0.0282 | 12.9313 | 0.1597 | 977.453 | 978 |
@@ -126,20 +126,20 @@ A coluna `R² reportável` é `False` quando o grupo tem menos de 10 amostras ou
 
 ## Tempo de inferência
 
-| inversor | n | média geral (µs) | P90 geral (µs) | média sem aquecimento (µs) | P90 sem aquecimento (µs) | amostras descartadas |
-| --- | --- | --- | --- | --- | --- | --- |
-| todos | 12126 | 991.9 | 978 | 980.3 | 978 | 18 |
-| ifpee1 | 4042 | 991.9 | 978 | 980.3 | 978 | 6 |
-| ifpee2 | 4042 | 991.9 | 978 | 980.3 | 978 | 6 |
-| ifpee3 | 4042 | 991.9 | 978 | 980.3 | 978 | 6 |
+| inversor | n | média geral (µs) | mediana geral (µs) | P90 geral (µs) | P99 geral (µs) | máximo geral (µs) | média sem aquecimento (µs) | mediana sem aquecimento (µs) | P90 sem aquecimento (µs) | P99 sem aquecimento (µs) | máximo sem aquecimento (µs) | amostras descartadas |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| todos | 12126 | 991.9 | 978 | 978 | 978 | 11801 | 980.3 | 978 | 978 | 978 | 11733 | 18 |
+| ifpee1 | 4042 | 991.9 | 978 | 978 | 978 | 11801 | 980.3 | 978 | 978 | 978 | 11725 | 6 |
+| ifpee2 | 4042 | 991.9 | 978 | 978 | 978 | 11801 | 980.3 | 978 | 978 | 978 | 11733 | 6 |
+| ifpee3 | 4042 | 991.9 | 978 | 978 | 978 | 11800 | 980.3 | 978 | 978 | 978 | 11728 | 6 |
 
 ## Síntese
 
-- No teste completo, MAE de 0.0585 kW e R² de 0.9756.
-- Fora dos gaps, MAE de 0.0586 kW e R² de 0.9756.
+- No teste completo, MAE de 0.0584 kW e R² de 0.9757.
+- Fora dos gaps, MAE de 0.0586 kW e R² de 0.9757.
 - Dentro dos gaps, MAE de 0.0555 kW e R² de 0.9766 nas três usinas; em ifpee1, MAE de 0.0448 kW e R² de 0.9865.
 - Entre as durações, o menor MAE agregado é o de 3 d (0.0480 kW) e o maior é o de 6 h (0.0919 kW).
-- Inferência: média bruta de 991.9 µs, 980.3 µs sem aquecimento e P90 de 978.0 µs.
+- Inferência: média bruta de 991.9 µs, 980.3 µs sem aquecimento, mediana de 978.0 µs e máximo de 11733 µs.
 
 ## Arquivos
 

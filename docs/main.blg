@@ -7,6 +7,8 @@ Reallocating 'name_of_file' (item size: 1) to 24 items.
 A level-1 auxiliary file: pretextuais/resumos.aux
 Reallocating 'name_of_file' (item size: 1) to 32 items.
 A level-1 auxiliary file: pretextuais/simbolos-siglas.aux
+Reallocating 'name_of_file' (item size: 1) to 25 items.
+A level-1 auxiliary file: pretextuais/simbolos.aux
 Reallocating 'name_of_file' (item size: 1) to 24 items.
 A level-1 auxiliary file: conteudo/introducao.aux
 Reallocating 'name_of_file' (item size: 1) to 27 items.
@@ -19,6 +21,8 @@ Reallocating 'name_of_file' (item size: 1) to 23 items.
 A level-1 auxiliary file: conteudo/conclusao.aux
 Reallocating 'name_of_file' (item size: 1) to 16 items.
 Reallocating 'name_of_file' (item size: 1) to 12 items.
+Reallocating 'name_of_file' (item size: 1) to 22 items.
+A level-1 auxiliary file: conteudo/apendice.aux
 Reallocating 'name_of_file' (item size: 1) to 12 items.
 The style file: abntex2-alf.bst
 Reallocating 'singl_function' (item size: 4) to 100 items.
@@ -41,44 +45,44 @@ Reallocating 'global_strs' (item size: 1) to 4000000 items.
 | Em caso de dúvidas ou problemas com este estilo procure |
 | http://www.abntex.net.br/                               |
 +---------------------------------------------------------+
-You've used 59 entries,
+You've used 57 entries,
             6714 wiz_defined-function locations,
-            1532 strings with 20312 characters,
-and the built_in function-call counts, 58638 in all, are:
-= -- 4805
-> -- 2175
-< -- 412
-+ -- 1174
-- -- 631
-* -- 4309
-:= -- 7419
-add.period$ -- 206
-call.type$ -- 59
-change.case$ -- 720
-chr.to.int$ -- 170
-cite$ -- 55
-duplicate$ -- 3710
-empty$ -- 3622
-format.name$ -- 3200
-if$ -- 13542
-int.to.chr$ -- 4
+            1524 strings with 20205 characters,
+and the built_in function-call counts, 57834 in all, are:
+= -- 4808
+> -- 2127
+< -- 439
++ -- 1189
+- -- 616
+* -- 4244
+:= -- 7294
+add.period$ -- 203
+call.type$ -- 57
+change.case$ -- 702
+chr.to.int$ -- 166
+cite$ -- 53
+duplicate$ -- 3718
+empty$ -- 3526
+format.name$ -- 3130
+if$ -- 13309
+int.to.chr$ -- 3
 int.to.str$ -- 1
-missing$ -- 1103
-newline$ -- 274
-num.names$ -- 276
-pop$ -- 1418
+missing$ -- 1074
+newline$ -- 264
+num.names$ -- 266
+pop$ -- 1385
 preamble$ -- 1
-purify$ -- 241
+purify$ -- 234
 quote$ -- 0
-skip$ -- 3646
+skip$ -- 3660
 stack$ -- 1
-substring$ -- 2327
-swap$ -- 1712
-text.length$ -- 96
+substring$ -- 2288
+swap$ -- 1700
+text.length$ -- 92
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 7
 warning$ -- 0
-while$ -- 425
+while$ -- 410
 width$ -- 0
-write$ -- 897
+write$ -- 867

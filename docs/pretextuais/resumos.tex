@@ -1,81 +1,87 @@
-% resumo em português (150-500 palavras, 3-5 palavras-chave)
 \setlength{\absparsep}{18pt}
 \begin{resumo}
-A geração fotovoltaica depende de medições contínuas de potência para
-acompanhar a produção, calcular indicadores de desempenho e detectar falhas.
-Em uma usina monitorada, cada inversor informa a potência ativa entregue à
-rede, mas, quando a telemetria falha, o registro se perde e a lacuna
-compromete a contabilização da geração. Sensores virtuais
+A geração fotovoltaica depende de medições contínuas de potência para acompanhar
+a produção, calcular indicadores de desempenho e detectar falhas. Quando a
+telemetria de um inversor falha, o registro da potência ativa entregue à rede se
+perde, e a lacuna compromete a contabilização da geração. Sensores virtuais
 (\textit{soft-sensors}) oferecem uma alternativa complementar: em vez de
-reconstruir a série a partir dela mesma, estimam a variável ausente com base
-em outras medições disponíveis no mesmo intervalo.
-O \textit{TinyML} permite
-executar esses modelos em dispositivos embarcados de baixo custo, o que
-torna possível produzir a estimativa no próprio local da planta.
-Este trabalho desenvolveu e avaliou um \textit{soft-sensor} embarcado para
-estimar a potência ativa em corrente alternada (PCA) de inversores
-fotovoltaicos a partir da irradiância no plano dos módulos, da temperatura
-ambiente e da temperatura do módulo estimada. Os dados foram obtidos na Rede
-Solarimétrica de Pernambuco e abrangeram três inversores de 2~kW.
-A base foi organizada em quatro resoluções temporais: 5~min, 10~min, 1~h e 1~d, 
-com separação cronológica entre os conjuntos de treino, calibração e teste.
-A avaliação comparou regressão linear, \textit{Random Forest} e perceptron de múltiplas camadas. 
-O modelo de melhor desempenho foi quantizado para inteiros de 8~bits e executado em
-um ESP32-S3 com TensorFlow Lite Micro. Para reproduzir a falha de
-telemetria, foram inseridas lacunas artificiais na potência medida, mantendo
-as variáveis meteorológicas disponíveis ao estimador.
-Os resultados indicam que o perceptron de múltiplas camadas apresentou o
-melhor desempenho nas quatro resoluções, sobretudo na escala horária, e que os modelos treinados
-em resoluções mais finas se transferiram melhor para escalas mais grosseiras.
-No dispositivo embarcado, a qualidade da estimativa se manteve próxima à
-obtida no computador, com tempo de inferência compatível com a cadência
-horária. Nas lacunas artificiais, o erro permaneceu próximo do observado no
-restante do teste, e o contexto de cada período e as diferenças entre os
-inversores tiveram mais influência que a duração da falha. Os resultados
-mostram que o \textit{soft-sensor} é viável como complemento ao medidor de
-potência, cobrindo ausências de telemetria com erro de magnitude conhecida,
-embora a validação em campo permaneça pendente.
+interpolar a própria série, estimam a
+variável ausente a partir de outras medições do mesmo intervalo.
 
-\noindent\textbf{Palavras-chave:} aprendizado de máquina; sistemas
-fotovoltaicos; sensores virtuais; \textit{TinyML}.
+Este trabalho desenvolveu e avaliou um \textit{soft-sensor} embarcado, baseado em
+\textit{TinyML} (\textit{Tiny Machine Learning}), para a estimação contemporânea
+da potência ativa em corrente alternada (PCA) de inversores fotovoltaicos a partir
+da irradiância no plano dos módulos, da temperatura ambiente e da temperatura do
+módulo estimada pelo modelo de Jacques. Foram utilizados dados de três inversores
+de 2~kW de uma planta da Rede Solarimétrica de Pernambuco, nas resoluções de
+5~min, 10~min, 1~h e 1~d. Um inversor forneceu treino (2021 a junho de 2024) e
+validação/calibração (2024H2); o teste de 2025 abrangeu os três. Foram comparados
+regressão linear, floresta aleatória (RF) e perceptron de múltiplas camadas (MLP).
+
+O MLP obteve o melhor desempenho nas quatro resoluções; na escala horária,
+alcançou erro absoluto médio (MAE) de 0,0543~kW e $R^2$ de 0,9807, com MAE 18\%
+menor que o da RF e 32,3\% menor que o da regressão linear calibrada. O modelo
+foi quantizado para inteiros de 8~bits, com redução de 57\% no arquivo e acréscimo
+de 0,0005~kW no MAE, e executado em um ESP32-S3 com TensorFlow Lite Micro. No
+ensaio embarcado, o MAE de 0,0584~kW correspondeu a cerca de 3\% da potência
+nominal, o $R^2$ foi de 0,9757 e a inferência levou aproximadamente 1~ms. Lacunas
+artificiais de 6~h a 10~d foram inseridas na potência medida, mantendo as
+variáveis meteorológicas disponíveis. Nesses trechos, o MAE (0,0555~kW)
+permaneceu próximo ao observado fora deles (0,0586~kW), sem crescimento monotônico
+com a duração; blocos de mesma duração e inversores diferentes mostraram
+dispersão relevante. A interpolação linear nas mesmas lacunas, possível apenas
+após a retomada da telemetria, teve MAE de 0,6008~kW.
+
+Os resultados indicam que o \textit{soft-sensor} é viável como complemento ao
+medidor de potência, com erro de magnitude conhecida, embora a validação em campo
+permaneça pendente.
+
+\noindent\textbf{Palavras-chave:} aprendizado de máquina; sistemas fotovoltaicos;
+sensores virtuais; TinyML; sistemas embarcados.
 \end{resumo}
 
-% resumo em inglês
 \begin{resumo}[Abstract]
 \begin{otherlanguage*}{english}
 Photovoltaic generation relies on continuous power measurements to monitor
-production, calculate performance indicators and detect failures. In a
-monitored plant, each inverter reports the active power delivered to the
-grid, but when telemetry fails, the record is lost and the resulting gap
-compromises generation accounting. Soft sensors provide a complementary
-alternative: instead of reconstructing the series from itself, they estimate
-the missing variable from other measurements available in the same interval.
-TinyML makes it possible to run these models on low-cost embedded devices,
-allowing the estimate to be produced directly at the plant.
-This work developed and evaluated an embedded soft sensor to estimate the
-AC active power of photovoltaic inverters from plane-of-array irradiance,
-ambient temperature and estimated module temperature. The data came from the
-Pernambuco Solarimetric Network and covered three 2~kW inverters. The dataset
-was organized into four temporal resolutions: 5~min, 10~min, 1~h and 1~day.
-The training, calibration and test sets were separated chronologically. The
-evaluation compared linear regression, Random Forest and a Multilayer
-Perceptron. The best-performing model was quantized to 8-bit integers and
-executed on an ESP32-S3 using TensorFlow Lite Micro. To reproduce telemetry
-failures, artificial gaps were inserted into the measured power while the
-meteorological variables remained available to the estimator.
-The results indicate that the Multilayer Perceptron achieved the best
-performance at all four resolutions, especially at the hourly scale, and that
-models trained at finer resolutions transferred better to coarser resolutions.
-On the embedded device, estimation quality remained close to that obtained
-on the computer, with an inference time compatible with hourly operation.
-In the artificial gaps, the error remained close to that observed for the
-rest of the test set, and the context of each period and differences between
-inverters had more influence than the duration of the failure. The results
-show that the soft sensor is viable as a complement to the power meter,
-covering telemetry gaps with an error of known magnitude, although field
-validation remains pending.
+production, compute performance indicators and detect failures. When an inverter's
+telemetry fails, the record of the active power delivered to the grid is lost, and
+the resulting gap compromises generation accounting. Soft sensors provide a
+complementary alternative: instead of interpolating the series itself, they
+estimate the missing variable from other measurements available in the same
+interval.
 
-\noindent\textbf{Keywords:} machine learning; photovoltaic systems; soft
-sensor; TinyML.
+This work developed and evaluated an embedded \textit{TinyML} (\textit{Tiny
+Machine Learning}) soft sensor for the contemporaneous estimation of the AC active
+power of photovoltaic inverters from plane-of-array irradiance, ambient
+temperature and module temperature estimated by the Jacques model. Data from three
+2~kW inverters at one plant of the Pernambuco Solarimetric Network were organized
+into four temporal resolutions (5~min, 10~min, 1~h and 1~day). One of the
+inverters provided the training data, from 2021 through June 2024, and the
+validation and calibration data, from the second half of 2024; the 2025 test
+covered the three inverters. Linear regression, random forest (RF) and a multilayer perceptron
+(MLP) were compared.
+
+The MLP achieved the best performance at all four resolutions; at the hourly
+scale, it reached a mean absolute error (MAE) of 0.0543~kW and an $R^2$ of 0.9807,
+with an MAE 18\% lower than that of the RF and 32.3\% lower than that of the
+calibrated linear regression. This model was quantized to 8-bit integers,
+reducing the file size by 57\% with an MAE increase of only 0.0005~kW, and
+executed on an ESP32-S3 with TensorFlow Lite Micro. In the embedded test with 2025
+data, the MAE of 0.0584~kW corresponded to about 3\% of the rated power, the
+$R^2$ was 0.9757 and inference took approximately 1~ms. To simulate telemetry
+failures, artificial gaps from 6~h to 10~days were inserted into the measured
+power while the meteorological variables remained available. Within these gaps,
+the MAE (0.0555~kW) remained close to that observed outside them (0.0586~kW); the
+error did not grow monotonically with gap duration, and dispersion across blocks
+of the same duration and across inverters was substantial. Linear interpolation
+over the same gaps, available only after telemetry resumed, had an MAE of
+0.6008~kW.
+
+The results indicate that the soft sensor is viable as a complement to the power
+meter, with an error of known magnitude, although field validation remains
+pending.
+
+\noindent\textbf{Keywords:} machine learning; photovoltaic systems; soft sensors;
+TinyML; embedded systems.
 \end{otherlanguage*}
 \end{resumo}

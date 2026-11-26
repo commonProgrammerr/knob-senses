@@ -1,74 +1,123 @@
-% ============================================================================
-% RASCUNHO COMENTADO: Introdução
-% Para publicar, remova o "%" do início de cada linha.
-% ============================================================================
-%
 \chapter{Introdução}
 \label{cap:introducao}
 
-A geração fotovoltaica consolidou-se como uma das principais fontes
-renováveis da matriz elétrica brasileira, com capacidade instalada em crescimento
-expressivo \cite{epe2026}.
-Usinas fotovoltaicas \textit{on-grid} dependem de medições contínuas para
-acompanhar a produção, detectar falhas e apoiar o gerenciamento.
-Em uma usina monitorada, cada inversor reporta a potência ativa entregue à rede, e essa
-série alimenta os indicadores de desempenho.
-Tradicionalmente, essa medição é feita por sensores físicos, como
-transformadores de corrente, sensores Hall ou shunts. 
-Embora consolidados, apresentam limitações de custo, instalação, 
-necessidade de calibração, vulnerabilidade a interferências eletromagnéticas,
-saturação e envelhecimento \cite{ripka2010}.
+A geração fotovoltaica consolidou-se como uma das principais fontes renováveis
+da matriz elétrica brasileira, com capacidade instalada em crescimento expressivo
+\cite{epe2026}. Em usinas fotovoltaicas conectadas à rede, cada inversor informa
+a potência ativa entregue ao sistema elétrico, e essa série sustenta a
+contabilização da energia, o cálculo de indicadores de desempenho e a detecção de
+anomalias \cite{lindig2020monitoramento,livera2020qualidade}.
 
-Em casos de falha na telemetria, o registro desaparece, e a lacuna compromete a
-contabilidade da geração, o cálculo de indicadores e a identificação de anomalias. 
-Nesse cenário, os \textit{soft-sensors}, ou sensores virtuais, surgem como
-alternativa complementar ao medidor físico.
-Um \textit{soft-sensor} é definido como um modelo matemático ou algoritmo
-computacional que estima em tempo real uma variável de interesse a partir de leituras
-de sensores auxiliares. 
-Se implementados em \textit{hardware} embarcado, permitem processamento local, em tempo real, 
-com baixo custo e integração direta ao sistema de monitoramento. 
-Ao contar com uma base de dados representativa, o uso de \textit{Machine Learning}
-torna viável estimar a potência fotovoltaica a partir de variáveis meteorológicas
-\cite{gupta2021}.
-Nesse contexto, o \textit{TinyML} (\textit{Tiny Machine Learning}) destaca-se por levar
-esses modelos a dispositivos embarcados, permitindo inferência local com baixo consumo
-de recursos computacionais. Essa capacidade é particularmente relevante em usinas
-remotas, onde a infraestrutura é limitada e o acesso a sistemas locais de alto custo
-pode ser inviável. Em implementações embarcadas, modelos de aprendizado
-de máquina já foram usados para estimar a potência ativa em corrente alternada (PCA) contemporânea de
-inversores em um ESP32-S3 \cite{moraesneto2024}.
+Essa cadeia de monitoramento está sujeita a interrupções de comunicação, aquisição
+e armazenamento. Quando a telemetria falha, o registro de potência desaparece, e a
+lacuna compromete a contabilização da geração e a identificação de anomalias. A
+interpolação, alternativa usual, depende de valores vizinhos da própria série, por
+vezes posteriores à falha, que ainda não existem quando a estimativa é necessária,
+e perde precisão em ausências longas. Na base utilizada neste trabalho, a maior
+ausência real de 2025 durou 280~h, período em que não há referência de potência
+para avaliar a reconstrução.
 
-Portanto,
-a proposta deste trabalho é implementar e validar a utilização de um \textit{soft-sensor}
-embarcado com \textit{TinyML} para estimar a PCA do inversor a partir de variáveis
-meteorológicas obtidas de forma independente da telemetria do inversor,
-agregando redundância durante as falhas.
+Os sensores virtuais, ou \textit{soft-sensors}, oferecem uma alternativa
+complementar ao medidor físico. Um \textit{soft-sensor} é um modelo computacional
+que estima uma variável de interesse a partir de medições auxiliares
+\cite{kadlec2009}. No caso fotovoltaico, as variáveis meteorológicas registradas
+pela estação da planta continuam disponíveis quando a telemetria do inversor falha,
+e o aprendizado de máquina torna viável estimar a potência a partir delas
+\cite{gupta2021}. Neste trabalho, a estimativa é contemporânea: refere-se ao mesmo
+intervalo das variáveis de entrada, e não a um instante futuro, como na previsão.
+O \textit{TinyML} (\textit{Tiny Machine Learning}) permite executar esses modelos em
+microcontroladores de baixo custo \cite{david2021}, o que leva a estimativa para o
+próprio local da planta e a mantém disponível mesmo quando o canal de comunicação
+com o sistema supervisório está interrompido. O valor obtido representa a geração
+esperada nas condições observadas; uma falha elétrica que interrompa simultaneamente
+a geração e sua telemetria pode produzir uma discrepância que as entradas
+meteorológicas, sozinhas, não revelam.
 
-%
+\citeonline{moraesneto2024} demonstraram a viabilidade de embarcar modelos de
+aprendizado de máquina em um ESP32-S3 para a estimação contemporânea da potência
+ativa em corrente alternada (PCA) de inversores fotovoltaicos. O estudo adotou a
+plataforma Edge Impulse e comparou modelos tabulares e uma rede LSTM nas escalas
+horária, diária, semanal e mensal. Os dados vieram de um inversor de 2~kW da
+planta do Instituto Federal de Pernambuco (IFPE) em Pesqueira. As ausências de
+até 30~min foram interpoladas, e as lacunas maiores foram removidas antes da
+avaliação, de modo que o erro do estimador durante interrupções longas não foi
+medido. Os autores apontam o uso de um único inversor como limite e propõem
+outras plantas e estratégias de agregação como continuidade.
+A \cref{sec:ft-relacionados} detalha as entradas, os modelos, a plataforma e os
+protocolos desse e de outros estudos.
+
+Este trabalho dá continuidade a essa linha na mesma planta e mantém a formulação
+contemporânea, mas concentra-se no comportamento do estimador dentro das lacunas
+de telemetria. Em relação ao estudo anterior, avalia resoluções sub-horárias, a
+transferência entre escalas, a quantização inteira direta com TensorFlow Lite
+Micro e inversores não utilizados no treinamento.
+
+Diante disso, este trabalho investiga se um \textit{soft-sensor} embarcado,
+alimentado apenas por variáveis meteorológicas independentes da telemetria do
+inversor, consegue estimar a PCA com erro conhecido e estável durante falhas de
+telemetria.
+
+Os dados utilizados vêm da Rede Solarimétrica de Pernambuco, mantida pelo
+Instituto Federal de Pernambuco no \textit{campus} Pesqueira
+\cite{pedrosafilho2022,pedrosafilho2025}. As séries analisadas correspondem a
+três inversores de 2~kW, identificados como E1, E2 e E3. E1 possui dados de 2021
+a 2025 e foi usado no treino, de 2021 a junho de 2024, na validação e na
+calibração, no segundo semestre de 2024, e no teste, em 2025; E2 e E3 possuem
+dados de 2024 e 2025 e não participaram do treinamento nem da calibração. As
+medições originais têm resolução de 5~min e abrangem apenas o período diurno; a
+preparação e a partição temporal são descritas no Capítulo 3.
+
+Para responder a essa pergunta, o trabalho adota quatro resoluções temporais
+(5~min, 10~min, 1~h e 1~d) e compara regressão linear, floresta aleatória (RF) e
+perceptron de múltiplas camadas (MLP), com partição cronológica e correção de
+viés estimada apenas no segundo semestre de 2024. Os modelos não lineares são
+aplicados também às demais resoluções, para quantificar a perda de $R^2$ de cada
+transferência. O MLP horário é quantizado para \texttt{int8} com TensorFlow Lite
+Micro, sem plataforma intermediária, e executado em um ESP32-S3. O ensaio
+embarcado abrange os três inversores e insere seis blocos de lacunas artificiais
+por inversor, com durações de 6~h, 24~h, 3~d e 10~d, mantendo as entradas
+meteorológicas disponíveis.
+
+A contribuição é o \textit{soft-sensor} embarcado e a análise do seu erro dentro
+das lacunas, não uma classificação de arquiteturas. No ensaio embarcado, as 551
+observações ocultadas tiveram MAE de 0,0555~kW, próximo ao dos períodos restantes
+(0,0586~kW), enquanto a interpolação linear nas mesmas lacunas, possível apenas
+após a retomada da telemetria, alcançou 0,60084~kW.
+
 \section{Objetivos}
 
-O objetivo geral é desenvolver e avaliar um soft-sensor embarcado capaz de
-estimar a PCA contemporânea de inversores fotovoltaicos a partir de 
-variáveis meteorológicas, cobrindo falhas de telemetria.
+O objetivo geral é desenvolver e avaliar um \textit{soft-sensor} embarcado,
+executado em microcontrolador com \textit{TinyML}, para a estimação contemporânea
+da PCA de inversores fotovoltaicos a partir de variáveis meteorológicas, como
+complemento à telemetria em períodos de falha.
 
-\noindent Os objetivos específicos são:
+Os objetivos específicos são:
 
 \begin{alineas}
-  \item analisar, validar e tratar o conjunto de dados a fim de gerar um conjunto treinável a partir dele;
-  \item propor, treinar e validar modelos de ML com arquitetura específica para estimação contemporânea da
-  PCA;
-  \item otimizar, compilar e embarcar o modelo de melhor desempenho;
-  \item implementar \textit{soft-sensor} embarcado utilizando o modelo escolhido;
-  \item comparar o desempenho do \textit{soft-sensor} no computador e em dispositivo embarcado;
-  \item gerar lacunas artificiais e validar o desempenho do \textit{soft-sensor} em simulação de falha na telemetria.
+  \item tratar e caracterizar a base da Rede Solarimétrica de Pernambuco,
+  definindo filtros de qualidade e uma partição temporal sem vazamento de
+  informação;
+  \item treinar e comparar regressão linear, floresta aleatória (RF) e MLP em
+  quatro resoluções temporais (5~min, 10~min, 1~h e 1~d);
+  \item avaliar a transferência dos modelos entre resoluções temporais;
+  \item quantizar o modelo de melhor desempenho e implantá-lo em um ESP32-S3 com
+  TensorFlow Lite Micro;
+  \item comparar a precisão do modelo embarcado com a obtida no computador no
+  conjunto pareado do inversor usado no treinamento e avaliar o erro e o tempo de
+  inferência nos três inversores, dois deles não utilizados no treinamento;
+  \item avaliar o desempenho do \textit{soft-sensor} em lacunas artificiais de
+  telemetria com diferentes durações.
 \end{alineas}
 
 \section{Organização do Trabalho}
 
-Esse trabalho foi organizado em 5 capítulos: 
-O capítulo 2 apresenta a fundamentação teórica sobre geração fotovoltaica,
-soft-sensors, os modelos de ML e métricas utilizadas e implementação com TinyML.
-O capítulo 3 descreve a metodologia utilizada no projeto.
-O capítulo 4 apresenta os resultados offline, a análise cruzada e o ensaio na placa.
-O capítulo 5 conclui o trabalho, com as limitações e os desdobramentos possíveis.
+Este trabalho está organizado em cinco capítulos. Este primeiro capítulo apresenta
+o contexto, o problema e os objetivos. O segundo reúne a fundamentação teórica
+sobre geração fotovoltaica, sensores virtuais, representação temporal dos dados,
+modelos de regressão, métricas de avaliação, inferência embarcada e trabalhos
+relacionados. O terceiro descreve a base de dados e sua preparação, o treinamento
+dos modelos, a implantação embarcada, o protocolo de comunicação e o ensaio na
+placa. O quarto apresenta a caracterização da base, a comparação dos modelos, a
+transferência entre resoluções, o ensaio embarcado e o desempenho nas lacunas
+artificiais. O quinto apresenta as conclusões, as limitações e os trabalhos
+futuros.

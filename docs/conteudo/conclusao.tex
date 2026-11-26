@@ -1,128 +1,172 @@
-% ============================================================================
-% Capítulo 5: Conclusão
-% ============================================================================
-\chapter{Conclusão e Trabalhos Futuros}
+\chapter[Conclusão e Trabalhos Futuros]{Conclusão e\\ Trabalhos Futuros}
 \label{cap:conclusao}
 
-A proposta deste trabalho foi estimar a potência ativa em corrente alternada
-(PCA) a partir de três variáveis meteorológicas obtidas de forma independente
-da telemetria do inversor,
-com um soft-sensor embarcado, e avaliar o resultado em um computador
-convencional e em dispositivo embarcado.
+Este trabalho investigou se um \textit{soft-sensor} embarcado, alimentado por
+variáveis meteorológicas independentes da telemetria do inversor, consegue
+estimar a PCA com erro conhecido e estável durante falhas de telemetria. O trabalho deixa
+duas contribuições complementares: a \textit{pipeline} de tratamento, treinamento
+e implantação dos modelos RF e MLP, com avaliação embarcada restrita ao MLP
+horário; e o ensaio desse modelo no ESP32-S3, com a potência medida ausente e as
+variáveis meteorológicas disponíveis. No ensaio com dados históricos de três
+inversores de uma mesma planta, as 551 observações ocultadas tiveram MAE de
+0,0555~kW, próximo ao dos 11\,575 registros restantes (0,0586~kW), e a
+interpolação linear nas mesmas lacunas, calculada após a retomada da telemetria,
+teve MAE de 0,6008~kW. A proximidade indica que a estimativa manteve o patamar de
+erro sem a série de potência, mas não que a precisão seja constante.
 
-O trabalho deixa duas contribuições complementares. A primeira é uma
-\textit{pipeline} completa para os modelos TinyML RF e MLP, do tratamento da
-base ao firmware do ESP32-S3, que permitiu quantificar como a granularidade
-afeta a transferência entre escalas. A segunda é o ensaio embarcado com
-lacunas artificiais, que levou o modelo ao cenário que motiva o soft-sensor,
-com a telemetria de potência ausente e as variáveis meteorológicas
-disponíveis, e mostrou que o erro durante as lacunas ficou próximo do usual,
-com o contexto de cada trecho e as diferenças entre inversores pesando mais
-que a duração nominal.
+A base foi tratada e caracterizada, com 410\,451 registros brutos e 401\,087
+retidos após os filtros, com partição temporal definida para E1. O MLP teve o
+menor MAE nas quatro resoluções (\cref{tab:resultados-comparacao-offline}); em
+1~h, alcançou 0,0543~kW e $R^2$ de 0,9807, com redução de 32,3\% em relação à
+regressão linear calibrada (\cref{tab:ablacao-calibracao}). A vantagem sobre o RF
+variou com a escala: cerca de 2,5\% em 5~min, 3,3\% em 10~min, 18\% em 1~h e
+7,8\% em 1~d, com o maior afastamento em 1~h. Na avaliação cruzada, o MLP superou
+o RF em $R^2$ nas 16 combinações, sempre na mesma coluna de teste
+(\cref{tab:resultados-cruzada}). Isso sugere
+componentes não lineares que o RF e o MLP representam melhor que a regressão
+calibrada, mas o desenho não isola arquitetura de pré-processamento, função de
+perda, calibração e configuração de treinamento; o resultado sustenta a escolha
+do MLP nas condições avaliadas, não uma superioridade universal. O menor erro
+diário não torna as resoluções diretamente comparáveis, pois a variância do alvo
+diminui com a agregação; a vantagem mais clara do MLP em 1~h, e não em 1~d, é
+compatível com a hipótese de que a escala horária preserva detalhes que a média
+diária suaviza.
 
-Na avaliação \textit{offline}, o MLP apresentou o melhor desempenho entre
-os modelos testados nas quatro granularidades. Sua vantagem sobre o RF foi
-mais consistente em 1~h e menor em 5~min, 10~min e 1~d; a regressão linear ficou
-claramente abaixo dos modelos não lineares. Esse resultado indica que a
-rede neural é mais adequada para representar a relação entre as variáveis
-meteorológicas e a potência, sem tornar uma única resolução
-automaticamente superior às demais. 
-Na transferência entre resoluções, o MLP manteve vantagem em todas as
-combinações avaliadas. 
-Os modelos treinados em resolução fina tenderam a preservar melhor
-o desempenho quando aplicados a escalas mais grosseiras, enquanto
-o modelo treinado em 1~d apresentou maior perda em escalas finas.
-Essa assimetria indica que o aprendizado em dados de maior resolução retém
-mais informações sobre a variação intradiária.
+A transferência foi medida pela perda de $R^2$ em relação ao modelo nativo de
+cada destino, não por comparação direta entre escalas. Para o MLP, a perda de
+0,0004 ocorreu de 5~min para 10~min; no extremo oposto, a passagem de 5~min para
+1~d perdeu 0,1741, a maior do modelo (\cref{tab:perdas-transferencia}). Em cinco
+dos seis pares, o modelo treinado na escala fina perdeu menos ao passar à escala
+grossa do que no sentido inverso; a exceção foi 5~min para 1~d. Esses padrões são
+compatíveis com a hipótese de que o treinamento em resolução fina preserva
+informação sobre a variação intradiária e a cobertura de regimes operacionais que
+a agregação atenua. Uma hipótese possível é que o modelo de 5~min tenha sido
+exposto a maior diversidade de condições; o de 1~d viu apenas médias e, ao voltar
+a 5~min, encontra variabilidade que não observou. A hipótese não supõe
+dependências temporais explícitas, pois as entradas são contemporâneas e sem
+defasagens. A agregação também muda a distribuição do alvo: o parâmetro $\lambda$
+da transformação Box--Cox passa de 0,566 em 5~min para 1,413 em 1~d, e os picos
+são suavizados. Essa mudança é particularmente forte entre 5~min e 1~d, o que
+ajuda a explicar a exceção.
 
-O ensaio embarcado manteve a qualidade obtida na avaliação
-\textit{offline}, indicando que a quantização para \texttt{int8} e a
-execução no ESP32-S3 não comprometeram o uso prático do modelo. A
-redução do arquivo e o tempo de inferência compatível com a cadência
-horária reforçam a viabilidade do soft-sensor embarcado.
-Nas lacunas artificiais, o desempenho não se mostrou associado apenas à
-sua duração. O contexto operacional de cada trecho teve maior influência
-sobre o erro, assim como a diferença entre os inversores. Embora o
-cenário testado sustente o uso do soft-sensor como complemento à
-telemetria, a lacuna real de 280~h não possui potência medida para
-referência, e as lacunas artificiais não reproduzem integralmente uma
-falha real.
+O MLP horário foi quantizado para \texttt{int8} com TensorFlow Lite Micro e
+executado no ESP32-S3. O arquivo resultante ficou em 19,27~KiB, cerca de 57\%
+menor que a versão em ponto flutuante. No conjunto pareado de 4\,042 pares de E1,
+o MAE passou de 0,05426~kW para 0,05480~kW no computador e 0,05481~kW na placa
+(\cref{tab:pareamento-e1}); o acréscimo foi de 0,000535~kW e de 0,000020~kW
+adicionais na placa. A inferência média bruta no conjunto dos três inversores
+foi de 991,9~$\mu$s (\cref{tab:resultados-tempo-inferencia}). A perda preditiva foi pequena para a
+aplicação, e o compromisso entre precisão numérica, tamanho e custo de inferência
+foi favorável ao uso embarcado. O tamanho do arquivo não representa a memória
+total, que inclui runtime, núcleos e arena, e o tempo de inferência não é a
+latência de ponta a ponta.
+
+Nos três inversores, E2 e E3 não participaram do treinamento nem da calibração; o
+MAE global foi de 0,0584~kW e o $R^2$, de 0,9757
+(\cref{tab:resultados-metricas-embarcadas}). Por inversor, E1 teve 0,0548~kW, E3,
+0,0576~kW, e E2, 0,0629~kW, com o maior viés positivo. Isso sugere que o estimador
+treinado em E1 pode ser reutilizado em outros inversores da mesma planta com erro
+da mesma ordem. A diferença não isola o efeito do equipamento, pois os blocos
+caem em períodos e condições ambientais distintas. A generalização para outras
+plantas, fabricantes ou modelos não foi testada.
+
+A duração nominal das lacunas não explica sozinha a variabilidade dos erros. O
+MAE agregado foi maior em 6~h (0,0919~kW) e menor em 3~d (0,0480~kW), com 10~d em
+0,0524~kW, sem ordem monotônica (\cref{tab:resultados-gaps-duracao}). Blocos de
+mesma duração e mesmo inversor diferiram: dois blocos de 6~h de E2 tiveram 0,1709
+e 0,2067~kW, enquanto E1 e E3 ficaram perto de 0,043~kW
+(\cref{tab:resultados-gaps-mae-inversores}). Como o sensor não usa a série de
+potência como entrada, pode produzir estimativas independentemente da extensão da
+lacuna enquanto as entradas meteorológicas estiverem disponíveis; a precisão,
+porém, depende das condições de cada bloco e da representatividade no treino. O
+ensaio não isola causas. A comparação com a interpolação é retrospectiva e serve
+como referência de magnitude, não como alternativa operacional.
+
+Em conjunto, o \textit{soft-sensor} é viável como complemento ao medidor físico,
+não como substituto: a estimativa representa a geração esperada nas condições
+observadas, e uma falha que interrompa geração e telemetria ao mesmo tempo pode
+não ser revelada pelas entradas meteorológicas. A validação em campo, com falhas
+reais e instrumentação independente, permanece necessária.
+
+\section{Limitações}
+\label{sec:limitacoes}
+
+O treinamento e a calibração usaram apenas E1; a aplicação a E2 e E3 mede
+transferência entre equipamentos da mesma planta, não generalidade para outras
+plantas ou modelos. A calibração permaneceu fixa desde 2024H2. Os filtros
+excluíram o período noturno e as observações em saturação. A exclusão reduz a
+representatividade do regime de alta potência: as métricas globais podem ser
+otimistas em relação a esse regime, cujo erro não foi medido; 733 registros foram
+removidos por saturação, 101 de 134\,907 (0,075\%) em 2025.
+
+A variação entre blocos combina diferenças de irradiância, inversor e período, e
+o ensaio não isola a duração como causa. A falha simultânea das entradas
+meteorológicas não foi testada; se o mesmo sistema alimentar a estação e a
+telemetria, o estimador fica sem entradas. A comparação com a interpolação é
+retrospectiva, pois usa a leitura posterior à lacuna. A lacuna real de 280~h não
+tem referência de potência, e o erro em uma interrupção real sem medição
+permanece desconhecido.
+
+No dispositivo, o RF não teve erro medido; os resultados de placa se referem ao
+MLP. O ensaio usou dados históricos enviados pelo computador, sem aquisição
+direta na planta, e não representa operação em tempo real. A correção de viés é
+uma constante por modelo e granularidade, e o viés condicional por faixa de
+potência não foi analisado.
 
 \section{Trabalhos futuros}
 
-A continuidade mais direta do trabalho é a implantação em campo. O ensaio
-atual reproduziu dados históricos e manteve a aquisição fora do
-microcontrolador: o computador enviava as variáveis meteorológicas e
-recebia as estimativas. Em campo, essas variáveis devem chegar ao
-dispositivo pelo sistema de aquisição da planta, e a estimativa precisa ser
-produzida e registrada no momento em que a telemetria de potência falhar,
-junto com a série medida. Assim, a informação fica disponível quando a
-medição direta falta, sem depender de um cálculo posterior.
+A continuidade tem duas linhas complementares: a implantação operacional em campo
+e a modelagem informada pela física. A primeira pode gerar dados e restrições de
+operação para a segunda; a segunda pode melhorar a estimativa usada em campo. A
+avaliação conjunta exige um protocolo comum, descrito ao final; as demais
+propostas são desdobramentos dessas linhas.
 
-Na modelagem, o próximo passo é investigar as redes neurais informadas
-pela física (PINNs) \cite{raissi2019}. O MLP atual aprende a relação entre as variáveis
-meteorológicas e a potência apenas a partir dos dados, e o erro cresce nas
-resoluções mais finas e nos extremos de irradiância, em que os picos são
-subestimados. Uma PINN pode incorporar ao ajuste o comportamento físico da
-conversão fotovoltaica, como o efeito térmico sobre a potência e a
-saturação do inversor, para que a estimativa respeite essas relações mesmo
-em faixas com poucas observações. O objetivo é verificar se essa restrição
-reduz o erro nas resoluções finas, melhora a extrapolação para condições
-pouco representadas no treino e diminui a diferença de desempenho entre os
-inversores. A comparação deve manter as mesmas entradas, a mesma partição
-temporal e o mesmo protocolo de avaliação, para que o efeito da física
-possa ser isolado.
+\subsection{Implantação operacional em campo}
+\label{sec:futuro-campo}
 
+A prioridade é levar o protótipo ao sistema de aquisição e monitoramento da
+planta. Em campo, as variáveis meteorológicas devem chegar ao dispositivo pelo
+sistema local; o firmware deve detectar a indisponibilidade da telemetria,
+produzir a estimativa no mesmo intervalo e registrá-la junto à série medida,
+distinguindo valores medidos e estimados. A validação exige falhas reais e
+instrumentação independente; disponibilidade, consumo e recursos computacionais
+passam a ser critérios de projeto. Ensaios com perda de entradas, interrupções de
+alimentação e operação próxima à nominal delimitariam os regimes de uso. A
+repetição do ensaio com RF, o treinamento ciente de quantização (QAT), a poda de
+pesos e a caracterização de memória (runtime, arena e buffers) permitem
+investigar esse compromisso e ampliar a confiança na implantação.
 
-\section{Considerações finais}
+\subsection{Modelagem informada pela física}
+\label{sec:futuro-pinn}
 
-O soft-sensor se mostrou viável como complemento do medidor de potência, principalmente
-em cenários de falha. Dentro das lacunas artificiais, o erro ficou próximo do restante do teste,
-e o custo de inferência no ESP32-S3 é compatível com a cadência horária. 
-O trabalho não demonstra operação em campo nem substitui o
-medidor de potência. O que ele mostra é que, quando a telemetria de
-potência falha e as variáveis meteorológicas continuam disponíveis, a
-estimativa embarcada reduz o vazio de informação com um erro de
-magnitude conhecida.
+A segunda linha investiga redes neurais informadas pela física (PINNs)
+\cite{raissi2019}. A expressão \textit{Physics-Informed Neural Networks} designa
+essa família de modelos. O MLP atual aprende apenas dos dados; o erro absoluto é
+maior nas resoluções finas, embora o
+alvo tenha maior variabilidade, e nos painéis de 5 e 10~min parte dos valores
+altos fica abaixo da reta de igualdade, o que sugere subestimação de picos. Os
+regimes de potência alta e saturação estão sub-representados, as diferenças entre
+inversores persistem e a agregação muda a distribuição do alvo. A questão é se
+incorporar relações físicas da conversão fotovoltaica, como a dependência da
+irradiância, o efeito térmico, os limites do inversor, a saturação e a coerência
+da saída, reduz erros em regimes pouco representados, melhora picos,
+extrapolação, generalização entre inversores e transferência entre resoluções, e
+diminui a dependência de dados representativos de todos os regimes. A comparação
+deve verificar esses efeitos e em quais condições. A investigação deve distinguir
+PINNs de outras formas de aprendizado informado pela física; a arquitetura e a
+função de perda serão definidas depois da formulação do problema e da verificação
+dos dados. Um modelo específico para a saturação é alternativa complementar,
+comparada sob o mesmo protocolo.
 
-% ---------------------------------------------------------------------------
-% NÚMEROS DE REFERÊNCIA (conferidos em results/, 2026-11-16)
-%
-% Base: 410.451 registros brutos; 401.087 após os filtros.
-% Teste de E1: 44.911 (5 min), 22.637 (10 min), 4.042 (1 h), 354 (1 d).
-%
-% Offline, teste de 2025 em E1:
-%   1 h: MLP   MAE 0,0543 kW, RMSE 0,0688, R2 0,9807, viés +0,0028
-%        RF    MAE 0,0664 kW, RMSE 0,0835, R2 0,9717, viés +0,0022
-%        linear MAE 0,1168 kW, RMSE 0,1531, R2 0,9048, viés +0,1140
-%   1 d: MLP   MAE 0,0366 kW, RMSE 0,0471, R2 0,9411, viés +0,0079
-%        RF    MAE 0,0397 kW, RMSE 0,0535, R2 0,9239, viés +0,0129
-%        linear MAE 0,1199 kW, RMSE 0,1325, R2 0,5338, viés +0,1199
-%
-% Cruzada entre granularidades (R2, MLP / RF):
-%   1 h -> 5 min: 0,784 / 0,777; 1 h -> 10 min: 0,910 / 0,903
-%   1 h -> 1 d:   0,887 / 0,858; 1 d -> 5 min:  0,696 / 0,640
-%   O MLP vence as 16 combinações.
-%
-% Embarcado (MLP de 1 h int8, 2025, E1-E3):
-%   n = 12.117 válidos de 12.126; MAE 0,0585 kW; RMSE 0,0765; R2 0,9756;
-%   viés +0,0145 kW; MAPE 12,29%; P90 0,1246 kW.
-%   E1: 0,0549 / 0,9801 / +0,0048; E2: 0,0629 / 0,9692 / +0,0291;
-%   E3: 0,0577 / 0,9772 / +0,0096.
-%
-% PTQ: 44,86 KB (float32) -> 19,27 KB (int8); MAE 0,0550 -> 0,0555 kW.
-% Inferência: média bruta 991,9 us; sem aquecimento 980,3 us; P90 978 us;
-%   n = 12.126.
-%
-% Gaps: 551 observações (4,5%).
-%   Fora: MAE 0,0586 kW, R2 0,9756, viés +0,0147.
-%   Dentro: MAE 0,0555 kW, R2 0,9766, viés +0,0110.
-%   Por duração: 6 h 0,0919; 24 h 0,0630; 3 d 0,0480; 10 d 0,0524.
-%   Por inversor dentro dos gaps: E1 0,0448; E2 0,0631; E3 0,0584.
-%   MAE de 6 h por inversor: E1 0,0427; E2 0,1888; E3 0,0440.
-%   Lacuna real: 280 h (2025-08-22 a 2025-09-03), sem referência para erro.
-%
-% ATENÇÃO: os resultados atuais NÃO incluem baselines de interpolação linear
-% nem de persistência. Não cite esses números a menos que você os acrescente
-% ao capítulo 4.
-% ---------------------------------------------------------------------------
+\subsection{Condições para comparar as abordagens}
+\label{sec:futuro-comparacao}
+
+Para atribuir diferenças às restrições físicas, o protocolo deve manter, quando
+aplicável, as mesmas variáveis de entrada, partições, granularidades, métricas,
+condições de teste, restrições de implantação, arquitetura e condições de
+treinamento. Se novas entradas, como ângulo solar ou vento, forem introduzidas, o
+efeito da informação nova deve ser separado do efeito das restrições, com um
+modelo de controle que receba a mesma informação sem a física ou com ablação. A
+recalibração por inversor, os intervalos preditivos e a avaliação em outras
+plantas são desdobramentos de generalização e confiabilidade; a otimização de
+arquitetura pode ser comparada no mesmo protocolo.

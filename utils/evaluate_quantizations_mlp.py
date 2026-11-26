@@ -103,14 +103,12 @@ def main(argv=None) -> int:
     caminho = paths.SPLITS / "test" / f"{contract.TRAIN_INVERSOR}.csv"
     teste = data.read_csv(caminho)
     teste = teste[teste["freq"] == freq].reset_index(drop=True)
-    verdade = teste.copy()
+
     mask, _ = gaps.gerar_gaps(teste, freq=freq,
                               gaps=("1h", "6h", "24h", "3d"))
     X_tes = ((teste[list(contract.RF_FEATURES)] - minimo) /
              (maximo - minimo)).to_numpy(np.float32)
-    fora = (teste["PCA"].notna().to_numpy()
-            & (teste["PCA"].to_numpy() != 0.0)
-            & ~mask)
+    fora = teste["PCA"].notna().to_numpy() & ~mask
     y_tes = teste.loc[fora, "PCA"].to_numpy()
 
     # Calibracao de 2024H2, usada SO para o offset.
@@ -145,7 +143,8 @@ def main(argv=None) -> int:
 
         linhas.append({
             "variante": nome,
-            "KB": len(conteudo) / 1024,
+            "KiB": len(conteudo) / 1024,
+            "pares": len(y_tes),
             "offset atual": offset_atual,
             "offset novo": offset,
             "MAE atual": r_atual["MAE (kW)"],

@@ -1,0 +1,70 @@
+\chapter{Configurações do \textit{Random Forest}}
+\label{ap:config-rf}
+
+A varredura avaliou as 14 configurações abaixo em cada uma das quatro
+resoluções, com o mesmo conjunto de entradas e a mesma partição temporal.
+As configurações selecionadas aparecem na
+\cref{tab:resultados-config-rf}.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Configurações de \textit{Random Forest} avaliadas}
+\label{tab:ap-config-rf}
+\begin{tabular}{rrr}
+\toprule
+Árvores & Mínimo por folha & Profundidade máxima \\
+\midrule
+6 & 200 & sem limite \\
+6 & 400 & sem limite \\
+6 & 800 & sem limite \\
+8 & 400 & sem limite \\
+10 & 300 & sem limite \\
+12 & 200 & sem limite \\
+15 & 150 & sem limite \\
+20 & 100 & sem limite \\
+30 & 50 & sem limite \\
+50 & 5 & sem limite \\
+50 & 5 & 8 \\
+50 & 20 & sem limite \\
+100 & 2 & sem limite \\
+300 & 2 & sem limite \\
+\bottomrule
+\end{tabular}
+\source{Elaborado pelo autor a partir da varredura registrada em
+\texttt{results/treino\_rf/varredura\_rf.csv}.}
+\end{table}
+
+\chapter{Tabelas auxiliares do método}
+\label{ap:tabelas-metodo}
+
+A tabela abaixo detalha os blocos mascarados de 2025, por inversor, com o
+início, a duração nominal e o número de referências.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Blocos mascarados em 2025 por inversor, início, duração nominal e
+número de referências}
+\label{tab:blocos-mascara}
+\begin{tabular}{lrrr}\toprule
+Inversor & Início (dia/mês hora) & Duração (h) & Referências\\\midrule
+E1 & 13/02 08 h & 24 & 12\\
+E1 & 14/02 17 h & 24 & 12\\
+E1 & 22/05 10 h & 6 & 6\\
+E1 & 22/06 10 h & 240 & 110\\
+E1 & 15/07 06 h & 6 & 6\\
+E1 & 21/10 13 h & 72 & 36\\
+E2 & 29/06 11 h & 24 & 11\\
+E2 & 15/07 16 h & 240 & 110\\
+E2 & 08/10 11 h & 72 & 36\\
+E2 & 11/12 09 h & 6 & 6\\
+E2 & 16/12 09 h & 24 & 12\\
+E2 & 19/12 06 h & 6 & 6\\
+E3 & 15/01 13 h & 240 & 120\\
+E3 & 16/04 08 h & 6 & 6\\
+E3 & 21/04 06 h & 24 & 11\\
+E3 & 21/05 06 h & 6 & 6\\
+E3 & 15/07 08 h & 72 & 33\\
+E3 & 06/10 06 h & 24 & 12\\
+\bottomrule\end{tabular}
+\source{Elaborado pelo autor a partir dos registros do ensaio.}
+\end{table}

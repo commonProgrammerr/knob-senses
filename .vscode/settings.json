@@ -4,12 +4,12 @@
   ],
   "latex-workshop.latex.rootFile.doNotPrompt": true,
   "latex-workshop.latex.bibDirs": [
-    "C:/Users/gusta/Documents/PlatformIO/Projects/knob-senses/docs"
+    "docs"
   ],
   "latex-workshop.latex.tools": [
     {
       "name": "xelatex-miktex",
-      "command": "C:/Users/gusta/AppData/Local/Programs/MiKTeX/miktex/bin/x64/xelatex.exe",
+      "command": "xelatex",
       "args": [
         "-synctex=1",
         "-interaction=nonstopmode",
@@ -21,7 +21,7 @@
     },
     {
       "name": "bibtex-miktex",
-      "command": "C:/Users/gusta/AppData/Local/Programs/MiKTeX/miktex/bin/x64/bibtex.exe",
+      "command": "bibtex",
       "args": [
         "%DOCFILE%"
       ],
